@@ -20,13 +20,13 @@ interface AddStoryDialogProps {
 export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
   const [open, setOpen] = useState(false);
   
-  // --- STATE MANUAL (Form Lama) ---
+  // --- STATE MANUAL ---
   const [title, setTitle] = useState("");
   const [author, setAuthor] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
   const [synopsis, setSynopsis] = useState("");
   
-  // --- STATE AUTO (Link Saja) ---
+  // --- STATE AUTO ---
   const [autoUrl, setAutoUrl] = useState("");
   const [autoLoading, setAutoLoading] = useState(false);
 
@@ -163,13 +163,13 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
             <form onSubmit={handleAutoSubmit} className="space-y-4 mt-4">
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  Paste link (MangaDex, Webtoon, etc) and we'll fill Title, Author, Genre, and Cover automatically.
+                  Paste link (MyAnimeList, Webtoon, etc) and we'll fill Title, Author, Genre, and Cover automatically.
                 </p>
                 <div className="flex gap-2">
                   <Input
                     value={autoUrl}
                     onChange={e => setAutoUrl(e.target.value)}
-                    placeholder="https://mangadex.org/title/..."
+                    placeholder="https://MyAnimeList.net/title/..."
                     disabled={autoLoading}
                   />
                   <Button type="submit" disabled={autoLoading || !autoUrl.trim()}>

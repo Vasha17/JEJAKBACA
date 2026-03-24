@@ -17,6 +17,7 @@ import "flag-icons/css/flag-icons.min.css";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useTheme } from "@/contexts/ThemeContext";
 import { ThemePicker } from "@/component/ThemePicker";
+import { MemberCard } from "@/component/MemberCard";
 
 /* ─── Constants ──────────────────────────────────────── */
 type StatusFilter = StoryStatus | "all";
@@ -875,16 +876,31 @@ function ProfilePanel({ open, onClose, storiesCount, onExport, onImport, onOpenS
   ctaPreference: "floating" | "inside";
   handleCtaChange: (val: "floating" | "inside") => void;
 }) {
-  const [backupOpen, setBackupOpen]     = useState(false);
+  // States untuk accordion
+  const [backupOpen, setBackupOpen]     = useState(false);    
+  const [ctaOpen, setCtaOpen]           = useState(false); 
+  const [appearanceOpen, setAppearanceOpen] = useState(false); // State khusus accordion Appearance
+  
+  // States untuk dialog/popup
   const [importOpen, setImportOpen]     = useState(false);
   const [exportOpen, setExportOpen]     = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
-  const [username, setUsername]         = useState("username");
-  const [editUsername, setEditUsername] = useState("username");  
-  const [avatarUrl, setAvatarUrl]       = useState("");
+  const [themePickerDialogOpen, setThemePickerDialogOpen] = useState(false); // State khusus Dialog Warna
+  
+  const [username, setUsername]         = useState(() => localStorage.getItem("jejakbaca_username") || "username");
+  const [editUsername, setEditUsername] = useState(() => localStorage.getItem("jejakbaca_username") || "username");  
+  const [avatarUrl, setAvatarUrl]       = useState(() => localStorage.getItem("jejakbaca_avatar") || "");
   const avatarInputRef = useRef<HTMLInputElement>(null);
-  const [themePickerOpen, setThemePickerOpen] = useState(false);
+  
   const { mode, setMode, currentTheme } = useTheme();
+  const { stories } = useStories();
+ 
+  const totalChapters = stories.reduce((sum: number, s: any) => sum + (s.currentChapter || 0), 0);
+  const completedCount = stories.filter((s: any) => s.status === "completed").length;
+  const ratedStories = stories.filter((s: any) => s.rating > 0);
+  const avgRating = ratedStories.length
+    ? ratedStories.reduce((sum: number, s: any) => sum + s.rating, 0) / ratedStories.length
+    : 0;
 
   return (
     <>
@@ -892,7 +908,7 @@ function ProfilePanel({ open, onClose, storiesCount, onExport, onImport, onOpenS
       {open && <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose}/>}
 
       {/* Panel */}
-      <div className={`fixed top-0 right-0 h-full w-80 z-50 bg-card border-l border-border shadow-2xl flex flex-col
+      <div className={`fixed top-0 right-0 h-full w-96 z-50 bg-card border-l border-border shadow-2xl flex flex-col
         transform transition-transform duration-300 ease-out
         ${open ? "translate-x-0" : "translate-x-full"}`}>
 
@@ -905,43 +921,26 @@ function ProfilePanel({ open, onClose, storiesCount, onExport, onImport, onOpenS
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {/* Profile Card */}
-          <div className="m-4 rounded-2xl overflow-hidden border border-border/50"
-            style={{ background: "linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 40%, #16213e 100%)" }}>
-            {/* Card top strip */}
-            <div className="flex items-center justify-between px-4 pt-4 pb-2">
-              <div className="flex items-center gap-1.5">
-                <BookOpen size={12} className="text-primary"/>
-                <span className="text-[9px] font-black tracking-[0.2em] text-primary uppercase">JejakBaca</span>
-              </div>
-              <span className="text-[8px] text-white/20 font-mono tracking-widest">MEMBER CARD</span>
-            </div>
-            {/* Avatar + info */}
-            <div className="flex items-center gap-3 px-4 pb-4">
-              <div className="relative group cursor-pointer" onClick={() => setEditProfileOpen(true)}>
-                <div className="w-14 h-14 rounded-2xl bg-white/10 border-2 border-white/20 flex items-center justify-center overflow-hidden">
-                  {avatarUrl
-                  ? <img src={avatarUrl} className="w-full h-full object-cover"/>
-                  : <User size={24} className="text-white/50"/>}
-                </div>
-                <div className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Camera size={14} className="text-white"/>
-                </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-black text-white">@{username}</p>
-                <p className="text-[10px] text-white/40 mt-0.5">Member since Feb 2024</p>
-                <div className="flex items-center gap-1 mt-1.5">
-                  <span className="text-[9px] font-bold text-primary/80 bg-primary/10 border border-primary/20 px-1.5 py-0.5 rounded-full">
-                    {storiesCount} stories
-                  </span>
-                </div>
-              </div>
-              <button onClick={() => setEditProfileOpen(true)}
-                className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/10">
-                <Edit size={12} className="text-white/50"/>
-              </button>
-            </div>
+          {/* Member Card */}
+          <div className="m-4">
+            <MemberCard
+              username={username}
+              avatarUrl={avatarUrl}
+              memberSince="Feb 2024"
+              storiesCount={storiesCount}
+              totalChapters={totalChapters}
+              completedCount={completedCount}
+              avgRating={avgRating}
+            />
+          </div>
+
+          {/* Tombol Edit Profile (Trigger) */}
+          <div className="px-4 pb-4">
+            <button
+              onClick={() => setEditProfileOpen(true)}
+              className="w-full py-2 rounded-xl border border-border bg-secondary/50 text-xs font-semibold text-foreground hover:bg-muted hover:border-primary/30 transition-all flex items-center justify-center gap-2">
+              <Edit size={13} /> Edit Profile
+            </button>
           </div>
 
           {/* Edit Profile (inline expand) */}
@@ -990,7 +989,21 @@ function ProfilePanel({ open, onClose, storiesCount, onExport, onImport, onOpenS
                   />
                 </div>
                 <button
-                  onClick={() => { setUsername(editUsername); setEditProfileOpen(false); }}
+                  onClick={() => { 
+                    const newUsername = editUsername;
+                    const newAvatarUrl = avatarUrl;
+
+                    // 1. Update State React
+                    setUsername(newUsername); 
+                    setAvatarUrl(newAvatarUrl); 
+                    
+                    // 2. Simpan ke LocalStorage agar tidak hilang saat refresh
+                    localStorage.setItem("jejakbaca_username", newUsername);
+                    localStorage.setItem("jejakbaca_avatar", newAvatarUrl);
+
+                    // 3. Tutup form edit
+                    setEditProfileOpen(false); 
+                  }}
                   className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all">
                   Save Changes
                 </button>
@@ -999,80 +1012,96 @@ function ProfilePanel({ open, onClose, storiesCount, onExport, onImport, onOpenS
           )}
 
           {/* Menu Items */}
-          <div className="px-4 space-y-0.5 pb-4">
+          <div className="px-4 space-y-2 pb-4">
 
             {/* Appearance */}
             <div className="rounded-xl overflow-hidden border border-border bg-secondary/20 mb-2">
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+              <button
+                onClick={() => setAppearanceOpen(!appearanceOpen)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors">
                 <Palette size={15} className="text-primary shrink-0"/>
-                <span className="text-sm font-semibold text-foreground">Appearance</span>
-              </div>
-              <div className="p-4 space-y-4">
-              {/* Light / Dark toggle */}
-                <div>
-                  <p className="text-[10px] font-black tracking-widest text-muted-foreground/50 uppercase mb-2">Mode</p>
-                  <div className="flex gap-2 p-1 bg-secondary rounded-xl border border-border">
-                    <button
-                      onClick={() => setMode("light")}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all
-                        ${mode === "light" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                      <Sun size={13}/> Light
-                    </button>
-                    <button
-                      onClick={() => setMode("dark")}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all
-                        ${mode === "dark" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                      <Moon size={13}/> Dark
-                    </button>
+                <span className="text-sm font-semibold text-foreground flex-1 text-left">Appearance</span>
+                <ChevronRight size={14} className={`text-muted-foreground/50 transition-transform duration-200 ${appearanceOpen ? "rotate-90" : ""}`}/>
+              </button>
+
+              {appearanceOpen && (
+                <div className="border-t border-border p-4 space-y-4 bg-secondary/30">
+                  {/* Light / Dark toggle */}
+                  <div>
+                    <p className="text-[10px] font-black tracking-widest text-muted-foreground/50 uppercase mb-2">Mode</p>
+                    <div className="flex gap-2 p-1 bg-secondary rounded-xl border border-border">
+                      <button
+                        onClick={() => setMode("light")}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all
+                          ${mode === "light" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                        <Sun size={13}/> Light
+                      </button>
+                      <button
+                        onClick={() => setMode("dark")}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all
+                          ${mode === "dark" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                        <Moon size={13}/> Dark
+                      </button>
+                    </div>
+                  </div>
+                  {/* Theme Colors */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[10px] font-black tracking-widest text-muted-foreground/50 uppercase">Theme Colors</p>
+                      <button 
+                        onClick={() => setThemePickerDialogOpen(true)} 
+                        className="text-[11px] text-primary hover:underline font-semibold">
+                        Change
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {[
+                        currentTheme.dark.background,
+                        currentTheme.dark.card,
+                        currentTheme.dark.primary,
+                        currentTheme.dark.secondary,
+                      ].map((color, i) => (
+                        <div key={i}
+                          className="w-6 h-6 rounded-full border-2 border-white/30"
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
-                {/* Theme Colors */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-[10px] font-black tracking-widest text-muted-foreground/50 uppercase">Theme Colors</p>
-                    <button onClick={() => setThemePickerOpen(true)} className="text-[11px] text-primary hover:underline font-semibold">Change</button>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-              {[
-                currentTheme.dark.background,
-                currentTheme.dark.card,
-                currentTheme.dark.primary,
-                currentTheme.dark.secondary,
-              ].map((color, i) => (
-                <div key={i}
-                  className="w-6 h-6 rounded-full border-2 border-white/30"
-                  style={{ backgroundColor: color }}
-                />
-              ))}
+              )}
             </div>
-                </div>
-              </div>
-            </div>        
 
             {/* CTA Style */}
             <div className="rounded-xl overflow-hidden border border-border bg-secondary/20 mb-2">
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+              <button
+                onClick={() => setCtaOpen(!ctaOpen)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors">
                 <BookOpen size={15} className="text-primary shrink-0"/>
-                <span className="text-sm font-semibold text-foreground">Continue Reading Button</span>
-              </div>
-              <div className="p-4">
-                <p className="text-[10px] text-muted-foreground/50 mb-3">Where to show the button</p>
-                <div className="flex gap-2 p-1 bg-secondary rounded-xl border border-border">
-                  <button
-                    onClick={() => handleCtaChange("inside")}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all
-                      ${ctaPreference === "inside" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                    In Card
-                  </button>
-                  <button
-                    onClick={() => handleCtaChange("floating")}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all
-                      ${ctaPreference === "floating" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-                    Floating
-                  </button>
+                <span className="text-sm font-semibold text-foreground flex-1 text-left">Continue Reading Button</span>
+                <ChevronRight size={14} className={`text-muted-foreground/50 transition-transform duration-200 ${ctaOpen ? "rotate-90" : ""}`}/>
+              </button>
+
+              {ctaOpen && (
+                <div className="border-t border-border p-4 bg-secondary/30">
+                  <p className="text-[10px] text-muted-foreground/50 mb-3">Where to show the button</p>
+                  <div className="flex gap-2 p-1 bg-secondary rounded-xl border border-border">
+                    <button
+                      onClick={() => handleCtaChange("inside")}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all
+                        ${ctaPreference === "inside" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                      In Card
+                    </button>
+                    <button
+                      onClick={() => handleCtaChange("floating")}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all
+                        ${ctaPreference === "floating" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                      Floating
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </div>    
+              )}
+            </div>   
 
             {/* Backup */}
             <div className="rounded-xl overflow-hidden border border-border bg-secondary/20 mb-2">
@@ -1126,7 +1155,8 @@ function ProfilePanel({ open, onClose, storiesCount, onExport, onImport, onOpenS
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} onExport={(fmt) => {
         if (fmt === "json") onExport();
       }}/>
-      <ThemePicker open={themePickerOpen} onClose={() => setThemePickerOpen(false)}/> 
+      {/* Dialog Pemilihan Warna Lengkap */}
+      <ThemePicker open={themePickerDialogOpen} onClose={() => setThemePickerDialogOpen(false)}/> 
     </>
   );
 }
@@ -1647,10 +1677,12 @@ const navigate = useNavigate();
                     </button>
                   )}
 
-                  <div className="absolute inset-x-0 bottom-0 pt-10 pb-2 px-2 bg-gradient-to-t from-black/90 via-black/65 to-transparent z-10 pointer-events-none">
-                    <h3 className="text-[11px] font-bold text-white leading-tight line-clamp-2 drop-shadow-md mb-1">
-                      {highlightText(story.title, search)}
-                    </h3>
+                  <div className="absolute inset-x-0 bottom-0 pt-10 pb-2 px-2 bg-gradient-to-t from-black/90 via-black/65 to-transparent z-10">
+                    <Link to={`/story/${story.id}`} className="block">
+                      <h3 className="text-[11px] font-bold text-white leading-tight line-clamp-2 drop-shadow-md mb-1 hover:text-primary transition-colors">
+                        {highlightText(story.title, search)}
+                      </h3>
+                    </Link>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1 text-white/70">
                         <BookOpen size={10}/><span className="text-[10px] font-mono">{story.currentChapter}</span>
