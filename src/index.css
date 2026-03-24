@@ -1,0 +1,198 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 7%;
+    --foreground: 40 10% 92%;
+
+    --card: 220 18% 10%;
+    --card-foreground: 40 10% 92%;
+
+    --popover: 220 18% 12%;
+    --popover-foreground: 40 10% 92%;
+
+    --primary: 38 92% 55%;
+    --primary-foreground: 220 20% 7%;
+
+    --secondary: 220 16% 16%;
+    --secondary-foreground: 40 10% 85%;
+
+    --muted: 220 14% 14%;
+    --muted-foreground: 220 10% 55%;
+
+    --accent: 38 80% 45%;
+    --accent-foreground: 220 20% 7%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 40 10% 92%;
+
+    --border: 220 14% 18%;
+    --input: 220 14% 18%;
+    --ring: 38 92% 55%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 220 18% 10%;
+    --sidebar-foreground: 40 10% 85%;
+    --sidebar-primary: 38 92% 55%;
+    --sidebar-primary-foreground: 220 20% 7%;
+    --sidebar-accent: 220 16% 16%;
+    --sidebar-accent-foreground: 40 10% 85%;
+    --sidebar-border: 220 14% 18%;
+    --sidebar-ring: 38 92% 55%;
+
+    /* Custom tokens */
+    --surface: 220 16% 13%;
+    --surface-foreground: 40 10% 88%;
+    --star: 45 100% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+  }
+
+  .glass {
+    @apply bg-card/80 backdrop-blur-md;
+  }
+
+  .story-card-hover {
+    @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-primary/10;
+  }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
+.animate-slideDown {
+  animation: slideDown 0.25s ease-out;
+}
+
+/* ─── SPOILER ─────────────────────────────────────────────────────────────── */
+.ProseMirror .spoiler {
+  background-color: hsl(var(--foreground));
+  color: hsl(var(--foreground));
+  border-radius: 4px;
+  padding: 0 3px;
+  cursor: text;
+  user-select: text;
+}
+
+/* ─── Prose link color ───────────────────────────────────────────────────── */
+.prose a {
+  color: #60a5fa;
+  text-decoration: underline;
+}
+
+/* ─── ProseMirror base ───────────────────────────────────────────────────── */
+.ProseMirror {
+  min-height: 180px;
+  padding: 14px;
+  outline: none;
+}
+
+.ProseMirror p {
+  margin: 0.5rem 0;
+}
+
+.ProseMirror h1 {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.ProseMirror h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.ProseMirror h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* ─── Hide scrollbar everywhere ─────────────────────────────────────────── */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── BULLETPROOF SPOILER ───────────────────────────────────────── */
+.spoiler-view.prose .spoiler,
+.spoiler-view .spoiler { 
+  background-color: hsl(var(--muted-foreground)) !important;
+  color: hsl(var(--muted-foreground)) !important; 
+  border-radius: 4px !important;
+  padding: 0 3px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  pointer-events: auto !important;
+  transition: background-color 0.2s ease !important;
+  display: inline !important;
+  position: relative !important;
+}
+
+.spoiler-view.prose .spoiler *,
+.spoiler-view .spoiler * {
+  color: hsl(var(--muted-foreground)) !important;
+  -webkit-text-fill-color: hsl(var(--muted-foreground)) !important;
+}
+
+/* ── HOVER ───────────────────────────────────────── */
+.spoiler-view.prose .spoiler:hover,
+.spoiler-view .spoiler:hover { 
+  background-color: hsl(var(--accent)) !important; 
+}
+
+.spoiler-view.prose .spoiler:hover *,
+.spoiler-view .spoiler:hover *,
+.spoiler-view.prose .spoiler:hover * *,
+.spoiler-view .spoiler:hover * * {
+  color: hsl(var(--foreground)) !important; 
+  -webkit-text-fill-color: hsl(var(--foreground)) !important;
+  text-decoration-color: currentColor !important;
+}
+
+/* ── REVEALED ────────────────────────────────────────────── */
+.spoiler-view.prose .spoiler.revealed,
+.spoiler-view .spoiler.revealed {
+  background-color: transparent !important; 
+  pointer-events: auto !important;
+  user-select: text !important;
+  cursor: pointer !important;
+}
+
+.spoiler-view.prose .spoiler.revealed *,
+.spoiler-view .spoiler.revealed *,
+.spoiler-view.prose .spoiler.revealed * *,
+.spoiler-view .spoiler.revealed * * {
+  color: hsl(var(--foreground)) !important;
+  -webkit-text-fill-color: hsl(var(--foreground)) !important;
+  text-decoration-color: currentColor !important;
+}
+
+button, a, [role="button"] {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+img {
+  transition: opacity 0.2s ease;
+}

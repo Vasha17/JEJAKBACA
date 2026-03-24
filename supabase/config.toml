@@ -1,0 +1,5 @@
+project_id = "kjspeqcrfhzxnodjkznu"
+[functions.suggest-tags]
+verify_jwt = false
+[functions.check-link]
+verify_jwt = false
