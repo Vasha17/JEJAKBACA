@@ -49,6 +49,17 @@ import { useKeyboardShortcuts }              from "./hooks/useKeyboardShortcuts"
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+const safeGet = <T,>(key: string, defaultValue: T): T => {
+  try {
+    if (typeof window === "undefined" || typeof localStorage === "undefined") return defaultValue;
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (e) {
+    console.warn("Storage blocked (Incognito?):", e);
+    return defaultValue;
+  }
+};
+
 export default function StoryDetail() {
   const { id }   = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -65,13 +76,10 @@ export default function StoryDetail() {
 
   // ── CTA preference ──────────────────────────────────────────────────────────
   const [ctaPreference, setCtaPreference] = useState<"floating" | "inside">(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("jejakbaca_cta_pref");
-      return (saved === "inside" || saved === "floating") ? saved : "floating";
-    }
-    return "floating";
+    return safeGet<"floating" | "inside">("jejakbaca_cta_pref", "floating");
   });
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const handleStorage = (e: StorageEvent) => {
       if (e.key === "jejakbaca_cta_pref" && (e.newValue === "floating" || e.newValue === "inside"))
         setCtaPreference(e.newValue);
@@ -157,14 +165,14 @@ export default function StoryDetail() {
   const [genreExpanded, setGenreExpanded]     = useState(false);
 
   // ── Arc states ──────────────────────────────────────────────────────────────
-  const [arcs, setArcs]                   = useState<Arc[]>(() => loadArcs(id || ""));
-  const [arcName, setArcName]             = useState("");
-  const [arcStart, setArcStart]           = useState("");
-  const [arcEnd, setArcEnd]               = useState("");
-  const [arcDesc, setArcDesc]             = useState("");
-  const [arcColor, setArcColor]           = useState(ARC_COLORS[0]);
+  const [arcs, setArcs]                       = useState<Arc[]>([]);
+  const [arcName, setArcName]                 = useState("");
+  const [arcStart, setArcStart]               = useState("");
+  const [arcEnd, setArcEnd]                   = useState("");
+  const [arcDesc, setArcDesc]                 = useState("");
+  const [arcColor, setArcColor]               = useState(ARC_COLORS[0]);
   const [arcColorPalette, setArcColorPalette] = useState<ArcColorPalette>("colorful");
-  const [arcColorMode, setArcColorMode]   = useState<"auto" | "manual">("auto");
+  const [arcColorMode, setArcColorMode]       = useState<"auto" | "manual">("auto");
 
   // ── Tab state ───────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"notes" | "timeline">(() =>
@@ -178,26 +186,67 @@ export default function StoryDetail() {
   const [linkStatuses, setLinkStatuses] = useState<Record<string, { ok: boolean; checking: boolean; statusText: string }>>({});
 
   // ── Notification tracking ───────────────────────────────────────────────────
-  const [trackedSourceIds, setTrackedSourceIds] = useState<string[]>(() =>
-    story ? lsGet<string[]>(`tracked_sources_${story.id}`, []) : []
-  );
-  const toggleTracked = (srcId: string) => {
-    if (!story) return;
-    setTrackedSourceIds(prev => {
-      const next = prev.includes(srcId)
-        ? prev.filter(x => x !== srcId)
-        : prev.length >= 2 ? prev : [...prev, srcId];
-      lsSet(`tracked_sources_${story.id}`, next);
-      return next;
-    });
-  };
+  const [trackedSourceIds, setTrackedSourceIds] = useState<string[]>([]);
+
+  // ── Lists state ─────────────────────────────────────────────────────────────
+  // FIX: dipindah ke sini, sebelum semua useEffect dan early returns
+  const [customLists, setCustomLists] = useState<any[]>(() => {
+    return safeGet<any[]>("my_reading_lists", []);
+  });
+
+  // ── Loading state ───────────────────────────────────────────────────────────
+  const [isLoading, setIsLoading] = useState(true);
 
   // ── Refs ────────────────────────────────────────────────────────────────────
   const mediaFileRef  = useRef<HTMLInputElement>(null);
   const coverFileRef  = useRef<HTMLInputElement>(null);
   const headerFileRef = useRef<HTMLInputElement>(null);
 
-  // ── Hooks ───────────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ALL useEffect HOOKS — harus semua ada di sini, sebelum early returns
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  // Loading timer
+  useEffect(() => {
+    const t = setTimeout(() => setIsLoading(false), 150);
+    return () => clearTimeout(t);
+  }, [id]);
+
+  // CTA preference storage listener
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "jejakbaca_cta_pref" && (e.newValue === "floating" || e.newValue === "inside"))
+        setCtaPreference(e.newValue);
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  // Load tracked sources
+  useEffect(() => {
+    if (!id) return;
+    try {
+      const loaded = safeGet<string[]>(`tracked_sources_${id}`, []);
+      setTrackedSourceIds(loaded);
+    } catch (e) {
+      console.warn("Gagal load tracked sources", e);
+    }
+  }, [id]);
+
+  // FIX: Load arcs — dipindah ke sini sebelum early returns
+  useEffect(() => {
+    if (!id) return;
+    try {
+      const loaded = loadArcs(id);
+      setArcs(loaded);
+    } catch (e) {
+      console.warn("Gagal load arcs (storage blocked?)", e);
+      setArcs([]);
+    }
+  }, [id]);
+
+  // ── Hooks (custom) ───────────────────────────────────────────────────────────
   const { isRefreshing, pullDelta, PULL_THRESHOLD, handleTouchStart, handleTouchMove, handleTouchEnd } =
     usePullToRefresh();
 
@@ -209,13 +258,6 @@ export default function StoryDetail() {
     setNewRelType, setNewRelMode, setNewRelStoryId, setNewRelUrl,
     handleOpenRelated, handleRelTitleInput, handleAddRelation, handleRemoveRelation,
   } = useStoryRelations(story?.id || "", stories);
-
-  // ── Loading state ───────────────────────────────────────────────────────────
-  const [isLoading, setIsLoading] = useState(true);
-  useEffect(() => {
-    const t = setTimeout(() => setIsLoading(false), 150);
-    return () => clearTimeout(t);
-  }, [id]);
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   const allStories   = stories || [];
@@ -251,7 +293,22 @@ export default function StoryDetail() {
     onNavigateStory: handleNavigateStory,
   });
 
-  // ── Early returns ───────────────────────────────────────────────────────────
+  const toggleTracked = (srcId: string) => {
+    if (!story) return;
+    setTrackedSourceIds(prev => {
+      const next = prev.includes(srcId)
+        ? prev.filter(x => x !== srcId)
+        : prev.length >= 2 ? prev : [...prev, srcId];
+      try {
+        lsSet(`tracked_sources_${story.id}`, next);
+      } catch (e) { console.warn("Storage blocked"); }
+      return next;
+    });
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EARLY RETURNS — harus setelah semua hooks
+  // ═══════════════════════════════════════════════════════════════════════════
   if (isLoading) return <StoryDetailSkeleton />;
   if (!story) {
     return (
@@ -267,9 +324,9 @@ export default function StoryDetail() {
   // ── Derived values ──────────────────────────────────────────────────────────
   const currentStatus       = STATUS_OPTIONS.find(s => s.value === story.status);
   const dotColor            = statusColor(story.status);
-  const customLists         = getCustomLists();
   const globalTags          = getGlobalTags();
-  const storyTagsNorm       = story.tags.map(normalizeTag);
+  const storyTagsSafe       = story?.tags || [];
+  const storyTagsNorm       = storyTagsSafe.map(normalizeTag);
   const availableGlobalTags = globalTags.filter((t: string) => !storyTagsNorm.includes(normalizeTag(t)));
   const inlineRelations     = loadRelations(story.id);
   const synopsisParagraphs  = story.synopsis ? story.synopsis.split("\n").filter((p: string) => p.trim()) : [];
@@ -460,6 +517,12 @@ export default function StoryDetail() {
   const handleDeleteArc = (arcId: string) => {
     const updated = arcs.filter(a => a.id !== arcId);
     saveArcs(story.id, updated); setArcs(updated); setDeleteArcId(null);
+  };
+
+  const handleOpenListsDialog = () => {
+    const lists = safeGet<any[]>("my_reading_lists", []);
+    setCustomLists(lists);
+    setListsDialog(true);
   };
 
   const isTouchDevice = typeof window !== "undefined" &&
@@ -771,7 +834,7 @@ export default function StoryDetail() {
                   <span className="text-[11px] font-semibold text-foreground">Notes</span>
                   <span className="text-[9px] text-muted-foreground">{story.notes?.length || 0} notes</span>
                 </button>
-                <button onClick={() => setListsDialog(true)} className="flex flex-col items-center p-3 rounded-xl bg-card border border-border hover:bg-muted active:scale-95 transition-all shadow-sm">
+                <button onClick={handleOpenListsDialog} className="flex flex-col items-center p-3 rounded-xl bg-card border border-border hover:bg-muted active:scale-95 transition-all shadow-sm">
                   <List size={20} className="text-purple-500 mb-2"/>
                   <span className="text-[11px] font-semibold text-foreground">Lists</span>
                   <span className="text-[9px] text-muted-foreground">{story.lists.length} lists</span>
@@ -785,7 +848,7 @@ export default function StoryDetail() {
                   { icon: <div className="w-5 h-5 rounded-full flex items-center justify-center mb-2" style={{ backgroundColor: dotColor }}><div className="w-1.5 h-1.5 rounded-full bg-white"/></div>, label: "Status", sub: currentStatus?.label || "Set", action: () => setStatusDialog(true) },
                   { icon: <Bookmark size={20} className="text-primary mb-2"/>, label: "Bookmark", sub: `${story.bookmarks.length} saved`, action: () => setBookmarkDialog(true) },
                   { icon: <FileText size={20} className="text-blue-500 mb-2"/>, label: "Notes", sub: `${story.notes?.length || 0} notes`, action: () => setNotesDialog(true) },
-                  { icon: <List size={20} className="text-purple-500 mb-2"/>, label: "Lists", sub: `${story.lists.length} lists`, action: () => setListsDialog(true) },
+                  { icon: <List size={20} className="text-purple-500 mb-2"/>, label: "Lists", sub: `${story.lists.length} lists`, action: handleOpenListsDialog },
                 ].map(btn => (
                   <button key={btn.label} onClick={btn.action} className="flex flex-col items-center p-3 rounded-xl bg-card border border-border hover:bg-muted active:scale-95 transition-all shadow-sm">
                     {btn.icon}
@@ -853,7 +916,6 @@ export default function StoryDetail() {
                     <DialogContent className="w-[92vw] max-w-sm sm:max-w-lg p-6">
                       <DialogHeader><DialogTitle>More Options</DialogTitle></DialogHeader>
                       <div className="grid gap-2 pb-4 border-b border-border">
-                        {/* Mobile-only: Rating & Status */}
                         <button onClick={() => { setMoreDialog(false); setRatingDialog(true); }} className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary text-left transition-colors md:hidden">
                           <div className="p-1.5 rounded bg-secondary/50"><Star className="w-4 h-4 text-amber-500"/></div>
                           <div className="flex-1"><p className="text-sm font-medium text-foreground">Change Rating</p><p className="text-[10px] text-muted-foreground">Current: {story.rating || "—"}/10</p></div>
@@ -862,7 +924,6 @@ export default function StoryDetail() {
                           <div className="p-1.5 rounded bg-secondary/50"><div className="w-4 h-4 rounded-full" style={{ backgroundColor: dotColor }}/></div>
                           <div className="flex-1"><p className="text-sm font-medium text-foreground">Change Status</p><p className="text-[10px] text-muted-foreground">{currentStatus?.label || "Not set"}</p></div>
                         </button>
-                        {/* Shared items */}
                         <button onClick={() => { setMoreDialog(false); handleOpenHistory(); setHistoryDialog(true); }} className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary text-left transition-colors">
                           <div className="p-1.5 rounded bg-secondary/50"><History className="w-4 h-4 text-foreground"/></div>
                           <div className="flex-1"><p className="text-sm font-medium text-foreground">Version History</p><p className="text-[10px] text-muted-foreground">View history change</p></div>
@@ -969,14 +1030,23 @@ export default function StoryDetail() {
       <Dialog open={listsDialog} onOpenChange={setListsDialog}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle>Add to List</DialogTitle></DialogHeader>
-          {customLists.length > 0
-            ? <div className="space-y-1">{customLists.map((list: string) => (
-                <label key={list} className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-secondary cursor-pointer">
-                  <input type="checkbox" checked={story.lists.includes(list)} onChange={() => story.lists.includes(list) ? removeListFromStory(story.id, list) : addListToStory(story.id, list)} className="rounded"/>
-                  <span className="text-sm text-foreground">{list}</span>
+          {customLists.length > 0 ? (
+            <div className="space-y-1">
+              {customLists.map((list: any) => (
+                <label key={list.id} className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-secondary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={story.lists?.includes(list.id) || false}
+                    onChange={() => story.lists?.includes(list.id) ? removeListFromStory(story.id, list.id) : addListToStory(story.id, list.id)}
+                    className="rounded"
+                  />
+                  <span className="text-sm text-foreground">{list.name}</span>
                 </label>
-              ))}</div>
-            : <p className="text-sm text-muted-foreground italic py-2">No lists yet.</p>}
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground italic py-2">No lists yet.</p>
+          )}
           <div className="border-t border-border pt-3">
             <span className="text-xs text-muted-foreground mb-2 block">Make New List</span>
             <div className="flex gap-2">
@@ -1673,9 +1743,14 @@ export default function StoryDetail() {
           <section className="px-4 sm:px-6 mt-8">
             <h4 className="text-sm font-semibold text-foreground mb-2">Lists</h4>
             <div className="flex flex-wrap gap-1.5">
-              {story.lists.map((list: string) => (
-                <span key={list} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs border border-primary/20">{list}</span>
-              ))}
+              {story.lists.map((listId: string) => {
+                const listObj = customLists.find((l: any) => l.id === listId);
+                return (
+                  <span key={listId} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs border border-primary/20">
+                    {listObj ? listObj.name : listId}
+                  </span>
+                );
+              })}
             </div>
           </section>
         )}
@@ -1895,7 +1970,6 @@ export default function StoryDetail() {
     </div>
   );
 
-  // helper referenced inside JSX above
   function checkLink(sourceId: string, url: string) {
     setLinkStatuses(prev => ({ ...prev, [sourceId]: { ok: false, checking: true, statusText: "Checking..." } }));
     supabase.functions.invoke("check-link", { body: { url } }).then(({ data, error }) => {

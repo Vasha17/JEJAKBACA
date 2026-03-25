@@ -7,7 +7,8 @@ import { StoryProvider, useStories } from "@/lib/StoryContext";
 import { useState, useEffect } from "react";
 import { useAuth, LoginPage } from "@/component/Auth";
 import ErrorBoundary from "./ErrorBoundary";
-
+import ListsIndex from "./pages/lists/Index"; 
+import ListDetail from "./pages/lists/ListDetail";
 import Library from "./pages/Library";
 import StoryDetail from "./pages/StoryDetail/StoryDetailPage";
 import NotFound from "./pages/NotFound";
@@ -42,6 +43,8 @@ function AppContent() {
       <HashRouter>
         <Routes>
           <Route path="/" element={<Library />} />
+          <Route path="/lists" element={<ListsIndex />} />
+          <Route path="/lists/:id" element={<ListDetail />} />
           <Route path="/story/:id" element={<StoryDetail />} />          
           <Route path="*" element={<NotFound />} />
         </Routes>

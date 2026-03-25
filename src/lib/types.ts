@@ -51,6 +51,17 @@ export interface HistoryEntry {
   timestamp: string;
 }
 
+// === Lists ===
+export interface ReadingList {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  status: string; // e.g., "Custom"
+  stories?: any[]; 
+  count?: number; // Jumlah story (untuk display)
+}
+
 export interface Story {
   id: string;
   title: string;
@@ -78,6 +89,8 @@ export interface Story {
   history: HistoryEntry[];
   genres?: string[];
   demographic?: string;  
+  totalChapters?: number; 
+  type?: string; // Contoh: "Manga", "Manhwa"
 }
 
 

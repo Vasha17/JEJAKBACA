@@ -46,3 +46,14 @@ export type Arc = {
   color: string;
   createdAt: string;
 };
+
+const safeGet = <T,>(key: string, defaultValue: T): T => {
+  try {
+    if (typeof window === "undefined" || typeof localStorage === "undefined") return defaultValue;
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (e) {
+    console.warn("Storage blocked (Incognito?):", e);
+    return defaultValue;
+  }
+};
