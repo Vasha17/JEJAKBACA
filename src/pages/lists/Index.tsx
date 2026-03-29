@@ -4,11 +4,12 @@ import {
   Plus, List as ListIcon, AlertTriangle, X,
 } from "lucide-react";
 import { useStories } from "@/lib/StoryContext";
-import { useTheme } from "@/contexts/ThemeContext"; 
+import { useTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/component/Auth";
 import { ReadingList } from "@/lib/types";
 import { ListCard } from "@/component/ListCard";
 import { Navbar } from "@/component/Navbar";
-import { NewListDialog } from "@/component/NewListDialog"; 
+import { NewListDialog } from "@/component/NewListDialog";
 
 // ── Toast ──────────────────────────────────────────────────────────────────
 let _toastEmitter: ((item: any) => void) | null = null;
@@ -20,9 +21,7 @@ function useToastBottom() {
       setToasts((p) => [...p, item]);
       setTimeout(() => setToasts((p) => p.filter((t) => t.id !== item.id)), 3000);
     };
-    return () => {
-      _toastEmitter = null;
-    };
+    return () => { _toastEmitter = null; };
   }, []);
   const dismiss = (id: number) => setToasts((p) => p.filter((t) => t.id !== id));
   return { toasts, dismiss };
@@ -47,12 +46,7 @@ function ToastStack() {
               <p className="text-[10px] text-muted-foreground">{t.description}</p>
             )}
           </div>
-          <button
-            onClick={() => dismiss(t.id)}
-            className="text-muted-foreground hover:text-foreground text-sm shrink-0"
-          >
-            ✕
-          </button>
+          <button onClick={() => dismiss(t.id)} className="text-muted-foreground hover:text-foreground text-sm shrink-0">✕</button>
         </div>
       ))}
     </div>
@@ -60,24 +54,12 @@ function ToastStack() {
 }
 
 // ── Delete confirm ─────────────────────────────────────────────────────────
-function DeleteListDialog({
-  list,
-  onConfirm,
-  onCancel,
-}: {
-  list: ReadingList;
-  onConfirm: () => void;
-  onCancel: () => void;
+function DeleteListDialog({ list, onConfirm, onCancel }: {
+  list: ReadingList; onConfirm: () => void; onCancel: () => void;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm"
-      onClick={onCancel}
-    >
-      <div
-        className="w-full max-w-sm mx-4 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 backdrop-blur-sm" onClick={onCancel}>
+      <div className="w-full max-w-sm mx-4 rounded-2xl border border-border bg-card shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="relative p-6 flex flex-col items-center text-center gap-3">
           <div className="w-12 h-12 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center">
             <AlertTriangle className="w-5 h-5 text-destructive" />
@@ -89,18 +71,8 @@ function DeleteListDialog({
             </p>
           </div>
           <div className="flex gap-2 w-full mt-2">
-            <button
-              onClick={onCancel}
-              className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={onConfirm}
-              className="flex-1 py-2.5 rounded-xl bg-destructive text-destructive-foreground text-sm font-bold hover:brightness-110 transition-all shadow-lg shadow-destructive/20"
-            >
-              Delete
-            </button>
+            <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-border text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors">Cancel</button>
+            <button onClick={onConfirm} className="flex-1 py-2.5 rounded-xl bg-destructive text-destructive-foreground text-sm font-bold hover:brightness-110 transition-all shadow-lg shadow-destructive/20">Delete</button>
           </div>
         </div>
       </div>
@@ -126,10 +98,60 @@ function NewListCard({ onClick }: { onClick: () => void }) {
   );
 }
 
+// ── Supabase helpers ───────────────────────────────────────────────────────
+async function fetchListsFromSupabase(userId: string): Promise<ReadingList[]> {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { data, error } = await supabase
+    .from("lists")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+  if (error) { console.error("Failed to fetch lists:", error); return []; }
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    name: row.name,
+    description: row.description || "",
+    status: row.status || "Custom",
+    color: row.color || "#3b82f6",
+    stories: [],
+    count: 0,
+    storyIds: [],
+    visibility: "private" as const,
+    userId: row.user_id,
+    updatedAt: row.updated_at,
+    createdAt: row.created_at,
+  }));
+}
+
+async function upsertListToSupabase(userId: string, list: ReadingList) {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { error } = await supabase.from("lists").upsert(
+    {
+      id: list.id,
+      user_id: userId,
+      name: list.name,
+      color: list.color,
+      status: list.status,
+      description: list.description || "",
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "id" }
+  );
+  if (error) console.error("Failed to upsert list:", error);
+}
+
+async function deleteListFromSupabase(listId: string) {
+  const { supabase } = await import("@/integrations/supabase/client");
+  const { error } = await supabase.from("lists").delete().eq("id", listId);
+  if (error) console.error("Failed to delete list:", error);
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────
 const ListsIndex = () => {
   const { stories } = useStories();
-  const { currentTheme, mode } = useTheme(); 
+  const { currentTheme, mode } = useTheme();
+  const { user } = useAuth();
+  const isGuest = !user || localStorage.getItem("jejakbaca_skip_login") === "true";
 
   const [lists, setLists] = useState<ReadingList[]>(() => {
     const saved = localStorage.getItem("my_reading_lists");
@@ -139,12 +161,41 @@ const ListsIndex = () => {
   const [searchList, setSearchList] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<ReadingList | null>(null);
 
+  // ── Pull lists dari Supabase saat login ──
+  useEffect(() => {
+    if (isGuest || !user) return;
+    (async () => {
+      const remoteLists = await fetchListsFromSupabase(user.id);
+      if (remoteLists.length > 0) {
+        // Merge: remote wins, tapi jaga list lokal yang belum tersync
+        const localLists: ReadingList[] = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
+        const remoteIds = new Set(remoteLists.map((l) => l.id));
+        const localOnly = localLists.filter((l) => !remoteIds.has(l.id));
+
+        // Upload list lokal yang belum ada di remote
+        for (const l of localOnly) {
+          await upsertListToSupabase(user.id, l);
+        }
+
+        const merged = [...remoteLists, ...localOnly];
+        setLists(merged);
+        localStorage.setItem("my_reading_lists", JSON.stringify(merged));
+      } else {
+        // Belum ada di remote — upload semua list lokal
+        const localLists: ReadingList[] = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
+        for (const l of localLists) {
+          await upsertListToSupabase(user.id, l);
+        }
+      }
+    })();
+  }, [user]);
+
   const handleUpdateLists = (newLists: ReadingList[]) => {
     setLists(newLists);
     localStorage.setItem("my_reading_lists", JSON.stringify(newLists));
   };
 
-  const handleCreate = (name: string, color: string, visibility: string) => {
+  const handleCreate = async (name: string, color: string, visibility: string) => {
     const newList: ReadingList = {
       id: Date.now().toString(),
       name,
@@ -157,12 +208,23 @@ const ListsIndex = () => {
     };
     handleUpdateLists([...lists, newList]);
     showToast("List created", name);
+
+    // Sync ke Supabase
+    if (!isGuest && user) {
+      await upsertListToSupabase(user.id, newList);
+    }
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     handleUpdateLists(lists.filter((l) => l.id !== deleteTarget.id));
     showToast("List deleted", deleteTarget.name);
+
+    // Sync ke Supabase
+    if (!isGuest && user) {
+      await deleteListFromSupabase(deleteTarget.id);
+    }
+
     setDeleteTarget(null);
   };
 
@@ -183,8 +245,6 @@ const ListsIndex = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      
-      {/* ── Shared Navbar ── */}
       <Navbar
         variant="lists"
         listSearch={searchList}
@@ -197,7 +257,6 @@ const ListsIndex = () => {
       />
 
       <div className="px-4 md:px-8 py-6 max-w-screen-xl mx-auto">
-        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-bold text-foreground">My Collections</h1>
@@ -209,21 +268,14 @@ const ListsIndex = () => {
         </div>
 
         {filteredLists.length === 0 && searchList === "" ? (
-          /* Empty state */
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             <NewListCard onClick={() => setDialogOpen(true)} />
           </div>
         ) : filteredLists.length === 0 ? (
-          /* No search results */
           <div className="text-center py-16 border-2 border-dashed border-border rounded-2xl bg-secondary/20">
             <ListIcon className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
             <p className="text-sm text-muted-foreground">No lists match "{searchList}"</p>
-            <button
-              onClick={() => setSearchList("")}
-              className="mt-2 text-primary text-sm hover:underline font-medium"
-            >
-              Clear search
-            </button>
+            <button onClick={() => setSearchList("")} className="mt-2 text-primary text-sm hover:underline font-medium">Clear search</button>
           </div>
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
@@ -236,13 +288,13 @@ const ListsIndex = () => {
           </div>
         )}
       </div>
-      
+
       <NewListDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
         onCreate={handleCreate}
         existingCount={lists.length}
-        themeColor={currentThemeColor} 
+        themeColor={currentThemeColor}
       />
 
       {deleteTarget && (
@@ -252,10 +304,10 @@ const ListsIndex = () => {
           onCancel={() => setDeleteTarget(null)}
         />
       )}
-      
+
       <ToastStack />
     </div>
   );
 };
 
-export default ListsIndex; 
+export default ListsIndex;

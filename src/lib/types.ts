@@ -51,6 +51,8 @@ export interface HistoryEntry {
 }
 
 export interface Story {
+  totalChapters?: any;
+  type?: any;
   id: string;
   title: string;
   altTitle: string;
@@ -172,6 +174,22 @@ export function createStory(partial: Partial<Story> & Pick<Story, "title">): Sto
     originCountry: "",
     ...partial, 
   };
+}
+
+export interface ReadingList {
+  stories: any[];
+  id: string;
+  name: string;
+  description?: string;
+  coverUrl?: string;
+  color?: string;
+  visibility: "public" | "private";
+  userId: string;
+  storyIds: string[]; 
+  count: number;     
+  status: string;    
+  createdAt: string;
+  updatedAt: string;
 }
 
 // === Helper to convert blob URL to data URL ===

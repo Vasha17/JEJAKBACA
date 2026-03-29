@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      lists: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          color: string | null
+          status: string | null
+          description: string | null
+          updated_at: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id: string
+          user_id: string
+          name: string
+          color?: string | null
+          status?: string | null
+          description?: string | null
+          updated_at?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          color?: string | null
+          status?: string | null
+          description?: string | null
+          updated_at?: string | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

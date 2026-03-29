@@ -11,6 +11,7 @@ import type React from "react";
 import { Navbar } from "@/component/Navbar";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useStories } from "@/lib/StoryContext";
+import { useAuth } from "@/component/Auth";
 
 /* ─── Toast ─────────────────────────────────────────────── */
 let toastEmitter: ((item: any) => void) | null = null;
@@ -43,24 +44,16 @@ function ToastContainer() {
             boxShadow: "0 8px 32px hsl(var(--primary) / 0.18), 0 2px 8px rgba(0,0,0,0.4)",
           }}
         >
-          {/* Icon */}
           {t.icon && (
-            <div
-              className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ backgroundColor: "hsl(var(--primary) / 0.15)", color: "hsl(var(--primary))" }}
-            >
+            <div className="shrink-0 w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: "hsl(var(--primary) / 0.15)", color: "hsl(var(--primary))" }}>
               {t.icon}
             </div>
           )}
-          {/* Text */}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-foreground truncate">{t.title}</p>
             {t.description && <p className="text-xs text-muted-foreground truncate mt-0.5">{t.description}</p>}
           </div>
-          <button
-            onClick={() => dismiss(t.id)}
-            className="shrink-0 p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-          >
+          <button onClick={() => dismiss(t.id)} className="shrink-0 p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
             <X size={13} />
           </button>
         </div>
@@ -115,11 +108,6 @@ function formatTimeAgo(iso?: string) {
   return new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function formatDate(iso?: string) {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
-}
-
 /* ─── Constants ──────────────────────────────────────────── */
 const SORT_OPTIONS: SelectOption[] = [
   { value: "custom", label: "Custom Order" },
@@ -135,79 +123,35 @@ const STATUS_OPTIONS: SelectOption[] = [
 ];
 
 /* ─── Edit Modal ─────────────────────────────────────────── */
-function EditListModal({
-  open,
-  onClose,
-  listConfig,
-  descHtml,
-  onSave,
-}: {
-  open: boolean;
-  onClose: () => void;
-  listConfig: any;
-  descHtml: string;
+function EditListModal({ open, onClose, listConfig, descHtml, onSave }: {
+  open: boolean; onClose: () => void;
+  listConfig: any; descHtml: string;
   onSave: (desc: string) => void;
 }) {
   const [draftDesc, setDraftDesc] = useState(descHtml);
-
-  useEffect(() => {
-    if (open) setDraftDesc(descHtml);
-  }, [open, descHtml]);
-
+  useEffect(() => { if (open) setDraftDesc(descHtml); }, [open, descHtml]);
   if (!open) return null;
-
   return (
     <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Modal */}
       <div className="relative w-full max-w-md md:max-w-xl rounded-2xl bg-card border border-border shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <h2 className="text-base font-bold text-foreground">Edit List</h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-          >
-            <X size={15} />
-          </button>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"><X size={15} /></button>
         </div>
-
-        {/* Name */}
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">List Name</label>
-          <input
-            value={listConfig?.name ?? ""}
-            disabled
-            className="w-full text-sm bg-secondary/50 border border-border rounded-xl px-3 py-2.5 text-foreground/50 outline-none cursor-not-allowed"
-          />
+          <input value={listConfig?.name ?? ""} disabled className="w-full text-sm bg-secondary/50 border border-border rounded-xl px-3 py-2.5 text-foreground/50 outline-none cursor-not-allowed" />
         </div>
-
-        {/* Description */}
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Description <span className="normal-case font-normal">(optional)</span>
-          </label>
+          <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description <span className="normal-case font-normal">(optional)</span></label>
           <div className="rounded-xl border border-border focus-within:border-primary/50 overflow-hidden transition-colors">
             <RichTextEditor content={draftDesc} onChange={setDraftDesc} />
           </div>
         </div>
-
-        {/* Actions */}
         <div className="flex items-center justify-end gap-2 pt-1">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl text-sm font-medium bg-secondary text-foreground hover:bg-secondary/80 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => { onSave(draftDesc); onClose(); }}
-            className="px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:brightness-110 transition-all"
-          >
-            Save
-          </button>
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium bg-secondary text-foreground hover:bg-secondary/80 transition-colors">Cancel</button>
+          <button onClick={() => { onSave(draftDesc); onClose(); }} className="px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:brightness-110 transition-all">Save</button>
         </div>
       </div>
     </div>
@@ -218,6 +162,8 @@ function EditListModal({
 export default function ListDetail() {
   const { id } = useParams();
   const { stories: allStories, updateStory } = useStories();
+  const { user } = useAuth();
+  const isGuest = !user || localStorage.getItem("jejakbaca_skip_login") === "true";
 
   const [listConfig, setListConfig] = useState<any>(null);
   const [listStories, setListStories] = useState<any[]>([]);
@@ -233,16 +179,13 @@ export default function ListDetail() {
 
   const [descHtml, setDescHtml] = useState("");
   const [editModalOpen, setEditModalOpen] = useState(false);
-
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("custom");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
 
   useEffect(() => {
-    if (listConfig) {
-      setDescHtml(listConfig.description || "");
-    }
+    if (listConfig) setDescHtml(listConfig.description || "");
   }, [listConfig]);
 
   if (!listConfig) return (
@@ -288,14 +231,33 @@ export default function ListDetail() {
     }
   };
 
-  const handleSaveDesc = (newDesc: string) => {
+  const handleSaveDesc = async (newDesc: string) => {
     const now = new Date().toISOString();
+
+    // 1. Update localStorage
     const savedLists = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
     localStorage.setItem("my_reading_lists", JSON.stringify(
       savedLists.map((l: any) => l.id === id ? { ...l, description: newDesc, updatedAt: now } : l)
     ));
     setDescHtml(newDesc);
     setListConfig((prev: any) => ({ ...prev, description: newDesc, updatedAt: now }));
+
+    // 2. Sync ke Supabase
+    if (!isGuest && user) {
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { error } = await supabase
+          .from("lists")
+          .update({ description: newDesc, updated_at: now })
+          .eq("id", id)
+          .eq("user_id", user.id);
+        if (error) console.error("Failed to sync description:", error);
+        else console.log("✅ Description synced to Supabase");
+      } catch (e) {
+        console.error("handleSaveDesc error:", e);
+      }
+    }
+
     toast("Saved", "Description updated", <Check size={15} />);
   };
 
@@ -342,27 +304,21 @@ export default function ListDetail() {
 
       <div className="px-4 md:px-8 py-6 max-w-screen-xl mx-auto space-y-6 pb-24 md:pb-32">
 
-        {/* Back */}
         <Link to="/lists" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft size={12} /> Back to Lists
         </Link>
 
-        {/* ── Header — clean layout like screenshot ── */}
+        {/* ── Header ── */}
         <div className="relative">
-          {/* Title row */}
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-wrap min-w-0">
               <h1 className="text-3xl md:text-4xl font-black text-foreground leading-none tracking-tight truncate">
                 {listConfig.name}
               </h1>
-              {/* Private badge */}
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-secondary border border-border text-muted-foreground shrink-0">
-                <Lock size={11} />
-                Private
+                <Lock size={11} /> Private
               </span>
             </div>
-
-            {/* Edit button */}
             <button
               onClick={() => setEditModalOpen(true)}
               className="shrink-0 p-2.5 rounded-xl bg-secondary border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
@@ -372,7 +328,6 @@ export default function ListDetail() {
             </button>
           </div>
 
-          {/* Description */}
           {descHtml ? (
             <div
               className="mt-2 text-sm text-muted-foreground prose prose-sm max-w-none line-clamp-2 cursor-pointer hover:text-foreground/70 transition-colors"
@@ -381,18 +336,12 @@ export default function ListDetail() {
               title="Click to edit"
             />
           ) : (
-            <button
-              onClick={() => setEditModalOpen(true)}
-              className="mt-2 text-xs text-muted-foreground/50 italic hover:text-muted-foreground transition-colors"
-            >
+            <button onClick={() => setEditModalOpen(true)} className="mt-2 text-xs text-muted-foreground/50 italic hover:text-muted-foreground transition-colors">
               + Add a description
             </button>
           )}
 
-          {/* Meta: updated time only */}
-          {updatedAgo && (
-            <p className="mt-2 text-xs text-muted-foreground">Updated {updatedAgo}</p>
-          )}
+          {updatedAgo && <p className="mt-2 text-xs text-muted-foreground">Updated {updatedAgo}</p>}
         </div>
 
         {/* ── Toolbar ── */}
@@ -415,59 +364,49 @@ export default function ListDetail() {
         </div>
 
         {/* ── Stories ── */}
-        {filtered.length === 0
-          ? (
-            <div className="flex flex-col items-center justify-center py-24 gap-4 text-center animate-in fade-in duration-500">
-              <div className="relative">
-                <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl opacity-40 animate-pulse" />
-                <div className="relative bg-secondary/60 border border-border/50 rounded-full p-6">
-                  <BookOpen size={40} className="text-muted-foreground/40" strokeWidth={1.5} />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <p className="text-base font-bold text-foreground">No stories yet</p>
-                <p className="text-sm text-muted-foreground max-w-[240px] leading-relaxed">
-                  {search || statusFilter !== "all"
-                    ? "No stories match your current filters."
-                    : "Add stories to this list to start tracking your reading."}
-                </p>
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-4 text-center animate-in fade-in duration-500">
+            <div className="relative">
+              <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl opacity-40 animate-pulse" />
+              <div className="relative bg-secondary/60 border border-border/50 rounded-full p-6">
+                <BookOpen size={40} className="text-muted-foreground/40" strokeWidth={1.5} />
               </div>
             </div>
-          )
-          : viewMode === "grid"
-            ? (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 pb-4">
-                {filtered.map((story) => (
-                  <StoryGrid key={story.id} story={story} onLogChapter={handleLogChapter} onRemove={handleRemove} listId={id ?? ""} />
-                ))}
-              </div>
-            )
-            : (
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="stories">
-                  {(provided) => (
-                    <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-1.5 pb-4">
-                      {filtered.map((story, i) => (
-                        <Draggable key={story.id} draggableId={story.id} index={i}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              className={snapshot.isDragging ? "opacity-80" : ""}
-                            >
-                              <StoryRow story={story} index={i} onLogChapter={handleLogChapter} onRemove={handleRemove} listId={id ?? ""} />
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-              </DragDropContext>
-            )
-        }
+            <div className="space-y-1.5">
+              <p className="text-base font-bold text-foreground">No stories yet</p>
+              <p className="text-sm text-muted-foreground max-w-[240px] leading-relaxed">
+                {search || statusFilter !== "all"
+                  ? "No stories match your current filters."
+                  : "Add stories to this list to start tracking your reading."}
+              </p>
+            </div>
+          </div>
+        ) : viewMode === "grid" ? (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 pb-4">
+            {filtered.map((story) => (
+              <StoryGrid key={story.id} story={story} onLogChapter={handleLogChapter} onRemove={handleRemove} listId={id ?? ""} />
+            ))}
+          </div>
+        ) : (
+          <DragDropContext onDragEnd={handleDragEnd}>
+            <Droppable droppableId="stories">
+              {(provided) => (
+                <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-1.5 pb-4">
+                  {filtered.map((story, i) => (
+                    <Draggable key={story.id} draggableId={story.id} index={i}>
+                      {(provided, snapshot) => (
+                        <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={snapshot.isDragging ? "opacity-80" : ""}>
+                          <StoryRow story={story} index={i} onLogChapter={handleLogChapter} onRemove={handleRemove} listId={id ?? ""} />
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        )}
       </div>
     </div>
   );
