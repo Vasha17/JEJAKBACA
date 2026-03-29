@@ -616,8 +616,8 @@ export default function StoryDetail() {
 
         {/* Cover + meta */}
         <div className="relative px-8 sm:px-6 -mt-24 sm:-mt-40 flex flex-row gap-4 sm:gap-6 items-center">
-          <div className="w-52 sm:w-44 shrink-0 z-10">
-            <div className="aspect-[3/4] rounded-lg overflow-hidden bg-card border-2 border-border shadow-xl">
+          <div className="w-28 sm:w-44 shrink-0 z-10">
+            <div className="aspect-[3/4] rounded-lg overflow-hidden bg-card border-2 border-border shadow-xl max-h-40 sm:max-h-none">
               {story.coverUrl
                 ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover"/>
                 : <div className="w-full h-full flex items-center justify-center bg-secondary"><BookOpen className="w-12 h-12 text-muted-foreground/30"/></div>}
@@ -1142,6 +1142,16 @@ export default function StoryDetail() {
                     const existing = safeGet<any[]>("my_reading_lists", []);
                     const updated = [...existing, newList];
                     localStorage.setItem("my_reading_lists", JSON.stringify(updated));
+                    import("@/integrations/supabase/client").then(({ supabase }) => {
+                      supabase.auth.getUser().then(({ data }) => {
+                        if (data.user) {
+                          supabase.from("lists").upsert(
+                            { id: newId, user_id: data.user.id, name: newListName.trim(), color: "#3b82f6", status: "Custom", description: "" },
+                            { onConflict: "id" }
+                          );
+                        }
+                      });
+                    });
                     setCustomLists(updated);
                     addListToStory(story.id, newId);
                     setNewListName("");
