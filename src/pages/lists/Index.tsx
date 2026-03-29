@@ -196,24 +196,37 @@ const ListsIndex = () => {
   };
 
   const handleCreate = async (name: string, color: string, visibility: string) => {
-    const newList: ReadingList = {
-      id: Date.now().toString(),
-      name,
-      description: "",
-      status: "Custom",
-      stories: [],
-      color,
-      // @ts-ignore
-      visibility,
-    };
-    handleUpdateLists([...lists, newList]);
-    showToast("List created", name);
-
-    // Sync ke Supabase
-    if (!isGuest && user) {
-      await upsertListToSupabase(user.id, newList);
-    }
+  const newList: ReadingList = {
+    id: Date.now().toString(),
+    name,
+    description: "",
+    status: "Custom",
+    stories: [],
+    count: 0,
+    storyIds: [],
+    visibility: "private" as const,
+    userId: "",
+    color,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   };
+  handleUpdateLists([...lists, newList]);
+  showToast("List created", name);
+
+  // Sync ke Supabase — ambil user langsung dari supabase, bukan dari hook
+  try {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+console.log("Current user saat create list:", currentUser?.id);
+    const skipLogin = localStorage.getItem("jejakbaca_skip_login") === "true";
+    if (currentUser && !skipLogin) {
+      await upsertListToSupabase(currentUser.id, newList);
+      console.log("✅ List synced:", newList.name);
+    }
+  } catch (e) {
+    console.error("Failed to sync new list:", e);
+  }
+};
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;

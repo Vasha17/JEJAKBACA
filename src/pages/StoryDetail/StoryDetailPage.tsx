@@ -77,7 +77,8 @@ export default function StoryDetail() {
 
   // ── CTA preference ──────────────────────────────────────────────────────────
   const [ctaPreference, setCtaPreference] = useState<"floating" | "inside">(() => {
-    return safeGet<"floating" | "inside">("jejakbaca_cta_pref", "floating");
+    const val = localStorage.getItem("jejakbaca_cta_pref");
+    return val === "floating" || val === "inside" ? val : "floating";
   });
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -615,9 +616,9 @@ export default function StoryDetail() {
         </div>
 
         {/* Cover + meta */}
-        <div className="relative px-8 sm:px-6 -mt-24 sm:-mt-40 flex flex-row gap-4 sm:gap-6 items-center">
-          <div className="w-28 sm:w-44 shrink-0 z-10">
-            <div className="aspect-[3/4] rounded-lg overflow-hidden bg-card border-2 border-border shadow-xl max-h-40 sm:max-h-none">
+        <div className="relative px-3 sm:px-6 -mt-24 sm:-mt-40 flex flex-row gap-3 sm:gap-6 items-start">
+          <div className="w-[105px] sm:w-44 shrink-0 z-10">
+            <div className="aspect-[3/4] rounded-lg overflow-hidden bg-card border-2 border-border shadow-xl">
               {story.coverUrl
                 ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover"/>
                 : <div className="w-full h-full flex items-center justify-center bg-secondary"><BookOpen className="w-12 h-12 text-muted-foreground/30"/></div>}
@@ -690,7 +691,7 @@ export default function StoryDetail() {
               </div>
 
               {/* Rating + Country */}
-              <div className="flex flex-col items-end gap-2 shrink-0">
+              <div className="flex flex-col items-end gap-1 shrink-0 max-w-[72px]">
                 <button onClick={() => setRatingDialog(true)} className="shrink-0 flex flex-col items-end group transition-transform hover:scale-105">
                   <div className="flex items-center gap-1.5 text-amber-500">
                     <Star size={20} className={story.rating > 0 ? "fill-current" : "fill-transparent stroke-current"}/>
