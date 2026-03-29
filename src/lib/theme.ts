@@ -1,5 +1,3 @@
-// Theme system types and utilities
-
 export interface ThemeColors {
   background: string;
   foreground: string;
@@ -21,7 +19,6 @@ export interface AppTheme {
   isCustom?: boolean;
 }
 
-// Convert hex to HSL string for CSS variables
 function hexToHSL(hex: string): string {
   hex = hex.replace("#", "");
   const r = parseInt(hex.substring(0, 2), 16) / 255;
@@ -49,6 +46,7 @@ function hexToHSL(hex: string): string {
 export function hslFromHex(hex: string): string {
   return hexToHSL(hex);
 }
+
 // Preset themes
 export const PRESET_THEMES: AppTheme[] = [
   {
@@ -478,8 +476,8 @@ export const PRESET_THEMES: AppTheme[] = [
     light: {
       background: "#f8fafc",
       foreground: "#334155",
-      primary: "#d2c296", // Gold Primary (Read trace)
-      primaryForeground: "#1a1500", // Dark brown/contrast for text on gold
+      primary: "#d2c296", 
+      primaryForeground: "#1a1500", 
       secondary: "#e2e8f0",
       accent: "#e2e8f0",
       muted: "#f1f5f9",
@@ -490,7 +488,7 @@ export const PRESET_THEMES: AppTheme[] = [
     dark: {
       background: "#0f172a",
       foreground: "#e2e8f0",
-      primary: "#d2c296", // Gold Primary (Read trace)
+      primary: "#d2c296", 
       primaryForeground: "#1a1500",
       secondary: "#1e293b",
       accent: "#1e293b",

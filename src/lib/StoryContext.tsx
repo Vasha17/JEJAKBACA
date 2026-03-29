@@ -15,18 +15,15 @@ interface StoryContextValue {
   syncStats: SyncStats;
   isSynced: boolean;
 
-  // CRUD
   getStory: (id: string) => Story | undefined;
   addStory: (partial: Partial<Story> & Pick<Story, "title">) => Promise<Story>;
   addStoryWithMeta: (story: Story) => Promise<Story>;
   updateStory: (id: string, updates: Partial<Story>) => Promise<void>;
   deleteStory: (id: string) => Promise<void>;
 
-  // Bookmarks
   addBookmark: (storyId: string, chapter: number, note?: string) => Promise<void>;
   removeBookmark: (storyId: string, bookmarkId: string) => Promise<void>;
 
-  // Sources
   addSource: (
     storyId: string,
     source: { name: string; url: string; currentChapter: number; language: string }
@@ -34,34 +31,25 @@ interface StoryContextValue {
   removeSource: (storyId: string, sourceId: string) => Promise<void>;
   updateSourceChapter: (storyId: string, sourceId: string, chapter: number) => Promise<void>;
 
-  // Notes
   addNote: (storyId: string, text: string) => Promise<void>;
   removeNote: (storyId: string, noteId: string) => Promise<void>;
 
-  // Media
   addMedia: (
     storyId: string,
     media: { type: "link" | "image"; url: string; label: string }
   ) => Promise<void>;
   removeMedia: (storyId: string, mediaId: string) => Promise<void>;
 
-  // Tags
   addTagToStory: (storyId: string, tag: string) => Promise<void>;
   removeTagFromStory: (storyId: string, tag: string) => Promise<void>;
 
-  // Lists
   addListToStory: (storyId: string, listId: string) => Promise<void>;
   removeListFromStory: (storyId: string, listId: string) => Promise<void>;
 
-  // Sync
   triggerSync: () => Promise<void>;
 }
 
-// ── Context ────────────────────────────────────────────────────────────────────
-
 const StoryContext = createContext<StoryContextValue | null>(null);
-
-// ── Provider ───────────────────────────────────────────────────────────────────
 
 export function StoryProvider({ children }: { children: React.ReactNode }) {
   const [stories, setStories] = useState<Story[]>([]);
@@ -73,40 +61,59 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
   const isSynced = syncStats.status === "success" || syncStats.pendingCount === 0;
   const mountedRef = useRef(true);
 
-  // ── Initial load ─────────────────────────────────────────────────────────────
-
+  // ── Initial load + auto sync ─────────────────────────────────────────────────
   useEffect(() => {
     mountedRef.current = true;
+
     (async () => {
       try {
-        const all = await dexieAPI.getAll();
-        if (mountedRef.current) setStories(all);
+        // 1. Load dari Dexie dulu (data lokal) agar UI tidak kosong
+        const localStories = await dexieAPI.getAll();
+        if (mountedRef.current) setStories(localStories);
+
+        // 2. Cek apakah user sudah login
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data } = await supabase.auth.getUser();
+        const userId = data.user?.id;
+
+        if (userId) {
+          console.log("🔄 StoryContext: auto sync untuk user", userId);
+          setSyncStats(prev => ({ ...prev, status: "syncing" }));
+
+          // 3. Sync (push lokal → cloud, lalu pull cloud → lokal)
+          const { syncAPI } = await import("./SupabaseSync");
+          await syncAPI.sync(userId);
+
+          // 4. Reload stories dari Dexie setelah sync
+          const [all, unsynced] = await Promise.all([
+            dexieAPI.getAll(),
+            dexieAPI.getUnsynced(),
+          ]);
+
+          if (mountedRef.current) {
+            setStories(all);
+            setSyncStats({
+              lastSync: new Date().toISOString(),
+              pendingCount: unsynced.length,
+              status: "success",
+            });
+            console.log("✅ StoryContext: sync selesai,", all.length, "stories");
+          }
+        }
       } catch (e) {
-        console.error("StoryContext: failed to load stories", e);
+        console.error("StoryContext: gagal load/sync stories", e);
+        if (mountedRef.current) {
+          setSyncStats(prev => ({ ...prev, status: "error" }));
+        }
       }
     })();
+
     return () => {
       mountedRef.current = false;
     };
   }, []);
 
-  // ── Sync pending count on mount ───────────────────────────────────────────────
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const unsynced = await dexieAPI.getUnsynced();
-        if (mountedRef.current) {
-          setSyncStats((prev) => ({ ...prev, pendingCount: unsynced.length }));
-        }
-      } catch {
-        // ignore in fallback mode
-      }
-    })();
-  }, []);
-
   // ── Core optimistic update helper ─────────────────────────────────────────────
-
   const applyUpdate = useCallback(async (id: string, updates: Partial<Story>) => {
     const now = new Date().toISOString();
     setStories((prev) =>
@@ -123,7 +130,6 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── CRUD ──────────────────────────────────────────────────────────────────────
-
   const getStory = useCallback(
     (id: string) => stories.find((s) => s.id === id),
     [stories]
@@ -165,22 +171,13 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // ── Bookmarks ─────────────────────────────────────────────────────────────────
-
   const addBookmark = useCallback(
     async (storyId: string, chapter: number, note = "") => {
       const story = stories.find((s) => s.id === storyId);
       if (!story) return;
       const now = new Date().toISOString();
-      const bookmark = {
-        id: crypto.randomUUID(),
-        chapter,
-        note,
-        createdAt: now,
-        updatedAt: now,
-      };
-      await applyUpdate(storyId, {
-        bookmarks: [...(story.bookmarks || []), bookmark],
-      });
+      const bookmark = { id: crypto.randomUUID(), chapter, note, createdAt: now, updatedAt: now };
+      await applyUpdate(storyId, { bookmarks: [...(story.bookmarks || []), bookmark] });
     },
     [stories, applyUpdate]
   );
@@ -197,24 +194,13 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
   );
 
   // ── Sources ───────────────────────────────────────────────────────────────────
-
   const addSource = useCallback(
-    async (
-      storyId: string,
-      source: { name: string; url: string; currentChapter: number; language: string }
-    ) => {
+    async (storyId: string, source: { name: string; url: string; currentChapter: number; language: string }) => {
       const story = stories.find((s) => s.id === storyId);
       if (!story) return;
       const now = new Date().toISOString();
-      const newSource = {
-        id: crypto.randomUUID(),
-        lastOpenedAt: now,
-        updatedAt: now,
-        ...source,
-      };
-      await applyUpdate(storyId, {
-        sources: [...(story.sources || []), newSource],
-      });
+      const newSource = { id: crypto.randomUUID(), lastOpenedAt: now, updatedAt: now, ...source };
+      await applyUpdate(storyId, { sources: [...(story.sources || []), newSource] });
     },
     [stories, applyUpdate]
   );
@@ -244,21 +230,13 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
   );
 
   // ── Notes ─────────────────────────────────────────────────────────────────────
-
   const addNote = useCallback(
     async (storyId: string, text: string) => {
       const story = stories.find((s) => s.id === storyId);
       if (!story) return;
       const now = new Date().toISOString();
-      const note = {
-        id: crypto.randomUUID(),
-        text,
-        createdAt: now,
-        updatedAt: now,
-      };
-      await applyUpdate(storyId, {
-        notes: [...(story.notes || []), note],
-      });
+      const note = { id: crypto.randomUUID(), text, createdAt: now, updatedAt: now };
+      await applyUpdate(storyId, { notes: [...(story.notes || []), note] });
     },
     [stories, applyUpdate]
   );
@@ -275,22 +253,12 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
   );
 
   // ── Media ─────────────────────────────────────────────────────────────────────
-
   const addMedia = useCallback(
-    async (
-      storyId: string,
-      item: { type: "link" | "image"; url: string; label: string }
-    ) => {
+    async (storyId: string, item: { type: "link" | "image"; url: string; label: string }) => {
       const story = stories.find((s) => s.id === storyId);
       if (!story) return;
-      const mediaItem = {
-        id: crypto.randomUUID(),
-        createdAt: new Date().toISOString(),
-        ...item,
-      };
-      await applyUpdate(storyId, {
-        media: [...(story.media || []), mediaItem],
-      });
+      const mediaItem = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...item };
+      await applyUpdate(storyId, { media: [...(story.media || []), mediaItem] });
     },
     [stories, applyUpdate]
   );
@@ -307,7 +275,6 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
   );
 
   // ── Tags ──────────────────────────────────────────────────────────────────────
-
   const addTagToStory = useCallback(
     async (storyId: string, tag: string) => {
       const story = stories.find((s) => s.id === storyId);
@@ -331,7 +298,6 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
   );
 
   // ── Lists ─────────────────────────────────────────────────────────────────────
-
   const addListToStory = useCallback(
     async (storyId: string, listId: string) => {
       const story = stories.find((s) => s.id === storyId);
@@ -353,17 +319,13 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
     [stories, applyUpdate]
   );
 
-  // ── Sync ──────────────────────────────────────────────────────────────────────
-
+  // ── Manual trigger sync ───────────────────────────────────────────────────────
   const triggerSync = useCallback(async () => {
     setSyncStats((prev) => ({ ...prev, status: "syncing" }));
     try {
-      let userId: string | null = null;
-      try {
-        const { supabase } = await import("@/integrations/supabase/client");
-        const { data } = await supabase.auth.getUser();
-        userId = data.user?.id ?? null;
-      } catch {}
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase.auth.getUser();
+      const userId = data.user?.id ?? null;
 
       if (userId) {
         await dexieAPI.sync(userId);
@@ -391,8 +353,6 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, []);
-
-  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <StoryContext.Provider
@@ -425,8 +385,6 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
     </StoryContext.Provider>
   );
 }
-
-// ── Hook ───────────────────────────────────────────────────────────────────────
 
 export function useStories() {
   const ctx = useContext(StoryContext);

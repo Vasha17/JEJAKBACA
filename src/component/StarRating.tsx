@@ -14,7 +14,7 @@ export function StarRating({
   size?: number;
   maxRating?: number;
 }) {
-  // For compact display (1-10), show a single star badge
+  
   if (maxRating === 10) {
     return (
       <div
@@ -36,8 +36,7 @@ export function StarRating({
       </div>
     );
   }
-
-  // 5-star display
+  
   return (
     <div className="flex gap-0.5">
       {Array.from({ length: maxRating }, (_, i) => i + 1).map(i => (

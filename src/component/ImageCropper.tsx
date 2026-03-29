@@ -14,10 +14,8 @@ interface ImageCropperProps {
   title?: string;
 }
 
-// Fungsi helper untuk crop gambar
 async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<string> {
-  const image = new Image();
-  // Hanya set crossOrigin untuk URL eksternal
+  const image = new Image();  
   if (!imageSrc.startsWith("blob:") && !imageSrc.startsWith("data:")) {
     image.crossOrigin = "anonymous";
   }
@@ -53,14 +51,12 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<string>
 
 export function ImageCropper({
   open, onOpenChange, imageSrc, aspect, onCropComplete, title = "Reposition Image",
-}: ImageCropperProps) {
-  // State untuk melacak apakah gambar sedang dimuat
+}: ImageCropperProps) {  
   const [imageLoading, setImageLoading] = useState(true);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
-
-  // Reset state setiap kali dialog dibuka
+  
   useEffect(() => {
     if (open) {
       setImageLoading(true);
@@ -76,8 +72,7 @@ export function ImageCropper({
 
   const handleSave = async () => {
     if (!croppedAreaPixels) return;
-    try {
-      // Pastikan proses save selesai sebelum menutup
+    try {      
       const croppedUrl = await getCroppedImg(imageSrc, croppedAreaPixels);
       onCropComplete(croppedUrl);
       onOpenChange(false);
@@ -85,8 +80,7 @@ export function ImageCropper({
       console.error("Crop failed:", e);
     }
   };
-
-  // Handler khusus untuk menutup dialog dengan validasi loading
+  
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen && imageLoading) return;
     
@@ -101,8 +95,7 @@ export function ImageCropper({
         <DialogHeader className="p-4 pb-0">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        
-        {/* Container Cropper dengan Background Gelap */}
+                
         <div className="relative w-full h-[300px] sm:h-[400px] bg-black flex items-center justify-center">
           {imageLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center text-white/50 text-sm">

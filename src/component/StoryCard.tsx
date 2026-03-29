@@ -17,7 +17,6 @@ const STATUS_LABELS: Record<string, string> = {
   dropped: "Dropped", "plan-to-read": "Plan to Read", "re-reading": "Re-reading",
 };
 
-// Map originCountry → flag emoji
 const COUNTRY_FLAG: Record<string, string> = {
   jp: "🇯🇵", kr: "🇰🇷", cn: "🇨🇳",
 };

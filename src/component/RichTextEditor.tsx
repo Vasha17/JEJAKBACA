@@ -53,14 +53,12 @@ const EDITOR_STYLE = `
     cursor: pointer;
     user-select: none;
   }
-
-  /* Tambahkan hover effect untuk Editor juga agar konsisten */
+  
   .ProseMirror .spoiler:hover {
     color: hsl(var(--foreground)) !important;
     background-color: hsl(var(--accent));
   }
-
-  /* Placeholder */
+  
   .ProseMirror p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
     float: left;
@@ -317,10 +315,8 @@ export function RichTextEditor({
 
 // ─── RichTextDisplay ──────────────────────────────────────────────────────────
 export function RichTextDisplay({ html, className }: { html: string; className?: string }) {
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Perbaiki logic handle click agar lebih robust terhadap text node
-    const targetNode = e.target as Node;
-    // Jika target adalah text node, ambil parent element-nya
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {    
+    const targetNode = e.target as Node;    
     const targetElement = targetNode instanceof HTMLElement ? targetNode : targetNode.parentElement;
     
     if (!targetElement) return;

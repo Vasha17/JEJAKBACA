@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useStories } from "@/lib/StoryContext";
-import { StoryStatus, getCustomLists, saveCustomList, getGlobalTags } from "@/lib/types";
+import { StoryStatus, getGlobalTags } from "@/lib/types";
 import { Button } from "@/component/ui/button";
 import { Input } from "@/component/ui/input";
 import { Textarea } from "@/component/ui/textarea";
@@ -15,23 +15,22 @@ import {
   Star, List, X, ExternalLink, Upload, Eye, Sparkles, Loader2,
   CheckCircle2, XCircle, AlertCircle, History, GitBranch, Bell,
   Database, Globe, Image, RefreshCw, Zap, ChevronLeft, ChevronRight,
-  MoreHorizontal, Search, Heart, Briefcase, HelpCircle,
+  MoreHorizontal, Search, HelpCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { RichTextEditor, RichTextDisplay } from "@/component/RichTextEditor";
 import { ImageCropper } from "@/component/ImageCropper";
 import "flag-icons/css/flag-icons.min.css";
+import { useLocation } from "react-router-dom";
 
 // ── Local imports ─────────────────────────────────────────────────────────────
 import { StoryDetailSkeleton }             from "./components/StoryDetailSkeleton";
-import { NoteEditor }                      from "./components/NoteEditor";
 import { GenrePickerModal }                from "./components/GenrePickerModal";
 import {
   STATUS_OPTIONS, statusColor,
   REL_LABELS, REL_COLORS,
   ARC_COLOR_PALETTES, ARC_COLORS,
   DEMOGRAPHIC_INFO, DEMOGRAPHIC_ICONS,
-  DEMOGRAPHICS,
   type ArcColorPalette,
 } from "./constants/status";
 import { ALL_COUNTRIES, POPULAR_COUNTRIES } from "./constants/countries";
@@ -62,7 +61,9 @@ const safeGet = <T,>(key: string, defaultValue: T): T => {
 
 export default function StoryDetail() {
   const { id }   = useParams<{ id: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
+  const fromListId = location.state?.fromListId;
   const {
     getStory, stories, updateStory, deleteStory,
     addBookmark, removeBookmark,
@@ -189,7 +190,6 @@ export default function StoryDetail() {
   const [trackedSourceIds, setTrackedSourceIds] = useState<string[]>([]);
 
   // ── Lists state ─────────────────────────────────────────────────────────────
-  // FIX: dipindah ke sini, sebelum semua useEffect dan early returns
   const [customLists, setCustomLists] = useState<any[]>(() => {
     return safeGet<any[]>("my_reading_lists", []);
   });
@@ -203,7 +203,7 @@ export default function StoryDetail() {
   const headerFileRef = useRef<HTMLInputElement>(null);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ALL useEffect HOOKS — harus semua ada di sini, sebelum early returns
+  // ALL useEffect HOOKS 
   // ═══════════════════════════════════════════════════════════════════════════
 
   // Loading timer
@@ -234,7 +234,7 @@ export default function StoryDetail() {
     }
   }, [id]);
 
-  // FIX: Load arcs — dipindah ke sini sebelum early returns
+  // Load arcs
   useEffect(() => {
     if (!id) return;
     try {
@@ -307,7 +307,7 @@ export default function StoryDetail() {
   };
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // EARLY RETURNS — harus setelah semua hooks
+  // EARLY RETURNS
   // ═══════════════════════════════════════════════════════════════════════════
   if (isLoading) return <StoryDetailSkeleton />;
   if (!story) {
@@ -486,6 +486,7 @@ export default function StoryDetail() {
       setArcColor(arc.color); setArcDesc(arc.description);
     } else {
       setEditingArc(null); setArcName(""); setArcStart(""); setArcEnd(""); setArcDesc("");
+      // Auto color logic uses current palette length
       if (arcColorMode === "auto") {
         const palette = ARC_COLOR_PALETTES[arcColorPalette];
         setArcColor(palette[arcs.length % palette.length]);
@@ -495,10 +496,13 @@ export default function StoryDetail() {
   };
 
   const handleSaveArc = () => {
-    if (!arcName.trim() || !arcStart) return;
-    const finalColor = arcColorMode === "auto" && !editingArc
-      ? ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length]
-      : arcColor;
+    if (!arcName.trim() || !arcStart) return;        
+    let finalColor = arcColor;
+    if (arcColorMode === "auto" && !editingArc) {
+      const palette = ARC_COLOR_PALETTES[arcColorPalette];
+      finalColor = palette[arcs.length % palette.length];
+    }
+    
     const arc: Arc = {
       id: editingArc?.id || crypto.randomUUID(),
       name: arcName.trim(),
@@ -560,10 +564,24 @@ export default function StoryDetail() {
             <div className="w-full h-full bg-gradient-to-br from-secondary to-card"/>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"/>
-          <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-            <button onClick={() => navigate("/")} className="p-2 rounded-md bg-card/80 hover:bg-card border border-border">
-              <ArrowLeft className="w-4 h-4 text-foreground"/>
-            </button>
+          <div className="absolute top-3 left-3 right-3 flex items-center justify-between">            
+            {fromListId ? (
+              <Link 
+                to={`/lists/${fromListId}`} 
+                className="p-2 rounded-md bg-card/80 hover:bg-card border border-border transition-colors"
+                title="Back to List"
+              >
+                <ArrowLeft className="w-4 h-4 text-foreground"/>
+              </Link>
+            ) : (
+              <button 
+                onClick={() => navigate("/")} 
+                className="p-2 rounded-md bg-card/80 hover:bg-card border border-border transition-colors"
+                title="Back to Library"
+              >
+                <ArrowLeft className="w-4 h-4 text-foreground"/>
+              </button>
+            )}
             <div className="flex gap-2">
               <Dialog open={headerDialog} onOpenChange={setHeaderDialog}>
                 <DialogTrigger asChild>
@@ -1028,32 +1046,132 @@ export default function StoryDetail() {
 
       {/* Lists */}
       <Dialog open={listsDialog} onOpenChange={setListsDialog}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader><DialogTitle>Add to List</DialogTitle></DialogHeader>
-          {customLists.length > 0 ? (
-            <div className="space-y-1">
-              {customLists.map((list: any) => (
-                <label key={list.id} className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-secondary cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={story.lists?.includes(list.id) || false}
-                    onChange={() => story.lists?.includes(list.id) ? removeListFromStory(story.id, list.id) : addListToStory(story.id, list.id)}
-                    className="rounded"
-                  />
-                  <span className="text-sm text-foreground">{list.name}</span>
-                </label>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground italic py-2">No lists yet.</p>
-          )}
-          <div className="border-t border-border pt-3">
-            <span className="text-xs text-muted-foreground mb-2 block">Make New List</span>
+        <DialogContent className="sm:max-w-sm p-0 overflow-hidden gap-0">
+          {/* Header */}
+          <div className="px-5 pt-5 pb-4 border-b border-border">
+            <DialogTitle className="text-base font-bold text-foreground">Add to List</DialogTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Organise this story into your collections</p>
+          </div>
+
+          {/* List items */}
+          <div className="px-3 py-3 space-y-0.5 max-h-60 overflow-y-auto">
+            {customLists.length > 0 ? (
+              customLists.map((list: any) => {
+                const isIn = story.lists?.includes(list.id) || false;
+                return (
+                  <label
+                    key={list.id}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all border ${isIn ? "bg-primary/8 border-primary/25" : "border-transparent hover:bg-secondary/60 hover:border-border/60"}`}
+                  >
+                    {/* Custom checkbox */}
+                    <div className="relative shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={isIn}
+                        onChange={() => {
+                          if (isIn) {
+                            removeListFromStory(story.id, list.id);
+                          } else {
+                            addListToStory(story.id, list.id);
+                          }
+                          setTimeout(() => {
+                            setCustomLists(safeGet<any[]>("my_reading_lists", []));
+                          }, 50);
+                        }}
+                        className="sr-only"
+                      />
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isIn ? "border-primary bg-primary shadow-sm shadow-primary/30" : "border-border bg-secondary"}`}>
+                        {isIn && (
+                          <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
+                            <path d="M1 4L4 7L10 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Color dot + name */}
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/10"
+                        style={{ backgroundColor: list.color || "#6b7280" }}
+                      />
+                      <span className={`text-sm font-medium truncate ${isIn ? "text-foreground" : "text-foreground/80"}`}>
+                        {list.name}
+                      </span>
+                    </div>
+
+                    {isIn && (
+                      <span className="text-[10px] font-bold text-primary shrink-0 bg-primary/10 px-1.5 py-0.5 rounded-full">
+                        Added
+                      </span>
+                    )}
+                  </label>
+                );
+              })
+            ) : (
+              <div className="py-8 text-center">
+                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mx-auto mb-2">
+                  <List className="w-5 h-5 text-muted-foreground/40"/>
+                </div>
+                <p className="text-sm text-muted-foreground font-medium">No lists yet</p>
+                <p className="text-xs text-muted-foreground/60 mt-0.5">Create one below</p>
+              </div>
+            )}
+          </div>
+
+          {/* Create new list */}
+          <div className="px-4 py-3.5 border-t border-border bg-secondary/30">
+            <p className="text-[10px] text-muted-foreground mb-2 font-semibold uppercase tracking-wider">Quick Create</p>
             <div className="flex gap-2">
-              <Input value={newListName} onChange={e => setNewListName(e.target.value)} placeholder="List name" className="bg-card text-sm"/>
-              <Button size="sm" onClick={() => {
-                if (newListName.trim()) { saveCustomList(newListName.trim()); addListToStory(story.id, newListName.trim()); setNewListName(""); }
-              }}>Add</Button>
+              <Input
+                value={newListName}
+                onChange={e => setNewListName(e.target.value)}
+                placeholder="New list name..."
+                className="bg-card text-sm h-9 flex-1"
+                onKeyDown={e => {
+                  if (e.key === "Enter" && newListName.trim()) {
+                    const newId = Date.now().toString();
+                    const newList = {
+                      id: newId,
+                      name: newListName.trim(),
+                      description: "",
+                      status: "Custom",
+                      stories: [],
+                      color: "#3b82f6",
+                    };
+                    const existing = safeGet<any[]>("my_reading_lists", []);
+                    const updated = [...existing, newList];
+                    localStorage.setItem("my_reading_lists", JSON.stringify(updated));
+                    setCustomLists(updated);
+                    addListToStory(story.id, newId);
+                    setNewListName("");
+                  }
+                }}
+              />
+              <Button
+                size="sm"
+                className="h-9 px-3 shrink-0"
+                onClick={() => {
+                  if (!newListName.trim()) return;
+                  const newId = Date.now().toString();
+                  const newList = {
+                    id: newId,
+                    name: newListName.trim(),
+                    description: "",
+                    status: "Custom",
+                    stories: [],
+                    color: "#3b82f6",
+                  };
+                  const existing = safeGet<any[]>("my_reading_lists", []);
+                  const updated = [...existing, newList];
+                  localStorage.setItem("my_reading_lists", JSON.stringify(updated));
+                  setCustomLists(updated);
+                  addListToStory(story.id, newId);
+                  setNewListName("");
+                }}
+              >
+                <Plus className="w-3.5 h-3.5"/>
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -1904,45 +2022,85 @@ export default function StoryDetail() {
                 <Input value={arcEnd} onChange={e => setArcEnd(e.target.value)} type="number" placeholder="100" className="bg-card"/>
               </div>
             </div>
-            <div className="space-y-2">
+
+            {/* Color Selection Section */}
+            <div className="space-y-3 border-t border-border pt-3">
               <div className="flex items-center justify-between">
-                <label className="text-[10px] text-muted-foreground">Arc Color</label>
-                <div className="flex items-center gap-1 bg-secondary rounded p-0.5 border border-border">
-                  {(["auto", "manual"] as const).map(m => (
+                <label className="text-xs font-semibold text-foreground">Arc Color</label>
+                <div className="flex items-center gap-0.5 bg-secondary rounded-lg p-0.5 border border-border">
+                  {(["auto","manual"] as const).map(m => (
                     <button key={m} onClick={() => {
                       setArcColorMode(m);
-                      if (m === "auto") setArcColor(ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length]);
+                      if (m === "auto") {
+                        const palette = ARC_COLOR_PALETTES[arcColorPalette];
+                        setArcColor(palette[arcs.length % palette.length]);
+                      }
                     }}
-                      className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${arcColorMode === m ? "bg-card text-foreground border border-border shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${arcColorMode === m ? "bg-card text-foreground border border-border shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
                       {m === "auto" ? "Auto" : "Manual"}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                {(["colorful", "theme", "mono"] as ArcColorPalette[]).map(p => (
-                  <button key={p} onClick={() => { setArcColorPalette(p); if (arcColorMode === "auto") setArcColor(ARC_COLOR_PALETTES[p][arcs.length % ARC_COLOR_PALETTES[p].length]); }}
-                    className={`flex-1 py-1 rounded text-[10px] font-medium transition-all border ${arcColorPalette === p ? "bg-primary/10 text-primary border-primary/30" : "bg-secondary text-muted-foreground border-border hover:text-foreground"}`}>
-                    {p === "colorful" ? "Colorful" : p === "theme" ? "Theme" : "Mono"}
+
+              {/* Palette Pills: Colorful & Mono */}  
+              <div className="flex gap-1.5">
+                {(["colorful", "mono"] as ArcColorPalette[]).map(p => (
+                  <button key={p} onClick={() => {
+                    setArcColorPalette(p);
+                    if (arcColorMode === "auto") {
+                      const palette = ARC_COLOR_PALETTES[p];
+                      setArcColor(palette[arcs.length % palette.length]);
+                    }
+                  }}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all border ${arcColorPalette === p ? "bg-primary/15 text-primary border-primary/40" : "bg-secondary text-muted-foreground border-border hover:text-foreground"}`}>
+                    {p === "colorful" ? "Colorful" : "Mono"}
                   </button>
                 ))}
               </div>
-              {arcColorMode === "manual" && (
-                <div className="flex gap-2 flex-wrap pt-0.5">
-                  {ARC_COLOR_PALETTES[arcColorPalette].map(c => (
-                    <button key={c} onClick={() => setArcColor(c)}
-                      className={`w-7 h-7 rounded-full transition-all border-2 ${arcColor === c ? "ring-2 ring-offset-2 ring-offset-background scale-110 border-white" : "border-transparent hover:scale-105"}`}
-                      style={{ backgroundColor: c === "var(--color-primary)" ? "hsl(var(--primary))" : c }}
+
+              {/* Color Swatches Grid */}
+              <div className="flex gap-1.5 flex-wrap">
+                {ARC_COLOR_PALETTES[arcColorPalette].map((c, i) => {
+                  const currentAutoColor = ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length];
+                  const isSelected = arcColorMode === "manual"
+                    ? arcColor === c
+                    : currentAutoColor === c;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => { setArcColorMode("manual"); setArcColor(c); }}
+                      className={`w-7 h-7 rounded-full transition-all shrink-0 ${isSelected ? "ring-2 ring-offset-2 ring-offset-background ring-white scale-110" : "opacity-80 hover:opacity-100 hover:scale-105"}`}
+                      style={{ backgroundColor: c }}
                     />
-                  ))}
+                  );
+                })}
+              </div>
+
+              {/* Preview Strip */}
+              <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-border bg-secondary/50">
+                <div className="w-5 h-5 rounded-full shadow-md shrink-0 ring-1 ring-white/20"
+                     style={{ backgroundColor: arcColorMode === "auto"
+                       ? ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length]
+                       : arcColor }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-muted-foreground">
+                    {arcColorMode === "auto"
+                      ? `Auto • ${arcColorPalette} palette`
+                      : "Manually picked"}
+                  </p>
                 </div>
-              )}
-              <div className="flex items-center gap-2 pt-1">
-                <div className="w-4 h-4 rounded-full border border-white/20 shadow-sm shrink-0"
-                  style={{ backgroundColor: arcColorMode === "auto" ? ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length] : arcColor }}/>
-                <span className="text-[10px] text-muted-foreground">{arcColorMode === "auto" ? `Auto-assigned from ${arcColorPalette} palette` : "Manually selected"}</span>
+                <div className="w-20 h-1.5 rounded-full overflow-hidden"
+                     style={{ background: `linear-gradient(to right, ${(arcColorMode === "auto"
+                       ? ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length]
+                       : arcColor)}33, ${arcColorMode === "auto"
+                       ? ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length]
+                       : arcColor})` }}>
+                </div>
               </div>
             </div>
+
             <div>
               <label className="text-[10px] text-muted-foreground mb-1 block">Description (optional)</label>
               <Textarea value={arcDesc} onChange={e => setArcDesc(e.target.value)} placeholder="What happens in this arc?" className="bg-card resize-none min-h-[80px] text-sm"/>

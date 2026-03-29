@@ -1,13 +1,9 @@
-import { DOMParser } from "https://deno.land/x/deno_dom@v0.1.56/deno-dom-wasm.ts";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ============================================================
 // TYPES
-// ============================================================
 interface StoryMeta {
   title: string;
   altTitle: string;
@@ -21,9 +17,7 @@ interface StoryMeta {
   whereToRead: string;
 }
 
-// ============================================================
 // UTILS
-// ============================================================
 function detectDomain(url: string): string {
   try {
     const { hostname } = new URL(url);
@@ -38,9 +32,7 @@ function extractIdFromUrl(url: string, pattern: RegExp): string {
   return match?.[1] ?? "";
 }
 
-// ============================================================
 // 1. MANGADEX API
-// ============================================================
 async function fetchFromMangaDex(url: string): Promise<StoryMeta> {
   const mangaId = extractIdFromUrl(url, /mangadex\.org\/title\/([a-f0-9-]{36})/);
   if (!mangaId) throw new Error("Cannot extract MangaDex ID from URL");
@@ -60,7 +52,7 @@ async function fetchFromMangaDex(url: string): Promise<StoryMeta> {
     Object.values(attr.title ?? {})[0] ||
     "Unknown";
 
-  // Alt Titles — ambil semua, prioritas English lalu romaji lalu lainnya
+  // Alt Titles 
   const altTitleList: string[] = [];
   for (const obj of (attr.altTitles ?? [])) {
     const val = obj["en"] || obj["ja-ro"] || Object.values(obj)[0];
@@ -106,9 +98,7 @@ async function fetchFromMangaDex(url: string): Promise<StoryMeta> {
     .filter(Boolean);
 
   // Demographic
-  const demographic = attr.publicationDemographic ?? "";
-
-  // Country — MangaDex uses "ja" not "jp", return ISO code for frontend
+  const demographic = attr.publicationDemographic ?? "";  
   const countryMap: Record<string, string> = {
     ja: "JP",
     ko: "KR",
@@ -134,11 +124,8 @@ async function fetchFromMangaDex(url: string): Promise<StoryMeta> {
   };
 }
 
-// ============================================================
 // 2. JIKAN API (MyAnimeList)
-// ============================================================
-async function fetchFromMAL(url: string): Promise<StoryMeta> {
-  // Support URL format: myanimelist.net/manga/12345/...
+async function fetchFromMAL(url: string): Promise<StoryMeta> {  
   const malId = extractIdFromUrl(url, /myanimelist\.net\/manga\/(\d+)/);
   if (!malId) throw new Error("Cannot extract MAL ID from URL");
 
@@ -147,8 +134,7 @@ async function fetchFromMAL(url: string): Promise<StoryMeta> {
 
   const { data } = await res.json();
 
-  const title = data.title ?? "Unknown";
-  // Alt Title — gabung semua sinonim, max 3
+  const title = data.title ?? "Unknown";  
   const synonyms = (data.titles ?? [])
     .filter((t: { type: string; title: string }) => t.type === "Synonym" && t.title !== data.title)
     .map((t: { title: string }) => t.title)
@@ -167,11 +153,9 @@ async function fetchFromMAL(url: string): Promise<StoryMeta> {
 
   const genres: string[] = data.genres?.map((g: { name: string }) => g.name) ?? [];
   const themes: string[] = data.themes?.map((t: { name: string }) => t.name) ?? [];
-  const explicitGenres: string[] = data.explicit_genres?.map((g: { name: string }) => g.name) ?? [];
+  const _explicitGenres: string[] = data.explicit_genres?.map((g: { name: string }) => g.name) ?? [];
 
-  const demographic = data.demographics?.[0]?.name ?? "";
-
-  // MAL doesn't expose origin country, guess from type — return ISO code
+  const demographic = data.demographics?.[0]?.name ?? "";  
   const typeCountryMap: Record<string, string> = {
     Manga: "JP",
     Manhwa: "KR",
@@ -197,11 +181,8 @@ async function fetchFromMAL(url: string): Promise<StoryMeta> {
   };
 }
 
-// ============================================================
 // 3. ANILIST GRAPHQL API
-// ============================================================
-async function fetchFromAniList(url: string): Promise<StoryMeta> {
-  // Support: anilist.co/manga/12345/...
+async function fetchFromAniList(url: string): Promise<StoryMeta> {  
   const anilistId = extractIdFromUrl(url, /anilist\.co\/manga\/(\d+)/);
   if (!anilistId) throw new Error("Cannot extract AniList ID from URL");
 
@@ -259,13 +240,11 @@ async function fetchFromAniList(url: string): Promise<StoryMeta> {
     .filter((t: { isGeneralSpoiler: boolean; category: string }) => !t.isGeneralSpoiler)
     .map((t: { name: string }) => t.name);
 
-  // Demographic from tags
+  // Demographic 
   const demographicTag = (media.tags ?? []).find(
     (t: { category: string }) => t.category === "Demographic"
   );
-  const demographic = demographicTag?.name ?? "";
-
-  // AniList already returns ISO country codes (JP, KR, CN, etc.) — use directly
+  const demographic = demographicTag?.name ?? "";  
   const country = media.countryOfOrigin ?? "";
 
   return {
@@ -282,19 +261,14 @@ async function fetchFromAniList(url: string): Promise<StoryMeta> {
   };
 }
 
-// ============================================================
 // 4. GROQ AI FALLBACK (untuk situs lain)
-// ============================================================
-async function fetchWithGroqFallback(url: string): Promise<StoryMeta> {
-  // Fetch HTML from the target site
+async function fetchWithGroqFallback(url: string): Promise<StoryMeta> {  
   const res = await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     },
   });
-  const html = await res.text();
-
-  // Trim HTML to avoid token limit
+  const html = await res.text();  
   const trimmedHtml = html.slice(0, 15000);
 
   const groqKey = Deno.env.get("GROQ_API_KEY");
@@ -354,9 +328,7 @@ ${trimmedHtml}`;
   };
 }
 
-// ============================================================
 // MAIN ROUTER
-// ============================================================
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -373,9 +345,7 @@ Deno.serve(async (req) => {
       meta = await fetchFromMAL(url);
     } else if (domain.includes("anilist.co")) {
       meta = await fetchFromAniList(url);
-    } else {
-      // Fallback: Groq AI scraping untuk situs lain
-      // (Webtoon, Lezhin, Tappytoon, KaliScan, MangaBuddy, dll)
+    } else {     
       meta = await fetchWithGroqFallback(url);
     }
 

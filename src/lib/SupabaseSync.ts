@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
-import { db, dexieAPI, SyncStatus } from './DexieDB';
+import { db, dexieAPI, SyncStatus, DexieStory } from './DexieDB';
+import type { Story } from './types'; 
 import { useEffect, useState } from 'react';
 
 interface SyncStats {
@@ -8,36 +9,39 @@ interface SyncStats {
   conflicts: number;
 }
 
-export const syncAPI = {
-  /** Push local changes to Supabase */
+export const syncAPI = {  
   push: async (userId: string): Promise<SyncStats> => {
     const unsynced = await dexieAPI.getUnsynced();
     if (unsynced.length === 0) return { local: 0, cloud: 0, conflicts: 0 };
 
     const results = await Promise.allSettled(
-      unsynced.map(async (story): Promise<any> => {
+      unsynced.map(async (dexieStory) => {        
+        const { sync_status, last_sync, updated_at, data: _data, ...storyToUpload } = dexieStory;              
+        const jsonData = JSON.parse(JSON.stringify(storyToUpload));
+
         const { error } = await supabase
           .from('stories')
           .upsert({
-            id: story.id,
+            id: dexieStory.id,
             user_id: userId,
-            title: story.title,
-            data: story.data,
-            version: story.version,
+            title: dexieStory.title,
+            data: jsonData, 
+            version: dexieStory.version,
             updated_at: new Date().toISOString()
           }, { onConflict: 'user_id,id' });
 
         if (!error) {
-          await dexieAPI.setSynced([story.id], story.version);
+          await dexieAPI.setSynced([dexieStory.id], dexieStory.version);
         }
-        return { success: !error, story };
+        
+        return { success: !error, storyId: dexieStory.id };
       })
     );
 
     const stats: SyncStats = {
       local: unsynced.length,
-      cloud: results.filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled').length,
-      conflicts: 0 // Add conflict logic later
+      cloud: results.filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled' && r.value.success).length,
+      conflicts: 0 
     };
 
     return stats;
@@ -53,20 +57,15 @@ export const syncAPI = {
 
     if (error || !data) return { local: 0, cloud: 0, conflicts: 0 };
 
-    const updates: Array<{id: string, data: any, version: number}> = data;
-
     const results = await Promise.allSettled(
-      updates.map(async ({ id, data: cloudData, version }) => {
-        const localStory = await db.stories.get(id);
-        if (!localStory || cloudData.version > localStory.version) {
-          await db.stories.put({
-            ...cloudData,
-            id,
-            sync_status: SyncStatus.SYNCED,
-            version: cloudData.version,
-            data: cloudData
-          });
-        }
+      data.map(async (cloudRecord) => {        
+        const cloudDataRaw = cloudRecord.data;
+
+        if (!cloudDataRaw || typeof cloudDataRaw !== 'object' || Array.isArray(cloudDataRaw)) return;
+
+        const storyData = cloudDataRaw as unknown as Story; 
+       
+        await dexieAPI.upsertFromCloud(storyData, cloudRecord.version);
       })
     );
 
@@ -77,7 +76,6 @@ export const syncAPI = {
     };
   },
 
-  /** Full bi-directional sync */
   sync: async (userId: string): Promise<SyncStats> => {
     const pushStats = await syncAPI.push(userId);
     const pullStats = await syncAPI.pull(userId);
@@ -103,22 +101,20 @@ export function useRealtimeSync(userId?: string) {
           table: 'stories',
           filter: `user_id=eq.${userId}`
         }, 
-        async (payload) => {
-          console.log('Realtime story change:', payload);
+        async (payload) => {         
+          const eventType = payload.eventType;           
+          console.log(`Realtime ${eventType}:`, payload);                    
+          const record = payload.new as any;
           
-          const { id, data } = payload.new as any;
-          if (!data) return;
+          if (!record) return;
 
-          const localStory = await db.stories.get(id);
-          if (localStory && data.version > localStory.version) {
-            // Cloud wins (higher version)
-            await db.stories.put({
-              ...data,
-              id,
-              sync_status: SyncStatus.SYNCED,
-              version: data.version,
-              data
-            });
+          const storyDataRaw = record.data;
+          const version = record.version;
+
+          // Validasi data          
+          if (storyDataRaw && typeof storyDataRaw === 'object' && !Array.isArray(storyDataRaw) && version) {
+             const storyData = storyDataRaw as unknown as Story; 
+             await dexieAPI.upsertFromCloud(storyData, version);
           }
         }
       )
@@ -134,12 +130,11 @@ export function useRealtimeSync(userId?: string) {
 export function useSyncStats() {
   const [stats, setStats] = useState<SyncStats>({ local: 0, cloud: 0, conflicts: 0 });
 
-  // Live counts from Dexie
   const updateStats = async () => {
-    const local = await db.stories.where('sync_status').equals(SyncStatus.LOCAL).count();
-    const conflicts = await db.stories.where('sync_status').equals(SyncStatus.CONFLICT).count();
+    const unsyncedRecords = await dexieAPI.getUnsynced();
+    const conflicts = unsyncedRecords.filter(r => r.sync_status === SyncStatus.CONFLICT).length;
+    const local = unsyncedRecords.filter(r => r.sync_status === SyncStatus.LOCAL).length;
     
-    // Cloud count via quick Supabase count (if logged in)
     let cloud = 0;
     const { data } = await supabase.auth.getSession();
     if (data.session?.user) {
@@ -150,7 +145,7 @@ export function useSyncStats() {
       cloud = count || 0;
     }
 
-    setStats({ local: Number(local), cloud, conflicts: Number(conflicts) });
+    setStats({ local, cloud, conflicts });
   };
 
   useEffect(() => {
@@ -161,4 +156,3 @@ export function useSyncStats() {
 
   return stats;
 }
-

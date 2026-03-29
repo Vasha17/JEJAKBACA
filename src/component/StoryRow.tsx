@@ -1,112 +1,148 @@
-// components/StoryRow.tsx
-import { Story } from "@/lib/types";
-import { Star, GripVertical, Plus, X, BookOpen } from "lucide-react";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Star, BookOpen, MoreHorizontal, Trash2, PlusCircle } from "lucide-react";
 
-interface StoryRowProps {
-  story: Story;
-  index: number;
-  onLogChapter?: (id: string) => void;
-  onRemove?: (id: string) => void;
+// ─── Status Config ───────────────────────────────────
+const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
+  reading:        { label: "Reading",      color: "text-emerald-400", dot: "bg-emerald-400" },
+  completed:      { label: "Completed",    color: "text-sky-400",     dot: "bg-sky-400" },
+  "plan-to-read": { label: "Plan to Read", color: "text-zinc-400",    dot: "bg-zinc-400" },
+  dropped:        { label: "Dropped",      color: "text-red-400",     dot: "bg-red-400" },
+};
+
+// ─── Star Rating ──────────────────────────────────────
+function StarRating({ rating, onChange }: { rating: number; onChange?: (r: number) => void }) {
+  const [hovered, setHovered] = useState(0);
+  const active = hovered || rating;
+  return (
+    <div className="flex items-center gap-0.5" onMouseLeave={() => setHovered(0)}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <button
+          key={i}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onChange?.(i === rating ? 0 : i); }}
+          onMouseEnter={() => setHovered(i)}
+          className="transition-transform hover:scale-110 active:scale-95 z-20 relative"
+          title={`Rate ${i}`}
+        >
+          <Star
+            size={17}
+            className={`transition-colors duration-100 ${
+              i <= active
+                ? "text-amber-400 fill-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.5)]"
+                : "text-zinc-600 fill-transparent"
+            }`}
+          />
+        </button>
+      ))}
+    </div>
+  );
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  reading: "#22c55e",
-  completed: "#3b82f6",
-  "plan-to-read": "#6b7280",
-  dropped: "#ef4444",
-};
+// ─── Interfaces ───────────────────────────────────────
+interface StoryRowProps {
+  story: any;
+  index: number;
+  listId: string;
+  onLogChapter: (id: string) => void;
+  onRemove: (id: string) => void;
+  onRatingChange?: (id: string, rating: number) => void;
+}
 
-const STATUS_LABEL: Record<string, string> = {
-  reading: "Reading",
-  completed: "Completed",
-  "plan-to-read": "Plan",
-  dropped: "Dropped",
-};
+// ─── Main Component ──────────────────────────────────
+export function StoryRow({ story, index, listId, onLogChapter, onRemove, onRatingChange }: StoryRowProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const statusCfg = STATUS_CONFIG[story.status] ?? STATUS_CONFIG["plan-to-read"];
 
-export function StoryRow({ story, index, onLogChapter, onRemove }: StoryRowProps) {
   return (
-    <div className="group flex items-center gap-3 px-3 py-2.5 rounded-xl border border-border bg-card hover:border-primary/20 transition-all">
-      {/* Drag handle */}
-      <GripVertical
-        size={14}
-        className="text-muted-foreground/40 cursor-grab flex-shrink-0"
-      />
+    <Link
+      to={`/story/${story.id}`}
+      // Pass listId so StoryDetail can navigate back to the correct list
+      state={{ fromListId: listId || undefined }}
+      className="group relative flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-border/60 bg-card hover:bg-card/80 hover:border-primary/50 transition-all duration-150 hover:shadow-md hover:shadow-primary/5"
+    >
+      {/* Index / Drag Handle */}
+      <div className="flex items-center gap-2 shrink-0 w-8 z-10">
+        <span className="text-[11px] font-bold text-muted-foreground/40 group-hover:hidden w-5 text-right select-none">
+          {index + 1}
+        </span>
+        <span
+          className="hidden group-hover:flex text-muted-foreground/50 cursor-grab active:cursor-grabbing p-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor">
+            <circle cx="4" cy="3" r="1.5"/><circle cx="8" cy="3" r="1.5"/>
+            <circle cx="4" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/>
+            <circle cx="4" cy="13" r="1.5"/><circle cx="8" cy="13" r="1.5"/>
+          </svg>
+        </span>
+      </div>
 
-      {/* Rank */}
-      <span className="text-[10px] font-bold text-muted-foreground w-4 text-right flex-shrink-0">
-        {index + 1}
-      </span>
-
-      {/* Cover thumbnail */}
-      <div className="w-9 h-12 flex-shrink-0 rounded-lg overflow-hidden bg-secondary border border-border shadow-sm">
-        {story.coverUrl ? (
-          <img
-            src={story.coverUrl}
-            alt={story.title}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <BookOpen size={12} className="text-muted-foreground/40" />
-          </div>
-        )}
+      {/* Cover */}
+      <div className="shrink-0 w-12 h-16 rounded-xl overflow-hidden bg-secondary border border-border/50 shadow-md">
+        {story.coverUrl
+          ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover" />
+          : <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><BookOpen size={18} /></div>
+        }
       </div>
 
       {/* Info */}
-      <div className="flex-1 min-w-0">
-        <h4 className="font-semibold text-xs text-foreground truncate">{story.title}</h4>
-        <div className="flex items-center gap-2 mt-0.5">
-          <span className="text-[9px] px-1 py-px rounded bg-secondary text-muted-foreground font-medium">
-            {story.type}
+      <div className="flex-1 min-w-0 space-y-1">
+        <p className="font-semibold text-sm text-foreground truncate leading-tight group-hover:text-primary transition-colors">
+          {story.title}
+        </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`flex items-center gap-1.5 text-[11px] font-medium ${statusCfg.color}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+            {statusCfg.label}
           </span>
-          <span className="text-[9px] text-muted-foreground">
-            Ch.{story.currentChapter}
-            {story.totalChapters > 0 ? `/${story.totalChapters}` : ""}
-          </span>
-          <div className="flex items-center gap-0.5">
-            <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ backgroundColor: STATUS_COLORS[story.status] ?? "#6b7280" }}
-            />
-            <span className="text-[9px] text-muted-foreground">
-              {STATUS_LABEL[story.status] ?? story.status}
+          {story.currentChapter > 0 && (
+            <span className="text-[11px] text-muted-foreground/60 font-medium">
+              Ch.{story.currentChapter}
             </span>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Rating stars */}
-      <div className="flex items-center gap-0.5 flex-shrink-0">
-        {[...Array(5)].map((_, i) => (
-          <Star
-            key={i}
-            size={10}
-            className={
-              i < Math.round(story.rating / 2)
-                ? "text-primary fill-primary"
-                : "text-muted-foreground/30"
-            }
-          />
-        ))}
+      {/* Rating */}
+      <div className="shrink-0 flex flex-col items-end gap-1.5 z-20">
+        <StarRating rating={story.rating || 0} onChange={(r) => onRatingChange?.(story.id, r)} />
+        {story.rating > 0 && (
+          <span className="text-[11px] font-black text-amber-400 tabular-nums leading-none">
+            {story.rating}.0
+          </span>
+        )}
       </div>
 
-      {/* Quick Actions: only +1 Chapter & Remove */}
-      <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Actions */}
+      <div className="shrink-0 flex items-center gap-1 ml-1 z-30">
         <button
-          onClick={() => onLogChapter?.(story.id)}
+          onClick={(e) => { e.stopPropagation(); onLogChapter(story.id); }}
           className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-          title="+1 Chapter"
+          title="Log chapter"
         >
-          <Plus size={12} />
+          <PlusCircle size={14} />
         </button>
-        <button
-          onClick={() => onRemove?.(story.id)}
-          className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-          title="Remove"
-        >
-          <X size={12} />
-        </button>
+        <div className="relative" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => setMenuOpen((p) => !p)}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          >
+            <MoreHorizontal size={14} />
+          </button>
+          {menuOpen && (
+            <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 min-w-[130px]">
+              <button
+                onClick={() => { setMenuOpen(false); onRemove(story.id); }}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                <Trash2 size={12} />
+                Remove from list
+              </button>
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+    </Link>
   );
 }
