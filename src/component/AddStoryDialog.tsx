@@ -183,7 +183,7 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
               </p>
               <form onSubmit={handleAutoFetch} className="flex gap-2">
                 <Input value={autoUrl} onChange={e => { setAutoUrl(e.target.value); setAutoError(""); }}
-                  placeholder="https://mangadex.org/title/..." disabled={autoLoading} className="flex-1"/>
+                  placeholder="https://MyAnimeList.net/title/..." disabled={autoLoading} className="flex-1"/>
                 <Button type="submit" disabled={autoLoading || !autoUrl.trim()} className="shrink-0">
                   {autoLoading ? <Loader2 className="animate-spin h-4 w-4"/> : <Sparkles className="h-4 w-4"/>}
                 </Button>

@@ -213,15 +213,21 @@ const ListsIndex = () => {
   handleUpdateLists([...lists, newList]);
   showToast("List created", name);
 
-  // Sync ke Supabase — ambil user langsung dari supabase, bukan dari hook
   try {
     const { supabase } = await import("@/integrations/supabase/client");
-    const { data: { user: currentUser } } = await supabase.auth.getUser();
-console.log("Current user saat create list:", currentUser?.id);
+    
+    // Tunggu session ready dulu
+    const { data: sessionData } = await supabase.auth.getSession();
+    const currentUser = sessionData?.session?.user;
     const skipLogin = localStorage.getItem("jejakbaca_skip_login") === "true";
+    
+    console.log("Session user:", currentUser?.id);
+    
     if (currentUser && !skipLogin) {
       await upsertListToSupabase(currentUser.id, newList);
       console.log("✅ List synced:", newList.name);
+    } else {
+      console.log("No session — list saved locally only");
     }
   } catch (e) {
     console.error("Failed to sync new list:", e);
