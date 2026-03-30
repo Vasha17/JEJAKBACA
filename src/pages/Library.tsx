@@ -410,42 +410,57 @@ function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources
 }) {
   const [statusOpen, setStatusOpen] = useState(false);
   return (
-    <div className="fixed bottom-20 left-2 right-2 sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 z-40 bg-card border border-border rounded-2xl shadow-2xl p-2 flex items-center gap-2 flex-wrap animate-in slide-in-from-bottom-4">
-      <span className="text-xs font-bold text-foreground pl-2">{count} Selected</span>
-      <div className="h-4 w-px bg-border" />
-      <div className="relative">
+    // 
+    // left-3 right-3: TETAP ADA (supaya nggak mentok pinggir layar)
+    // gap-1: DIRAPATKAN (sebelumnya gap-2)
+    // p-2: Padding bar dirapatin dikit
+    //
+    <div className="fixed bottom-20 left-3 right-3 sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 z-50 bg-card border border-border rounded-2xl shadow-2xl p-2 flex items-center gap-1 animate-in slide-in-from-bottom-4">
+      
+      {/* mx-0.5: Jarak teks dikit dari pinggir kiri */}
+      <span className="text-xs font-bold text-foreground px-1 mx-0.5">{count} Selected</span>
+      
+      {/* mx-0.5: Jarak garis dikit dari kiri kanan */}
+      <div className="h-4 w-px bg-border mx-0.5" />
+      
+      {/* TOMBOL STATUS */}
+      <div className="relative shrink-0">
         <button onClick={() => setStatusOpen(prev => !prev)}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-secondary text-foreground transition-colors">
+          // px-2 py-1: Padding tombol dirapatin
+          className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium hover:bg-secondary text-foreground transition-colors">
           <Settings size={14} />
-          Status
+          <span>Status</span>
           <ChevronRight size={12} className={`transition-transform ${statusOpen ? "rotate-90" : ""}`} />
         </button>
-        {statusOpen && (
-          <div className="absolute bottom-full left-0 mb-2 flex flex-col gap-1 bg-card border border-border rounded-lg shadow-xl overflow-hidden w-40 p-1 z-50">
+        
+        {/* DROPDOWN MENU */}
+        {statusOpen && (          
+          <div className="absolute bottom-full left-0 mb-2 flex flex-col gap-0.5 bg-card border border-border rounded-lg shadow-xl overflow-hidden w-[40vw] max-w-[200px] p-1 z-[100]">
             {STATUS_OPTIONS.map(s => (
               <button key={s.value}
                 onClick={() => { onStatusChange(s.value as StoryStatus); setStatusOpen(false); }}
-                className="text-left px-2 py-1.5 text-xs hover:bg-secondary rounded flex items-center gap-2 text-muted-foreground hover:text-foreground">
+                className="text-left px-2 py-1.5 text-xs hover:bg-secondary rounded flex items-center gap-2 text-muted-foreground hover:text-foreground whitespace-nowrap">
                 <span className={s.color}>{s.icon}</span> {s.label}
               </button>
             ))}
             <button
               onClick={() => { onOpenSources(); setStatusOpen(false); }}
-              className="text-left px-2 py-1.5 text-xs hover:bg-blue-500/10 rounded flex items-center gap-2 text-muted-foreground hover:text-blue-500 border-t border-border/50">
+              className="text-left px-2 py-1.5 text-xs hover:bg-blue-500/10 rounded flex items-center gap-2 text-muted-foreground hover:text-blue-500 border-t border-border/50 whitespace-nowrap">
               <ExternalLink size={14} className="text-blue-500" />
-              Open Sources (Max Chapter)
+              Open Sources
             </button>
           </div>
         )}
       </div>
+
       <button onClick={() => onOpenSources()}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-500/10 text-blue-400 transition-colors">
+        className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium hover:bg-blue-500/10 text-blue-400 transition-colors shrink-0">
         <ExternalLink size={14} /> Open Tabs
       </button>
-      <button onClick={onDelete} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-500/10 text-red-500 transition-colors">
+      <button onClick={onDelete} className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium hover:bg-red-500/10 text-red-500 transition-colors shrink-0">
         <Trash2 size={14} /> Delete
       </button>
-      <button onClick={onClose} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground">
+      <button onClick={onClose} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground shrink-0">
         <X size={14} />
       </button>
     </div>
