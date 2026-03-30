@@ -60,7 +60,7 @@ export function ListCard({ list, onDelete }: ListCardProps) {
   const timeAgo = getRelativeTime(list.updatedAt);
 
   return (
-    <div className="group relative w-full aspect-[4/3] rounded-2xl overflow-hidden 
+    <div className="group relative w-full aspect-[4/4] rounded-2xl overflow-hidden
       bg-secondary/50 border border-white/10 dark:border-white/5
       transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]
       hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/20
@@ -131,36 +131,7 @@ export function ListCard({ list, onDelete }: ListCardProps) {
       />
 
       {/* ── Content Wrapper ── */}
-      <div className="relative z-10 flex flex-col h-full p-6">
-        
-        {/* Top Bar */}
-        <div className="flex justify-between items-start">
-          <span
-            className="text-[10px] font-black tracking-wider uppercase px-2.5 py-1 rounded-lg border backdrop-blur-md shadow-sm"
-            style={{
-              color: hasCover ? "#fff" : listColor,
-              borderColor: hasCover ? "rgba(255,255,255,0.3)" : `${listColor}40`,
-              backgroundColor: hasCover ? "rgba(0,0,0,0.5)" : `${listColor}10`,
-            }}
-          >
-            {list.status}
-          </span>
-          
-          {/* Rating Badge */}
-          {avgRating && (
-            <div className="
-              flex items-center gap-1.5 px-2.5 py-1 
-              rounded-full backdrop-blur-md
-              bg-yellow-300/10 border border-yellow-200/30
-            ">
-              <Star size={15} className="fill-yellow-300 text-yellow-300" />
-              <span className="text-[13px] font-extrabold text-yellow-200">
-                {avgRating}
-              </span>
-            </div>
-          )}
-        </div>
-
+      <div className="relative z-10 flex flex-col h-full p-6">                
         <div className="flex-1" />
 
         {/* Bottom Info */}
@@ -201,7 +172,7 @@ export function ListCard({ list, onDelete }: ListCardProps) {
             </div>
 
             {/* Action Button Group (Visible on Hover) */}
-            <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-x-2 group-hover:translate-x-0">             
+            <div className="flex items-center gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300 transform sm:translate-x-2 sm:group-hover:translate-x-0">             
               {onDelete && (
                 <button
                   onClick={(e) => {

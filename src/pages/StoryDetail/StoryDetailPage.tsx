@@ -119,6 +119,8 @@ export default function StoryDetail() {
   const [arcDialog, setArcDialog]                   = useState(false);
   const [editingArc, setEditingArc]                 = useState<Arc | null>(null);
   const [deleteArcId, setDeleteArcId]               = useState<string | null>(null);
+  const [coverLightbox, setCoverLightbox]           = useState(false);
+  const [headerLightbox, setHeaderLightbox]         = useState(false);
 
   // ── Form states ─────────────────────────────────────────────────────────────
   const [coverUrlValue, setCoverUrlValue]   = useState("");
@@ -556,7 +558,7 @@ export default function StoryDetail() {
 
       {/* ═══ HERO ══════════════════════════════════════════════════════════════ */}
       <div className="relative">
-        <div className="h-48 sm:h-64 relative overflow-hidden bg-secondary">
+        <div className="h-48 sm:h-64 relative overflow-hidden bg-secondary group cursor-zoom-in" onClick={() => story.headerUrl && setHeaderLightbox(true)}>
           {story.headerUrl ? (
             <img src={`${story.headerUrl}?width=1920&quality=100`} alt="" className="w-full h-full object-cover"/>
           ) : story.coverUrl ? (
@@ -583,7 +585,7 @@ export default function StoryDetail() {
                 <ArrowLeft className="w-4 h-4 text-foreground"/>
               </button>
             )}
-            <div className="flex gap-2">
+           <div className="flex gap-2">
               <Dialog open={headerDialog} onOpenChange={setHeaderDialog}>
                 <DialogTrigger asChild>
                   <button
@@ -593,7 +595,7 @@ export default function StoryDetail() {
                     Edit Header
                   </button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="w-[92vw] max-w-md mx-auto">
                   <DialogHeader><DialogTitle>Edit Header Image</DialogTitle></DialogHeader>
                   <Input value={headerUrlValue} onChange={e => setHeaderUrlValue(e.target.value)} placeholder="Paste image URL..."/>
                   <Button variant="outline" onClick={() => headerFileRef.current?.click()}>
@@ -607,9 +609,16 @@ export default function StoryDetail() {
                 </DialogContent>
               </Dialog>
               {story.headerUrl && (
-                <button onClick={() => setHeaderCropOpen(true)} className="px-3 py-1 text-xs rounded bg-card/80 text-foreground hover:bg-card border border-border">
+                <button onClick={(e) => { e.stopPropagation(); setHeaderCropOpen(true); }} className="px-3 py-1 text-xs rounded bg-card/80 text-foreground hover:bg-card border border-border">
                   Reposition
                 </button>
+              )}
+              {story.headerUrl && (  
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity z-10 pointer-events-none">
+                  <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>                  
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -618,9 +627,19 @@ export default function StoryDetail() {
         {/* Cover + meta */}
         <div className="relative px-3 sm:px-6 -mt-24 sm:-mt-40 flex flex-row gap-3 sm:gap-6 items-start">
           <div className="w-[105px] sm:w-44 shrink-0 z-10">
-            <div className="aspect-[3/4] rounded-lg overflow-hidden bg-card border-2 border-border shadow-xl">
+            <div 
+              className="aspect-[3/4] rounded-xl overflow-hidden bg-card border-2 border-border shadow-xl cursor-zoom-in relative group"
+              onClick={() => story.coverUrl && setCoverLightbox(true)}
+            >
               {story.coverUrl
-                ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover"/>
+                ? <>
+                    <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover"/>
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 sm:group-active:opacity-100 active:opacity-100 transition-opacity bg-black/20">
+                      <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                      </div>
+                    </div>
+                  </>
                 : <div className="w-full h-full flex items-center justify-center bg-secondary"><BookOpen className="w-12 h-12 text-muted-foreground/30"/></div>}
             </div>
             <div className="flex gap-1 mt-2 justify-center">
@@ -628,8 +647,8 @@ export default function StoryDetail() {
                 <DialogTrigger asChild>
                   <button onClick={() => setCoverUrlValue(story.coverUrl || "")} className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground hover:bg-muted">Edit Cover</button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
-                  <DialogHeader><DialogTitle>Edit Cover Image</DialogTitle></DialogHeader>
+                <DialogContent className="w-[92vw] max-w-md mx-auto">
+                  <DialogHeader><DialogTitle>Edit Cover</DialogTitle></DialogHeader>
                   <Input value={coverUrlValue} onChange={e => setCoverUrlValue(e.target.value)} placeholder="Paste image URL..."/>
                   <Button variant="outline" onClick={() => coverFileRef.current?.click()}><Upload className="w-3.5 h-3.5 mr-1"/>Upload</Button>
                   <input ref={coverFileRef} type="file" accept="image/*" className="hidden" onChange={handleCoverFileUpload}/>
@@ -642,7 +661,7 @@ export default function StoryDetail() {
               {story.coverUrl && (
                 <button onClick={() => setCoverCropOpen(true)} className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground hover:bg-muted">Reposition</button>
               )}
-            </div>
+            </div>           
           </div>
 
           <div className="flex-1 z-10 pb-2 sm:pt-8 space-y-2">
@@ -1012,7 +1031,7 @@ export default function StoryDetail() {
 
       {/* Bookmark */}
       <Dialog open={bookmarkDialog} onOpenChange={setBookmarkDialog}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="w-[92vw] max-w-sm mx-auto">
           <DialogHeader><DialogTitle>Add Bookmark</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <Input value={bmChapter} onChange={e => setBmChapter(e.target.value)} placeholder="Chapter number" type="number"/>
@@ -1031,7 +1050,7 @@ export default function StoryDetail() {
 
       {/* Notes */}
       <Dialog open={notesDialog} onOpenChange={open => { if (!open) { setNotesDialog(false); setEditingNote(null); } }}>
-        <DialogContent className="sm:max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+        <DialogContent className="w-[92vw] max-w-2xl max-h-[85vh] flex flex-col overflow-hidden mx-auto">
           <DialogHeader className="shrink-0">
             <DialogTitle>{editingNote ? "Edit Note" : "Write a Note"}</DialogTitle>
           </DialogHeader>
@@ -1047,7 +1066,7 @@ export default function StoryDetail() {
 
       {/* Lists */}
       <Dialog open={listsDialog} onOpenChange={setListsDialog}>
-        <DialogContent className="sm:max-w-sm p-0 overflow-hidden gap-0">
+        <DialogContent className="w-[92vw] max-w-sm p-0 overflow-hidden gap-0 mx-auto">
           {/* Header */}
           <div className="px-5 pt-5 pb-4 border-b border-border">
             <DialogTitle className="text-base font-bold text-foreground">Add to List</DialogTitle>
@@ -1190,7 +1209,7 @@ export default function StoryDetail() {
 
       {/* History */}
       <Dialog open={historyDialog} onOpenChange={setHistoryDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[92vw] max-w-md mx-auto">
           <DialogHeader><DialogTitle>Version History</DialogTitle></DialogHeader>
           {historyEntries.length > 0
             ? <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
@@ -1218,7 +1237,7 @@ export default function StoryDetail() {
 
       {/* Related Stories */}
       <Dialog open={relatedDialog} onOpenChange={setRelatedDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[92vw] max-w-md mx-auto">
           <DialogHeader><DialogTitle>Related Stories</DialogTitle></DialogHeader>
           {relations.length > 0
             ? <div className="space-y-2 mb-4 max-h-56 overflow-y-auto pr-1">
@@ -1281,7 +1300,7 @@ export default function StoryDetail() {
 
       {/* Delete Note confirm */}
       <Dialog open={!!deleteNoteId} onOpenChange={open => { if (!open) setDeleteNoteId(null); }}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="w-[92vw] max-w-sm mx-auto">
           <DialogHeader><DialogTitle>Delete notes?</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">This notes will be deleted permanently.</p>
           <DialogFooter>
@@ -1350,29 +1369,7 @@ export default function StoryDetail() {
         <div className="px-4 sm:px-6 mt-12 space-y-6 sm:space-y-0">
           <div className="flex flex-col lg:flex-row gap-6 sm:gap-6 gap-y-8">
 
-            {/* Genre — mobile only */}
-            <div className="sm:hidden flex flex-wrap gap-1.5 items-center">
-              <span className="text-[9px] text-muted-foreground uppercase tracking-wider shrink-0">Genre</span>
-              {story.genres && story.genres.length > 0 ? (
-                <>
-                  {(genreExpanded ? story.genres : story.genres.slice(0, 5)).map((g: string) => (
-                    <span key={g} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-secondary/80 text-foreground border border-border/50 whitespace-nowrap">{g}</span>
-                  ))}
-                  {story.genres.length > 5 && (
-                    <button onClick={() => setGenreExpanded(v => !v)} className="text-[10px] text-muted-foreground hover:text-foreground border border-border rounded-full px-2 py-0.5 transition-colors">
-                      {genreExpanded ? "Show less" : `+${story.genres.length - 5} more`}
-                    </button>
-                  )}
-                  <button onClick={() => setGenrePickerOpen(true)} className="text-[10px] text-primary hover:text-primary/80 font-medium flex items-center gap-0.5 ml-1 transition-colors">
-                    <Plus size={10}/> Edit
-                  </button>
-                </>
-              ) : (
-                <button onClick={() => setGenrePickerOpen(true)} className="text-[10px] text-muted-foreground hover:text-foreground italic flex items-center gap-0.5">
-                  <Plus size={10}/> Add Genres
-                </button>
-              )}
-            </div>
+           
 
             {/* ── Left Column ── */}
             <div className="flex-1 min-w-0 space-y-8">
@@ -1412,6 +1409,30 @@ export default function StoryDetail() {
                   </>
                 ) : <p className="text-sm text-muted-foreground italic">No synopsis yet.</p>}
               </div>
+
+            {/* Genre — mobile only */}
+            <div className="sm:hidden flex flex-wrap gap-1.5 items-center">
+              <span className="text-[9px] text-muted-foreground uppercase tracking-wider shrink-0">Genre</span>
+              {story.genres && story.genres.length > 0 ? (
+                <>
+                  {(genreExpanded ? story.genres : story.genres.slice(0, 5)).map((g: string) => (
+                    <span key={g} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-secondary/80 text-foreground border border-border/50 whitespace-nowrap">{g}</span>
+                  ))}
+                  {story.genres.length > 5 && (
+                    <button onClick={() => setGenreExpanded(v => !v)} className="text-[10px] text-muted-foreground hover:text-foreground border border-border rounded-full px-2 py-0.5 transition-colors">
+                      {genreExpanded ? "Show less" : `+${story.genres.length - 5} more`}
+                    </button>
+                  )}
+                  <button onClick={() => setGenrePickerOpen(true)} className="text-[10px] text-primary hover:text-primary/80 font-medium flex items-center gap-0.5 ml-1 transition-colors">
+                    <Plus size={10}/> Edit
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setGenrePickerOpen(true)} className="text-[10px] text-muted-foreground hover:text-foreground italic flex items-center gap-0.5">
+                  <Plus size={10}/> Add Genres
+                </button>
+              )}
+            </div>
 
               {/* Inline relations */}
               {inlineRelations.length > 0 && (
@@ -1564,7 +1585,7 @@ export default function StoryDetail() {
                     <DialogTrigger asChild>
                       <button className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border">Edit</button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
+                    <DialogContent className="w-[92vw] max-w-md mx-auto">
                       <DialogHeader><DialogTitle>Edit Sources</DialogTitle></DialogHeader>
                       {story.sources && story.sources.length > 0 ? (
                         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
@@ -1630,7 +1651,7 @@ export default function StoryDetail() {
                     <DialogTrigger asChild>
                       <button className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border">Add</button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
+                    <DialogContent className="w-[92vw] max-w-md mx-auto">
                       <DialogHeader><DialogTitle>Add Reading Link</DialogTitle></DialogHeader>
                       <div className="space-y-2">
                         <Input value={srcName} onChange={e => setSrcName(e.target.value)} placeholder="Site name (e.g. MangaDex)" className="bg-card text-sm"/>
@@ -1721,7 +1742,7 @@ export default function StoryDetail() {
                       <DialogTrigger asChild>
                         <button className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border">Link</button>
                       </DialogTrigger>
-                      <DialogContent className="sm:max-w-sm">
+                      <DialogContent className="w-[92vw] max-w-sm mx-auto">
                         <DialogHeader><DialogTitle>Add Media Link</DialogTitle></DialogHeader>
                         <Input value={mediaLabel} onChange={e => setMediaLabel(e.target.value)} placeholder="Label / Alt text" className="bg-card"/>
                         <Input value={mediaUrl}   onChange={e => setMediaUrl(e.target.value)}   placeholder="URL or link" className="bg-card"/>
@@ -1765,16 +1786,16 @@ export default function StoryDetail() {
             <div className="flex items-center gap-1 bg-secondary rounded-lg p-1 border border-border">
               {(["notes", "timeline"] as const).map(tab => (
                 <button key={tab} onClick={() => handleTabChange(tab)}
-                  className={`px-4 py-2 rounded-md text-base font-bold transition-all ${activeTab === tab ? "bg-card text-foreground shadow-sm border border-border" : "text-muted-foreground hover:text-foreground"}`}>
+                className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-card text-foreground shadow-sm border border-border" : "text-muted-foreground hover:text-foreground"}`}>
                   {tab === "notes" ? "My Notes" : "Arc Timeline"}
                 </button>
               ))}
             </div>
             {activeTab === "notes" && (
-              <button onClick={() => { setEditingNote(null); setNoteContent(""); setNotesDialog(true); }} className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium">+ Add Note</button>
+              <button onClick={() => { setEditingNote(null); setNoteContent(""); setNotesDialog(true); }} className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium whitespace-nowrap">+ Add Note</button>
             )}
             {activeTab === "timeline" && (
-              <button onClick={() => handleOpenArcDialog()} className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium">+ Add Arc</button>
+              <button onClick={() => handleOpenArcDialog()} className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium whitespace-nowrap">+ Add Arc</button>
             )}
           </div>
 
@@ -1865,34 +1886,17 @@ export default function StoryDetail() {
                   <button onClick={() => handleOpenArcDialog()} className="text-xs text-primary hover:underline font-medium">Add your first arc →</button>
                 </div>
           )}
-        </section>
-
-        {/* Lists section */}
-        {story.lists.length > 0 && (
-          <section className="px-4 sm:px-6 mt-8">
-            <h4 className="text-sm font-semibold text-foreground mb-2">Lists</h4>
-            <div className="flex flex-wrap gap-1.5">
-              {story.lists.map((listId: string) => {
-                const listObj = customLists.find((l: any) => l.id === listId);
-                return (
-                  <span key={listId} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs border border-primary/20">
-                    {listObj ? listObj.name : listId}
-                  </span>
-                );
-              })}
-            </div>
-          </section>
-        )}
+        </section>       
       </main>
 
       {/* ═══ FLOATING UI ═══════════════════════════════════════════════════════ */}
       {prevStory && (
-        <button onClick={() => handleNavigateStory(prevStory.id)} className="fixed left-2 top-1/2 -translate-y-1/2 z-40 p-3 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 opacity-0 hover:opacity-100 transition-all duration-300 group shadow-xl" title={`Previous: ${prevStory.title}`}>
+        <button onClick={() => handleNavigateStory(prevStory.id)} className="fixed left-2 top-1/2 -translate-y-1/2 z-40 p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 opacity-40 sm:opacity-0 hover:opacity-100 transition-all duration-300 group shadow-xl" title={`Previous: ${prevStory.title}`}>
           <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform"/>
         </button>
       )}
       {nextStory && (
-        <button onClick={() => handleNavigateStory(nextStory.id)} className="fixed right-2 top-1/2 -translate-y-1/2 z-40 p-3 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 opacity-0 hover:opacity-100 transition-all duration-300 group shadow-xl" title={`Next: ${nextStory.title}`}>
+        <button onClick={() => handleNavigateStory(nextStory.id)} className="fixed right-2 top-1/2 -translate-y-1/2 z-40 p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 opacity-40 sm:opacity-0 hover:opacity-100 transition-all duration-300 group shadow-xl" title={`Next: ${nextStory.title}`}>
           <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform"/>
         </button>
       )}
@@ -1968,7 +1972,7 @@ export default function StoryDetail() {
 
       {/* Country dialog */}
       <Dialog open={countryDialog} onOpenChange={setCountryDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[92vw] max-w-md mx-auto">
           <DialogHeader><DialogTitle>Origin Country</DialogTitle></DialogHeader>
           <div className="relative mb-4">
             <Input placeholder="Search country (e.g. Japan, ID, USA)..." value={countrySearch} onChange={e => setCountrySearch(e.target.value)} className="pl-9"/>
@@ -2019,7 +2023,7 @@ export default function StoryDetail() {
 
       {/* Arc add/edit dialog */}
       <Dialog open={arcDialog} onOpenChange={open => { if (!open) { setArcDialog(false); setEditingArc(null); } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[92vw] max-w-md mx-auto">
           <DialogHeader><DialogTitle>{editingArc ? "Edit Arc" : "Add Arc"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <Input value={arcName} onChange={e => setArcName(e.target.value)} placeholder="Arc name (e.g. East Blue Arc)" className="bg-card" autoFocus/>
@@ -2126,7 +2130,7 @@ export default function StoryDetail() {
 
       {/* Arc delete confirm */}
       <Dialog open={!!deleteArcId} onOpenChange={open => { if (!open) setDeleteArcId(null); }}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="w-[92vw] max-w-sm mx-auto">
           <DialogHeader><DialogTitle>Delete arc?</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">This arc will be deleted permanently.</p>
           <DialogFooter>
@@ -2135,6 +2139,26 @@ export default function StoryDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+    {/* Cover Lightbox */}
+    {coverLightbox && story.coverUrl && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={() => setCoverLightbox(false)}>
+        <button className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors" onClick={() => setCoverLightbox(false)}>
+          <X className="w-5 h-5"/>
+        </button>
+        <img src={story.coverUrl} alt={story.title} className="h-[80vh] sm:h-screen w-auto max-w-[92vw] sm:max-w-[95vw] object-contain" onClick={e => e.stopPropagation()}/>
+      </div>
+    )}
+
+    {/* Header Lightbox */}
+    {headerLightbox && story.headerUrl && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={() => setHeaderLightbox(false)}>
+        <button className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors" onClick={() => setHeaderLightbox(false)}>
+          <X className="w-5 h-5"/>
+        </button>
+        <img src={story.headerUrl} alt="header" className="h-[80vh] sm:h-screen w-auto max-w-[92vw] sm:max-w-[95vw] object-contain" onClick={e => e.stopPropagation()}/>
+      </div>
+    )}
 
     </div>
   );

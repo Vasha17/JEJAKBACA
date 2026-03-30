@@ -125,7 +125,7 @@ async function fetchListsFromSupabase(userId: string): Promise<ReadingList[]> {
 
 async function upsertListToSupabase(userId: string, list: ReadingList) {
   const { supabase } = await import("@/integrations/supabase/client");
-  const { error } = await supabase.from("lists").upsert(
+  const { error, data } = await supabase.from("lists").upsert(
     {
       id: list.id,
       user_id: userId,
@@ -137,7 +137,7 @@ async function upsertListToSupabase(userId: string, list: ReadingList) {
     },
     { onConflict: "id" }
   );
-  if (error) console.error("Failed to upsert list:", error);
+  console.log("Upsert result:", { error, data, userId });
 }
 
 async function deleteListFromSupabase(listId: string) {

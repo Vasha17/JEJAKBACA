@@ -107,10 +107,10 @@ function QuickViewModal({ story, onClose, onNavigate }: {
           ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover" />
           : <div className="w-full h-full flex items-center justify-center"><BookOpen className="w-14 h-14 text-muted-foreground/15" /></div>}
       </div>
-      <div className="absolute inset-x-0 bottom-0 pointer-events-none"
+      <div className="absolute insebaselinet-x-0 bottom-0 pointer-events-none"
         style={{ height: "55%", background: "linear-gradient(to top, rgba(0,0,0,0.90), transparent)" }} />
       <div className="absolute bottom-0 inset-x-0 p-4 space-y-2.5 pointer-events-none">
-        <div className="flex items-baseline gap-1.5">
+        <div className="flex items- gap-1.5">
           <Star size={13} className="fill-amber-400 text-amber-400 shrink-0 mb-0.5" />
           <span className="text-2xl font-black text-amber-400 leading-none">{story.rating || "—"}</span>
           <span className="text-[11px] text-white/40 self-end">/10</span>
@@ -237,7 +237,7 @@ function QuickViewModal({ story, onClose, onNavigate }: {
               <X size={13} />
             </button>
             <div className="flex-1 overflow-y-auto overscroll-contain">
-              <div className="flex gap-3 px-4 pt-4 pb-4">
+              <div className="flex gap-3 items-stretch px-4 pt-4 pb-4">
                 <div className="w-[88px] shrink-0 rounded-xl overflow-hidden bg-secondary shadow-lg" style={{ aspectRatio: "3/4" }}>
                   {story.coverUrl
                     ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover" />
@@ -410,7 +410,7 @@ function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources
 }) {
   const [statusOpen, setStatusOpen] = useState(false);
   return (
-    <div className="fixed bottom-20 right-4 sm:bottom-6 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-40 bg-card border border-border rounded-2xl shadow-2xl p-2 flex items-center gap-3 animate-in slide-in-from-bottom-4">
+    <div className="fixed bottom-20 left-2 right-2 sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 z-40 bg-card border border-border rounded-2xl shadow-2xl p-2 flex items-center gap-2 flex-wrap animate-in slide-in-from-bottom-4">
       <span className="text-xs font-bold text-foreground pl-2">{count} Selected</span>
       <div className="h-4 w-px bg-border" />
       <div className="relative">
