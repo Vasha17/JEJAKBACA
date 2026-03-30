@@ -60,7 +60,7 @@ export function ListCard({ list, onDelete }: ListCardProps) {
   const timeAgo = getRelativeTime(list.updatedAt);
 
   return (
-    <div className="group relative w-full aspect-[4/4] rounded-2xl overflow-hidden
+    <div className="group relative w-full aspect-[4/4] sm:aspect-[3/4] rounded-2xl overflow-hidden
       bg-secondary/50 border border-white/10 dark:border-white/5
       transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]
       hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/20
