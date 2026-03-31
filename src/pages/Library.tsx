@@ -410,7 +410,7 @@ function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources
 }) {
   const [statusOpen, setStatusOpen] = useState(false);
   return (
-    <div className="fixed bottom-20 left-3 right-3 sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 z-50 bg-card border border-border rounded-2xl shadow-2xl p-2 flex items-center gap-1 animate-in slide-in-from-bottom-4">
+    <div className="fixed bottom-24 left-3 right-3 sm:bottom-8 sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 z-20 bg-card border border-border rounded-2xl shadow-2xl p-2 flex items-center gap-1 animate-in slide-in-from-bottom-4">
             
       <span className="text-xs font-bold text-foreground px-1 mx-0.5 shrink-0">{count} Selected</span>
       
@@ -834,7 +834,7 @@ function Library() {
                         if (newSet.has(story.id)) newSet.delete(story.id); else newSet.add(story.id);
                         setSelectedIds(newSet);
                       }}
-                      className="absolute top-2 right-2 z-30 w-6 h-6 rounded bg-card/90 backdrop-blur border border-primary flex items-center justify-center shadow-md">
+                      className="absolute top-2 right-2 z-10 w-6 h-6 rounded bg-card/90 backdrop-blur border border-primary flex items-center justify-center shadow-md">
                       {isSelected ? <Check size={14} className="text-primary" /> : null}
                     </button>
                   )}
