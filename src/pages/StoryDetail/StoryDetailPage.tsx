@@ -498,14 +498,28 @@ export default function StoryDetail() {
     setArcDialog(true);
   };
 
+  const handleMoveArc = (arcId: string, direction: "up" | "down") => {
+  const sorted = [...arcs].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const idx = sorted.findIndex(a => a.id === arcId);
+    if (direction === "up" && idx === 0) return;
+    if (direction === "down" && idx === sorted.length - 1) return;
+    
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    const updated = [...sorted];
+    [updated[idx].order, updated[swapIdx].order] = [updated[swapIdx].order, updated[idx].order];
+    
+    saveArcs(story.id, updated);
+    setArcs(updated);
+  };
+
   const handleSaveArc = () => {
     if (!arcName.trim() || !arcStart) return;        
     let finalColor = arcColor;
     if (arcColorMode === "auto" && !editingArc) {
       const palette = ARC_COLOR_PALETTES[arcColorPalette];
       finalColor = palette[arcs.length % palette.length];
-    }
-    
+    } 
+
     const arc: Arc = {
       id: editingArc?.id || crypto.randomUUID(),
       name: arcName.trim(),
@@ -514,10 +528,11 @@ export default function StoryDetail() {
       description: arcDesc.trim(),
       color: finalColor,
       createdAt: editingArc?.createdAt || new Date().toISOString(),
+      order: editingArc?.order ?? arcs.length,
     };
     const updated = editingArc
       ? arcs.map(a => a.id === editingArc.id ? arc : a)
-      : [...arcs, arc].sort((a, b) => a.chapterStart - b.chapterStart);
+      : [...arcs, arc];
     saveArcs(story.id, updated); setArcs(updated); setArcDialog(false); setEditingArc(null);
   };
 
@@ -1832,7 +1847,7 @@ export default function StoryDetail() {
               ? <div className="relative">
                   <div className="absolute left-[18px] top-3 bottom-3 w-px bg-border"/>
                   <div className="space-y-2">
-                    {arcs.map((arc, idx) => {
+                    {[...arcs].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((arc, idx) => {
                       const isOngoing = arc.chapterEnd === null;
                       const isCurrent = story.currentChapter >= arc.chapterStart && (arc.chapterEnd === null || story.currentChapter <= arc.chapterEnd);
                       return (
@@ -1866,6 +1881,8 @@ export default function StoryDetail() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-1 opacity-0 group-hover/arc:opacity-100 transition-opacity shrink-0">
+                                <button onClick={() => handleMoveArc(arc.id, "up")} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"><ChevronLeft className="w-3.5 h-3.5 rotate-90"/></button>
+                                <button onClick={() => handleMoveArc(arc.id, "down")} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"><ChevronRight className="w-3.5 h-3.5 rotate-90"/></button>
                                 <button onClick={() => handleOpenArcDialog(arc)} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"><Pencil className="w-3.5 h-3.5"/></button>
                                 <button onClick={() => setDeleteArcId(arc.id)} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-3.5 h-3.5"/></button>
                               </div>

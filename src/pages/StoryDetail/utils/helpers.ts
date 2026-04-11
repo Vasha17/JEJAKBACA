@@ -45,6 +45,7 @@ export type Arc = {
   description: string;
   color: string;
   createdAt: string;
+  order?: number; 
 };
 
 const safeGet = <T,>(key: string, defaultValue: T): T => {
