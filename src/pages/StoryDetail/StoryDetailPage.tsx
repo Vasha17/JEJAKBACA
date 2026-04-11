@@ -499,18 +499,18 @@ export default function StoryDetail() {
   };
 
   const handleMoveArc = (arcId: string, direction: "up" | "down") => {
-  const sorted = [...arcs].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const sorted = [...arcs]
+    .map((a, i) => ({ ...a, order: a.order ?? i })) // fix arc lama yang order-nya undefined
+    .sort((a, b) => a.order - b.order);
   const idx = sorted.findIndex(a => a.id === arcId);
-    if (direction === "up" && idx === 0) return;
-    if (direction === "down" && idx === sorted.length - 1) return;
-    
-    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-    const updated = [...sorted];
-    [updated[idx].order, updated[swapIdx].order] = [updated[swapIdx].order, updated[idx].order];
-    
-    saveArcs(story.id, updated);
-    setArcs(updated);
-  };
+  if (direction === "up" && idx === 0) return;
+  if (direction === "down" && idx === sorted.length - 1) return;
+  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+  const updated = [...sorted];
+  [updated[idx].order, updated[swapIdx].order] = [updated[swapIdx].order, updated[idx].order];
+  saveArcs(story.id, updated);
+  setArcs(updated);
+};
 
   const handleSaveArc = () => {
     if (!arcName.trim() || !arcStart) return;        
