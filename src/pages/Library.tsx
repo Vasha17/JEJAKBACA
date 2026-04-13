@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useStories } from "@/lib/StoryContext";
-import { AddStoryDialog } from "@/component/AddStoryDialog";
 import {
   BookOpen, X, ChevronRight, Flame, Clock, CheckCircle2, BookMarked, PauseCircle,
   LayoutGrid, AlignJustify, Star, Play, Layers, Eye, Check, CheckSquare,
@@ -12,10 +11,6 @@ import { Dialog, DialogContent } from "@/component/ui/dialog";
 import "flag-icons/css/flag-icons.min.css";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Navbar, Filters, EMPTY_FILTERS } from "@/component/Navbar"; 
-import { dexieAPI } from "@/lib/DexieDB";
-
-/* ─── Constants ──────────────────────────────────────── */
-type StatusFilter = StoryStatus | "all";
 
 const STATUS_OPTIONS = [
   { value: "reading",      label: "Reading",      icon: <Play size={13}/>,         color: "text-green-400" },
@@ -464,7 +459,7 @@ function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources
 }
 
 /* ─── Empty State ─────────────────────────────── */
-function EmptyState({ onOpenAdd }: { onOpenAdd: () => void }) {
+function EmptyState({ }: { onOpenAdd: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-in fade-in duration-500">
       <div className="relative mb-6">

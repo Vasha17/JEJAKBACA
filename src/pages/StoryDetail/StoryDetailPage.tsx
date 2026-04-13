@@ -36,7 +36,7 @@ import {
 import { ALL_COUNTRIES, POPULAR_COUNTRIES } from "./constants/countries";
 import {
   lsGet, lsSet, normalizeTag, haptic,
-  fileToBase64, base64ToFile,
+  base64ToFile,
   loadArcs, saveArcs,
   type Arc,
 } from "./utils/helpers";
@@ -75,6 +75,15 @@ export default function StoryDetail() {
   } = useStories();
   const story = getStory(id || "");
 
+  // ── Mobile Detection ────────────────────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // ── CTA preference ──────────────────────────────────────────────────────────
   const [ctaPreference, setCtaPreference] = useState<"floating" | "inside">(() => {
     const val = localStorage.getItem("jejakbaca_cta_pref");
@@ -93,6 +102,8 @@ export default function StoryDetail() {
   // ── Dialog states ───────────────────────────────────────────────────────────
   const [coverDialog, setCoverDialog]               = useState(false);
   const [headerDialog, setHeaderDialog]             = useState(false);
+  const [headerDialogTouchStart, setHeaderDialogTouchStart] = useState(0);
+  const [coverDialogTouchStart, setCoverDialogTouchStart]   = useState(0);
   const [ratingDialog, setRatingDialog]             = useState(false);
   const [notesDialog, setNotesDialog]               = useState(false);
   const [listsDialog, setListsDialog]               = useState(false);
@@ -257,7 +268,7 @@ export default function StoryDetail() {
     useStoryHistory(story?.id || "", updateStory);
 
   const {
-    relations, newRelTitle, newRelType, newRelMode, newRelStoryId, newRelUrl, relSuggestions,
+    relations, newRelTitle, newRelType, newRelMode, newRelUrl, relSuggestions,
     setNewRelType, setNewRelMode, setNewRelStoryId, setNewRelUrl,
     handleOpenRelated, handleRelTitleInput, handleAddRelation, handleRemoveRelation,
   } = useStoryRelations(story?.id || "", stories);
@@ -583,65 +594,121 @@ export default function StoryDetail() {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"/>
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between">            
-            {fromListId ? (
-              <Link 
-                to={`/lists/${fromListId}`} 
-                className="p-2 rounded-md bg-card/80 hover:bg-card border border-border transition-colors"
-                title="Back to List"
-              >
-                <ArrowLeft className="w-4 h-4 text-foreground"/>
-              </Link>
-            ) : (
-              <button 
-                onClick={() => navigate("/")} 
-                className="p-2 rounded-md bg-card/80 hover:bg-card border border-border transition-colors"
-                title="Back to Library"
-              >
-                <ArrowLeft className="w-4 h-4 text-foreground"/>
-              </button>
-            )}
-           <div className="flex gap-2">
+             {fromListId ? (
+                <Link 
+                  to={`/lists/${fromListId}`} 
+                  className="p-2 rounded-md bg-card/80 hover:bg-card border border-border transition-colors"
+                  title="Back to List"
+                >
+                  <ArrowLeft className="w-4 h-4 text-foreground"/>
+                </Link>
+              ) : (
+                <button 
+                  onClick={() => navigate("/")} 
+                  className="p-2 rounded-md bg-card/80 hover:bg-card border border-border transition-colors"
+                  title="Back to Library"
+                >
+                  <ArrowLeft className="w-4 h-4 text-foreground"/>
+                </button>
+              )}
+          <div className="flex gap-2">
+            {!isMobile ? (
               <Dialog open={headerDialog} onOpenChange={setHeaderDialog}>
                 <DialogTrigger asChild>
                   <button
-                    onClick={() => setHeaderUrlValue(story.headerUrl || "")}
+                    onClick={(e) => { e.stopPropagation(); setHeaderUrlValue(story.headerUrl || ""); }}
                     className="px-3 py-1 text-xs rounded bg-card/80 text-foreground hover:bg-card border border-border"
                   >
                     Edit Header
                   </button>
                 </DialogTrigger>
-                <DialogContent className="w-[92vw] max-w-md mx-auto">
-                  <DialogHeader><DialogTitle>Edit Header Image</DialogTitle></DialogHeader>
+                <DialogContent className="w-[92vw] max-w-md mx-auto" onClick={(e) => e.stopPropagation()}>
+                  <DialogHeader>
+                    <DialogTitle>Edit Header Image</DialogTitle>
+                  </DialogHeader>
                   <Input value={headerUrlValue} onChange={e => setHeaderUrlValue(e.target.value)} placeholder="Paste image URL..."/>
                   <Button variant="outline" onClick={() => headerFileRef.current?.click()}>
                     <Upload className="w-3.5 h-3.5 mr-1"/>Upload
                   </Button>
                   <input ref={headerFileRef} type="file" accept="image/*" className="hidden" onChange={handleHeaderFileUpload}/>
                   <DialogFooter>
-                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                    <Button onClick={() => { updateStory(story.id, { headerUrl: headerUrlValue }); setHeaderDialog(false); }}>Save</Button>
+                    <DialogClose asChild>
+                      <Button variant="ghost" onClick={(e) => e.stopPropagation()}>Cancel</Button>
+                    </DialogClose>
+                    <Button onClick={(e) => { e.stopPropagation(); updateStory(story.id, { headerUrl: headerUrlValue }); setHeaderDialog(false); }}>Save</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-              {story.headerUrl && (
-                <button onClick={(e) => { e.stopPropagation(); setHeaderCropOpen(true); }} className="px-3 py-1 text-xs rounded bg-card/80 text-foreground hover:bg-card border border-border">
-                  Reposition
-                </button>
-              )}
-              {story.headerUrl && (  
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity z-10 pointer-events-none">
-                  <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>                  
+            ) : (
+              <>
+                {headerDialog && (
+                  <div className="fixed inset-0 z-50 flex flex-col justify-end">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setHeaderDialog(false)} />
+                    <div
+                      className="relative flex flex-col rounded-t-3xl overflow-hidden animate-in slide-in-from-bottom duration-300"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        maxHeight: "92vh",
+                        background: "hsl(var(--card))",
+                        borderTop: "1px solid hsl(var(--border))",
+                        boxShadow: "0 -24px 60px rgba(0,0,0,0.4)",
+                      }}
+                    >
+                      <div
+                        className="flex justify-center pt-3 shrink-0 cursor-grab active:cursor-grabbing"
+                        onTouchStart={(e) => setHeaderDialogTouchStart(e.touches[0].clientY)}
+                        onTouchEnd={(e) => {
+                          const diff = e.changedTouches[0].clientY - headerDialogTouchStart;
+                          if (diff > 80) setHeaderDialog(false);
+                        }}
+                      >
+                        <div className="w-10 h-1 rounded-full bg-border" />
+                      </div>
+                      <div className="px-4 py-3 border-b border-border/50">
+                        <h2 className="text-lg font-semibold text-foreground">Edit Header Image</h2>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                        <Input value={headerUrlValue} onChange={e => setHeaderUrlValue(e.target.value)} placeholder="Paste image URL..."/>
+                        <Button variant="outline" onClick={() => headerFileRef.current?.click()} className="w-full">
+                          <Upload className="w-3.5 h-3.5 mr-1"/>Upload
+                        </Button>
+                        <input ref={headerFileRef} type="file" accept="image/*" className="hidden" onChange={handleHeaderFileUpload}/>
+                        <div className="flex gap-2 pt-2">
+                          <Button variant="ghost" className="flex-1" onClick={(e) => { e.stopPropagation(); setHeaderDialog(false); }}>Cancel</Button>
+                          <Button className="flex-1" onClick={(e) => { e.stopPropagation(); updateStory(story.id, { headerUrl: headerUrlValue }); setHeaderDialog(false); }}>Save</Button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
+                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setHeaderUrlValue(story.headerUrl || ""); setHeaderDialog(true); }}
+                  className="px-3 py-1 text-xs rounded bg-card/80 text-foreground hover:bg-card border border-border"
+                >
+                  Edit Header
+                </button>
+              </>
+            )}
+            {story.headerUrl && (
+              <button onClick={(e) => { e.stopPropagation(); setHeaderCropOpen(true); }} className="px-3 py-1 text-xs rounded bg-card/80 text-foreground hover:bg-card border border-border">
+                Reposition
+              </button>
+            )}
+          </div>
+
+            {story.headerUrl && (  
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity z-10 pointer-events-none">
+                <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>                  
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Cover + meta */}
         <div className="relative px-3 sm:px-6 -mt-24 sm:-mt-40 flex flex-row gap-3 sm:gap-6 items-start">
-          <div className="w-[105px] sm:w-44 shrink-0 z-10">
+          <div className="w-[105px] sm:w-44 shrink-0 z-20">
             <div 
               className="aspect-[3/4] rounded-xl overflow-hidden bg-card border-2 border-border shadow-xl cursor-zoom-in relative group"
               onClick={() => story.coverUrl && setCoverLightbox(true)}
@@ -658,21 +725,72 @@ export default function StoryDetail() {
                 : <div className="w-full h-full flex items-center justify-center bg-secondary"><BookOpen className="w-12 h-12 text-muted-foreground/30"/></div>}
             </div>
             <div className="flex gap-1 mt-2 justify-center">
-              <Dialog open={coverDialog} onOpenChange={setCoverDialog}>
-                <DialogTrigger asChild>
-                  <button onClick={() => setCoverUrlValue(story.coverUrl || "")} className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground hover:bg-muted">Edit Cover</button>
-                </DialogTrigger>
-                <DialogContent className="w-[92vw] max-w-md mx-auto">
-                  <DialogHeader><DialogTitle>Edit Cover</DialogTitle></DialogHeader>
-                  <Input value={coverUrlValue} onChange={e => setCoverUrlValue(e.target.value)} placeholder="Paste image URL..."/>
-                  <Button variant="outline" onClick={() => coverFileRef.current?.click()}><Upload className="w-3.5 h-3.5 mr-1"/>Upload</Button>
-                  <input ref={coverFileRef} type="file" accept="image/*" className="hidden" onChange={handleCoverFileUpload}/>
-                  <DialogFooter>
-                    <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                    <Button onClick={() => { updateStory(story.id, { coverUrl: coverUrlValue }); setCoverDialog(false); }}>Save</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+              {!isMobile ? (
+                <Dialog open={coverDialog} onOpenChange={setCoverDialog}>
+                  <DialogTrigger asChild>
+                    <button onClick={() => setCoverUrlValue(story.coverUrl || "")} className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground hover:bg-muted">Edit Cover</button>
+                  </DialogTrigger>
+                  <DialogContent className="w-[92vw] max-w-md mx-auto" onClick={(e) => e.stopPropagation()}>
+                    <DialogHeader><DialogTitle>Edit Cover</DialogTitle></DialogHeader>
+                    <Input value={coverUrlValue} onChange={e => setCoverUrlValue(e.target.value)} placeholder="Paste image URL..."/>
+                    <Button variant="outline" onClick={() => coverFileRef.current?.click()}><Upload className="w-3.5 h-3.5 mr-1"/>Upload</Button>
+                    <input ref={coverFileRef} type="file" accept="image/*" className="hidden" onChange={handleCoverFileUpload}/>
+                    <DialogFooter>
+                      <DialogClose asChild>
+                        <Button variant="ghost">Cancel</Button>
+                      </DialogClose>
+                      <Button onClick={() => { updateStory(story.id, { coverUrl: coverUrlValue }); setCoverDialog(false); }}>Save</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              ) : (
+                <>
+                  {coverDialog && (
+                    <div className="fixed inset-0 z-[9999] flex flex-col justify-end">
+                      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setCoverDialog(false)} />
+                      <div
+                        className="relative flex flex-col rounded-t-3xl overflow-hidden animate-in slide-in-from-bottom duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          maxHeight: "auto",
+                          background: "hsl(var(--card))",
+                          borderTop: "1px solid hsl(var(--border))",
+                          boxShadow: "0 -24px 60px rgba(0,0,0,0.4)",
+                        }}
+                      >
+                        <div
+                          className="flex justify-center pt-3 shrink-0 cursor-grab active:cursor-grabbing"
+                          onTouchStart={(e) => setCoverDialogTouchStart(e.touches[0].clientY)}
+                          onTouchEnd={(e) => {
+                            const diff = e.changedTouches[0].clientY - coverDialogTouchStart;
+                            if (diff > 80) setCoverDialog(false);
+                          }}
+                        >
+                          <div className="w-10 h-1 rounded-full bg-border" />
+                        </div>
+                        <div className="px-4 py-3 border-b border-border/50">
+                          <h2 className="text-lg font-semibold text-foreground">Edit Cover</h2>
+                        </div>
+                        <div className="p-4 space-y-3">
+                          <Input value={coverUrlValue} onChange={e => setCoverUrlValue(e.target.value)} placeholder="Paste image URL..."/>
+                          <Button variant="outline" onClick={() => coverFileRef.current?.click()} className="w-full"><Upload className="w-3.5 h-3.5 mr-1"/>Upload</Button>
+                          <input ref={coverFileRef} type="file" accept="image/*" className="hidden" onChange={handleCoverFileUpload}/>
+                          <div className="flex gap-2 pt-2">
+                            <Button variant="ghost" className="flex-1" onClick={() => setCoverDialog(false)}>Cancel</Button>
+                            <Button className="flex-1" onClick={() => { updateStory(story.id, { coverUrl: coverUrlValue }); setCoverDialog(false); }}>Save</Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { setCoverUrlValue(story.coverUrl || ""); setCoverDialog(true); }}
+                    className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground hover:bg-muted"
+                  >
+                    Edit Cover
+                  </button>
+                </>
+              )}
               {story.coverUrl && (
                 <button onClick={() => setCoverCropOpen(true)} className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground hover:bg-muted">Reposition</button>
               )}
@@ -1301,7 +1419,11 @@ export default function StoryDetail() {
             </div>
             {newRelMode === "mention" && <Input value={newRelUrl} onChange={e => setNewRelUrl(e.target.value)} placeholder="URL / hyperlink (optional)" className="bg-card text-sm"/>}
             <div className="flex gap-2">
-              <select value={newRelType} onChange={e => setNewRelType(e.target.value as any)} className="flex-1 h-9 rounded-md border border-border bg-card text-sm px-3 text-foreground">
+              <select 
+                value={newRelType}   
+                onChange={e => setNewRelType(e.target.value as any)} 
+                className="flex-1 h-9 rounded-md border border-border bg-card text-sm px-3 text-foreground"
+              >
                 <option value="prequel">Prequel</option>
                 <option value="sequel">Sequel</option>
                 <option value="spin-off">Spin-off</option>
@@ -1953,12 +2075,21 @@ export default function StoryDetail() {
         onToggleGenre={handleToggleGenre}
       />
 
-      {/* Image croppers */}
-      {story.headerUrl && (
+      {/* Image croppers */}                  
+      
+      {/* Header Cropper */}
+        {story.headerUrl && (
+        <div onClick={e => e.stopPropagation()}>
         <ImageCropper
           open={headerCropOpen}
-          onOpenChange={open => { if (!open) setHeaderCropOpen(false); }}
-          imageSrc={story.headerUrl}
+          onOpenChange={open => { 
+            if (!open) {
+              setHeaderCropOpen(false);
+            }
+          }}
+          imageSrc={story.headerUrl.includes('mrcdn.info') 
+            ? story.headerUrl.replace('https://f01.mrcdn.info', '/img-proxy') 
+            : story.headerUrl}
           aspect={16 / 5}
           title="Reposition Header"
           onCropComplete={async (croppedBase64) => {
@@ -1967,14 +2098,20 @@ export default function StoryDetail() {
               const publicUrl = await uploadToStorage(file, "headers");
               updateStory(story.id, { headerUrl: publicUrl }); setHeaderCropOpen(false);
             } catch { alert("Failed to save crop result."); }
-          }}
+          }}          
         />
-      )}
-      {story.coverUrl && (
+      </div>
+    )}
+
+      {/* Cover Cropper */}
+        {story.coverUrl && (
+        <div onClick={e => e.stopPropagation()}>
         <ImageCropper
           open={coverCropOpen}
           onOpenChange={open => { if (!open) setCoverCropOpen(false); }}
-          imageSrc={story.coverUrl}
+          imageSrc={story.coverUrl.includes('mrcdn.info') 
+            ? story.coverUrl.replace('https://f01.mrcdn.info', '/img-proxy') 
+            : story.coverUrl}
           aspect={3 / 4}
           title="Reposition Cover"
           onCropComplete={async (croppedBase64) => {
@@ -1985,7 +2122,8 @@ export default function StoryDetail() {
             } catch { alert("Failed to save crop result."); }
           }}
         />
-      )}
+      </div>
+    )}
 
       {/* Country dialog */}
       <Dialog open={countryDialog} onOpenChange={setCountryDialog}>
@@ -2160,7 +2298,7 @@ export default function StoryDetail() {
     {/* Cover Lightbox */}
     {coverLightbox && story.coverUrl && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={() => setCoverLightbox(false)}>
-        <button className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors" onClick={() => setCoverLightbox(false)}>
+        <button className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors" onClick={(e) => { e.stopPropagation(); setCoverLightbox(false); }}>
           <X className="w-5 h-5"/>
         </button>
         <img src={story.coverUrl} alt={story.title} className="h-[80vh] sm:h-screen w-auto max-w-[92vw] sm:max-w-[95vw] object-contain" onClick={e => e.stopPropagation()}/>
@@ -2170,7 +2308,7 @@ export default function StoryDetail() {
     {/* Header Lightbox */}
     {headerLightbox && story.headerUrl && (
       <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={() => setHeaderLightbox(false)}>
-        <button className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors" onClick={() => setHeaderLightbox(false)}>
+        <button className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors" onClick={(e) => { e.stopPropagation(); setHeaderLightbox(false); }}>
           <X className="w-5 h-5"/>
         </button>
         <img src={story.headerUrl} alt="header" className="h-[80vh] sm:h-screen w-auto max-w-[92vw] sm:max-w-[95vw] object-contain" onClick={e => e.stopPropagation()}/>
