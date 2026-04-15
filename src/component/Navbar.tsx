@@ -135,12 +135,13 @@ function ProfileButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-/* ─── Library Search ─────────────────────────────────── */
+/* ─── Library Search ─────────────────────────── */
 function LibrarySearch({ search, onSearchChange, stories }: {
   search: string; onSearchChange: (v: string) => void; stories: any[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  
   useEffect(() => {
     const h = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -160,18 +161,27 @@ function LibrarySearch({ search, onSearchChange, stories }: {
   }, [search, stories]);
 
   return (
-    <div className="relative flex items-center" ref={ref}>
-      <div className={`flex items-center bg-secondary border border-border rounded-xl transition-all duration-300 overflow-hidden ${open ? "w-56 md:w-72 px-3 py-1.5" : "w-8 h-8 justify-center px-0"}`}>
+    <div className="relative flex items-center" ref={ref}>      
+      <div className={`flex items-center bg-secondary border border-border rounded-xl transition-all duration-300 overflow-hidden 
+        ${open ? "w-56 md:w-72 px-3 py-1.5 max-w-[150px]" : "w-8 h-8 justify-center px-0"}`}>
+        
         <Search size={16} className={`text-muted-foreground shrink-0 cursor-pointer ${open ? "mr-2" : ""}`} onClick={() => setOpen(true)} />
+        
         {open && (
-          <input autoFocus placeholder="Search library…" value={search}
+          <input autoFocus placeholder="Search…" value={search}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="bg-transparent text-xs w-full outline-none text-foreground placeholder:text-muted-foreground" />
+            className="bg-transparent text-xs w-full min-w-0 outline-none text-foreground placeholder:text-muted-foreground" 
+          />
         )}
+        
         {open && search && (
-          <button onClick={() => onSearchChange("")} className="text-muted-foreground hover:text-foreground"><X size={12} /></button>
+          <button onClick={() => onSearchChange("")} className="text-muted-foreground hover:text-foreground shrink-0">
+            <X size={12} />
+          </button>
         )}
       </div>
+
+      {/* Dropdown Suggestions */}
       {open && search && suggestions.length > 0 && (
         <div className="absolute top-full right-0 mt-2 w-72 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
           {suggestions.map((s: any) => (
@@ -192,10 +202,11 @@ function LibrarySearch({ search, onSearchChange, stories }: {
   );
 }
 
-/* ─── Lists Search ───────────────────────────────────── */
+/* ─── Lists Search (FIXED) ───────────────────────────── */
 function ListsSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  
   useEffect(() => {
     const h = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -203,17 +214,25 @@ function ListsSearch({ value, onChange }: { value: string; onChange: (v: string)
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+
   return (
-    <div className="relative flex items-center" ref={ref}>
-      <div className={`flex items-center bg-secondary border border-border rounded-xl transition-all duration-300 overflow-hidden ${open ? "w-56 md:w-72 px-3 py-1.5" : "w-8 h-8 justify-center px-0"}`}>
+    <div className="relative flex items-center" ref={ref}>      
+      <div className={`flex items-center bg-secondary border border-border rounded-xl transition-all duration-300 overflow-hidden 
+        ${open ? "w-56 md:w-72 px-3 py-1.5 max-w-[160px]" : "w-8 h-8 justify-center px-0"}`}>
+        
         <Search size={16} className={`text-muted-foreground shrink-0 cursor-pointer ${open ? "mr-2" : ""}`} onClick={() => setOpen(true)} />
+        
         {open && (
           <input autoFocus placeholder="Search lists…" value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="bg-transparent text-xs w-full outline-none text-foreground placeholder:text-muted-foreground" />
+            className="bg-transparent text-xs w-full min-w-0 outline-none text-foreground placeholder:text-muted-foreground" 
+          />
         )}
+        
         {open && value && (
-          <button onClick={() => onChange("")} className="text-muted-foreground hover:text-foreground"><X size={12} /></button>
+          <button onClick={() => onChange("")} className="text-muted-foreground hover:text-foreground shrink-0">
+            <X size={12} />
+          </button>
         )}
       </div>
     </div>
