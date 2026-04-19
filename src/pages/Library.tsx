@@ -16,6 +16,7 @@ const STATUS_OPTIONS = [
   { value: "reading",      label: "Reading",      icon: <Play size={13}/>,         color: "text-green-400" },
   { value: "completed",    label: "Completed",    icon: <CheckCircle2 size={13}/>, color: "text-blue-400" },
   { value: "on-hold",      label: "On Hold",      icon: <PauseCircle size={13}/>,  color: "text-yellow-400" },
+  { value: "hiatus",       label: "Hiatus",       icon: <BookMarked size={13}/>,   color: "text-orange-400" },
   { value: "plan-to-read", label: "Plan to Read", icon: <BookMarked size={13}/>,   color: "text-purple-400" },
   { value: "dropped",      label: "Dropped",      icon: <X size={13}/>,            color: "text-red-400" },
   { value: "re-reading",   label: "Re-reading",   icon: <Layers size={13}/>,       color: "text-pink-400" },

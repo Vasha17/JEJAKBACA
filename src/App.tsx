@@ -8,9 +8,9 @@ import { useState, useEffect } from "react";
 import { useAuth, LoginPage } from "@/component/Auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSync } from "@/lib/SupabaseSync";
-import { dexieAPI } from "@/lib/DexieDB"; 
+import { dexieAPI } from "@/lib/DexieDB";
 import ErrorBoundary from "./ErrorBoundary";
-import ListsIndex from "./pages/lists/Index"; 
+import ListsIndex from "./pages/lists/Index";
 import ListDetail from "./pages/lists/ListDetail";
 import Library from "./pages/Library";
 import StoryDetail from "./pages/StoryDetail/StoryDetailPage";
@@ -21,15 +21,15 @@ const queryClient = new QueryClient();
 function useOAuthRedirectHandler() {
   useEffect(() => {
     const hash = window.location.hash;
-    if (hash && hash.includes("access_token") && !hash.startsWith("#/")) {      
-      const params = new URLSearchParams(hash.substring(1)); 
+    if (hash && hash.includes("access_token") && !hash.startsWith("#/")) {
+      const params = new URLSearchParams(hash.substring(1));
       const accessToken = params.get("access_token");
       const refreshToken = params.get("refresh_token");
       if (accessToken && refreshToken) {
         supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken,
-        }).then(() => {          
+        }).then(() => {
           window.location.hash = "/";
         });
       }
@@ -37,10 +37,11 @@ function useOAuthRedirectHandler() {
   }, []);
 }
 
-// ─── KOMPONEN OFFLINE INDICATOR (REVISI) ───
+// ─── KOMPONEN OFFLINE INDICATOR ───
 function OfflineIndicator() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  
+  const [pendingCount, setPendingCount] = useState(0);
+
   useEffect(() => {
     const on = () => setIsOnline(true);
     const off = () => setIsOnline(false);
@@ -52,26 +53,39 @@ function OfflineIndicator() {
     };
   }, []);
 
-  // Kalau online, sembunyikan
-  if (isOnline) return null;
+  useEffect(() => {
+    const updatePendingCount = async () => {
+      const count = await dexieAPI.getPendingCount();
+      setPendingCount(count);
+    };
+    
+    updatePendingCount();
+    const interval = setInterval(updatePendingCount, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
+  if (isOnline && pendingCount === 0) return null; 
   return (
     <>
-      {/* ── MOBILE: FLOATING CENTER (Bottom Nav Safe Zone) ── */}
+      {/* ── MOBILE ── */}
       <div className="sm:hidden fixed bottom-20 left-0 right-0 z-[60] flex justify-center px-4 pointer-events-none">
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded-full 
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-full
           bg-slate-900/90 backdrop-blur-md border border-white/10 shadow-2xl">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
           </span>
           <span className="text-[11px] font-medium text-white/90 tracking-wide">
-            Offline Mode
+            {isOnline && pendingCount > 0
+              ? `${pendingCount} Pending`
+              : !isOnline && pendingCount > 0
+              ? `Offline | ${pendingCount} Pending`
+              : "Offline Mode"}
           </span>
         </div>
       </div>
 
-      {/* ── DESKTOP: FIXED TOP CENTER (Below Header) ── */}
+      {/* ── DESKTOP ── */}
       <div className="hidden sm:flex fixed top-2 left-1/2 -translate-x-1/2 z-[100] items-center gap-3 px-5 py-2.5 rounded-full
       bg-slate-950/90 backdrop-blur-md border-b border-white/10 shadow-xl">
         <span className="relative flex h-2.5 w-2.5">
@@ -79,48 +93,21 @@ function OfflineIndicator() {
           <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
         </span>
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-100">Offline Mode</span>
-          <span className="text-[10px] text-slate-400">Changes are saved locally</span>
+          <span className="text-xs font-bold text-slate-100">
+            {isOnline && pendingCount > 0 ? "Pending Sync" : "Offline Mode"}
+          </span>
+          <span className="text-[10px] text-slate-400">
+            {isOnline && pendingCount > 0
+              ? `${pendingCount} pending`
+              : !isOnline && pendingCount > 0
+              ? `${pendingCount} pending`
+              : "Changes saved locally"}
+          </span>
         </div>
       </div>
     </>
   );
 }
-
-// ─── FUNGSI SYNC MANUAL (OFFLINE -> ONLINE) ───
-const syncLocalToServer = async (userId: string) => {
-  try {
-    console.log("🔄 Starting sync...");
-    
-    // 1. Ambil semua data dari Local DB (Dexie)
-    const localStories = await dexieAPI.getAll();
-    
-    if (localStories.length === 0) {
-      console.log("No local data to sync.");
-      return;
-    }
-
-    // 2. Pastikan semua story punya user_id (supaya ga salah kirim ke user lain)
-    const storiesWithUserId = localStories.map(s => ({
-      ...s,
-      user_id: userId,     
-      updated_at: s.updatedAt || new Date().toISOString() 
-    }));
-
-    // 3. Kirim ke Supabase (Upsert)    
-    const { error } = await supabase
-      .from("stories")
-      .upsert(storiesWithUserId, { onConflict: "id" });
-
-    if (error) {
-      console.error("❌ Sync failed:", error.message);      
-    } else {
-      console.log(`✅ Sync success: ${localStories.length} stories synced.`);      
-    }
-  } catch (err) {
-    console.error("System error during sync:", err);
-  }
-};
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -129,18 +116,22 @@ function AppContent() {
   // ── Realtime subscription ──
   useRealtimeSync(user?.id);
 
-  // ── BACKGROUND SYNC (Saat Online) ──
   useEffect(() => {
-    if (!user?.id) return; // Harus login dulu
-    
-    const handleOnline = () => {
-      console.log("🌐 Connection back, syncing...");      
-      syncLocalToServer(user.id);
+    if (!user?.id) return;
+
+    const handleOnline = async () => {
+      console.log("🌐 Connection back, syncing...");
+      try {
+        await dexieAPI.sync(user.id);
+        console.log("✅ Reconnect sync complete");
+      } catch (err) {
+        console.error("❌ Reconnect sync failed:", err);
+      }
     };
 
     window.addEventListener("online", handleOnline);
     return () => window.removeEventListener("online", handleOnline);
-  }, [user?.id]); 
+  }, [user?.id]);
 
   const [skippedLogin, setSkippedLogin] = useState(
     () => localStorage.getItem("jejakbaca_skip_login") === "true"
@@ -176,7 +167,7 @@ function AppContent() {
           <Route path="/" element={<Library />} />
           <Route path="/lists" element={<ListsIndex />} />
           <Route path="/lists/:id" element={<ListDetail />} />
-          <Route path="/story/:id" element={<StoryDetail />} />          
+          <Route path="/story/:id" element={<StoryDetail />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </HashRouter>
@@ -189,9 +180,8 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <ErrorBoundary>       
-        <OfflineIndicator /> 
-        
+      <ErrorBoundary>
+        <OfflineIndicator />
         <AppContent />
       </ErrorBoundary>
     </TooltipProvider>

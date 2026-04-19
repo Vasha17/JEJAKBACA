@@ -31,6 +31,7 @@ const STATUS_OPTIONS = [
   { value: "reading",      label: "Reading",      color: "#22c55e" },
   { value: "completed",    label: "Completed",    color: "#3b82f6" },
   { value: "on-hold",      label: "On Hold",      color: "#eab308" },
+  { value: "hiatus",       label: "Hiatus",       color: "#f97316" },
   { value: "plan-to-read", label: "Plan to Read", color: "#6b7280" },
   { value: "dropped",      label: "Dropped",      color: "#ef4444" },
   { value: "re-reading",   label: "Re-reading",   color: "#a855f7" },
@@ -68,6 +69,20 @@ function pillStyle(state: ItemState | undefined, baseColor?: string) {
     backgroundColor: "#ef444420", color: "#ef4444", borderColor: "#ef444450",
   };
   return {};
+}
+
+/* ─── Image URL Validation ───────────────────────────── */
+function isValidImageUrl(url: string): boolean {
+  if (!url) return false;
+  try {
+    const urlObj = new URL(url);
+    if (!urlObj.protocol.startsWith("http")) return false;
+    const pathname = urlObj.pathname.toLowerCase();
+    const imageExtensions = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".ico", ".bmp", ".tiff"];
+    return imageExtensions.some(ext => pathname.endsWith(ext));
+  } catch {
+    return false;
+  }
 }
 
 /* ─── Prop Types ─────────────────────────────────────── */
@@ -141,7 +156,8 @@ function LibrarySearch({ search, onSearchChange, stories }: {
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  
+  const inputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     const h = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -149,64 +165,255 @@ function LibrarySearch({ search, onSearchChange, stories }: {
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+  
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {  
+      if (open && e.key === "Escape") {
+        e.stopPropagation();
+        setOpen(false);
+        onSearchChange("");
+        return;
+      }     
+    };
+    document.addEventListener("keydown", h, true); 
+    return () => document.removeEventListener("keydown", h, true);
+  }, [open, onSearchChange]);
 
   const suggestions = useMemo(() => {
     if (!search.trim()) return [];
-    return stories
-      .filter((s: any) =>
-        s.title.toLowerCase().includes(search.toLowerCase()) ||
-        s.author?.toLowerCase().includes(search.toLowerCase())
-      )
-      .slice(0, 5);
+    return stories.filter((s: any) =>
+      s.title.toLowerCase().includes(search.toLowerCase()) ||
+      s.author?.toLowerCase().includes(search.toLowerCase())
+    );
   }, [search, stories]);
 
+  const FORMAT_MAP: Record<string, string> = {
+    JP: "Manga", KR: "Manhwa", CN: "Manhua", TW: "Manhua", ID: "Komik", US: "Comic",
+  };
+  const STATUS_COLORS: Record<string, string> = {
+    "reading": "#22c55e", "completed": "#3b82f6", "on-hold": "#eab308",
+    "dropped": "#ef4444", "plan-to-read": "#6b7280", "re-reading": "#a855f7",
+  };
+  const STATUS_LABELS: Record<string, string> = {
+    "reading": "Reading", "completed": "Completed", "on-hold": "On Hold",
+    "dropped": "Dropped", "plan-to-read": "Plan to Read", "re-reading": "Re-reading",
+  };
+
+  const ResultItem = ({ s }: { s: any }) => {
+    const fmt = FORMAT_MAP[(s.originCountry || "").toUpperCase()];
+    const statusColor = STATUS_COLORS[s.status] ?? "#6b7280";
+    const statusLabel = STATUS_LABELS[s.status] ?? s.status;
+
+    return (
+      <Link
+        to={`/story/${s.id}`}
+        onClick={() => { setOpen(false); }} 
+        className="flex items-center gap-3 px-4 py-3 hover:bg-secondary/60 active:bg-secondary transition-colors group border-b border-border/30 last:border-0"
+      >
+        <div className="w-9 h-12 shrink-0 rounded-lg overflow-hidden bg-secondary border border-border/50 shadow-sm">
+          {s.coverUrl
+            ? <img src={s.coverUrl} alt={s.title} className="w-full h-full object-cover" />
+            : <div className="w-full h-full flex items-center justify-center">
+                <BookOpen size={14} className="text-muted-foreground/30" />
+              </div>
+          }
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-bold text-foreground truncate group-hover:text-primary transition-colors">
+            {s.title}
+          </p>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            {fmt && <span className="text-[11px] text-foreground/80">{fmt}</span>}
+            <span className="text-muted-foreground/30 text-[10px]">·</span>
+            <BookOpen size={10} className="text-foreground/60 shrink-0" />
+            <span className="text-[11px] text-foreground/80">{s.currentChapter}</span>
+            <span className="text-muted-foreground/30 text-[10px]">·</span>
+            <span className="text-[11px] font-semibold" style={{ color: statusColor }}>
+              {statusLabel}
+            </span>
+          </div>
+          {s.author && (
+            <p className="text-[10px] text-muted-foreground/50 mt-0.5 truncate">{s.author}</p>
+          )}
+        </div>
+      </Link>
+    );
+  };
+  
+  const handleClose = () => {
+    setOpen(false);
+    onSearchChange(""); 
+  };
+
   return (
-    <div className="relative flex items-center" ref={ref}>      
-      <div className={`flex items-center bg-secondary border border-border rounded-xl transition-all duration-300 overflow-hidden 
-        ${open ? "w-56 md:w-72 px-3 py-1.5 max-w-[150px]" : "w-8 h-8 justify-center px-0"}`}>
-        
-        <Search size={16} className={`text-muted-foreground shrink-0 cursor-pointer ${open ? "mr-2" : ""}`} onClick={() => setOpen(true)} />
-        
-        {open && (
-          <input autoFocus placeholder="Search…" value={search}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="bg-transparent text-xs w-full min-w-0 outline-none text-foreground placeholder:text-muted-foreground" 
+    <>
+      <div className="relative flex items-center" ref={ref}>
+        <div className={`flex items-center bg-secondary border border-border rounded-xl transition-all duration-300 overflow-hidden
+          ${open && window.innerWidth >= 640 ? "w-72 px-3 py-1.5" : "w-8 h-8 justify-center px-0"}`}>
+
+          <Search
+            size={16}
+            className={`text-muted-foreground shrink-0 cursor-pointer ${open && window.innerWidth >= 640 ? "mr-2" : ""}`}
+            onClick={() => { setOpen(true); setTimeout(() => inputRef.current?.focus(), 50); }}
           />
-        )}
-        
-        {open && search && (
-          <button onClick={() => onSearchChange("")} className="text-muted-foreground hover:text-foreground shrink-0">
-            <X size={12} />
-          </button>
+
+          {open && (
+            <input
+              ref={inputRef}
+              placeholder="Search…"
+              value={search}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="sm:block hidden bg-transparent text-xs w-full min-w-0 outline-none text-foreground placeholder:text-muted-foreground"
+            />
+          )}
+
+          {open && search && window.innerWidth >= 640 && (            
+            <button onClick={() => onSearchChange("")} className="text-muted-foreground hover:text-foreground shrink-0 ml-1">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+
+        {open && (
+          <div className="hidden sm:block fixed left-0 right-0 top-14 z-50 border-b border-border bg-card/95 backdrop-blur-xl shadow-2xl animate-in slide-in-from-top-1 duration-200">
+            <div className="flex items-center gap-3 px-6 py-3 border-b border-border/50">
+              <Search size={16} className="text-muted-foreground shrink-0" />
+              <input
+                autoFocus
+                placeholder="Search titles, authors…"
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground"
+              />
+              {search && (                
+                <button onClick={() => onSearchChange("")} className="text-muted-foreground hover:text-foreground">
+                  <X size={14} />
+                </button>
+              )}
+              <button
+                onClick={handleClose}
+                className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-lg hover:bg-secondary transition-colors"
+              >
+                ESC
+              </button>
+            </div>
+
+            {!search ? (
+              <div className="px-6 py-8 text-center text-sm text-muted-foreground/50">
+                Type to search your library…
+              </div>
+            ) : suggestions.length === 0 ? (
+              <div className="flex flex-col items-center py-10 gap-2">
+                <BookOpen size={32} className="text-muted-foreground/20" />
+                <p className="text-sm text-muted-foreground/60">No results for "<span className="text-foreground/70">{search}</span>"</p>
+              </div>
+            ) : (
+              <>
+                <div className="px-6 py-2 flex items-center justify-between">
+                  <span className="text-[10px] font-black tracking-widest text-muted-foreground/40 uppercase">
+                    {suggestions.length} result{suggestions.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 max-h-[70vh] overflow-y-auto divide-x divide-border/30 px-0">
+                  <div className="divide-y divide-border/30">
+                    {suggestions.filter((_: any, i: number) => i % 2 === 0).map((s: any) => (
+                      <ResultItem key={s.id} s={s} />
+                    ))}
+                  </div>
+                  <div className="divide-y divide-border/30">
+                    {suggestions.filter((_: any, i: number) => i % 2 === 1).map((s: any) => (
+                      <ResultItem key={s.id} s={s} />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         )}
       </div>
 
-      {/* Dropdown Suggestions */}
-      {open && search && suggestions.length > 0 && (
-        <div className="absolute top-full right-0 mt-2 w-72 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
-          {suggestions.map((s: any) => (
-            <Link key={s.id} to={`/story/${s.id}`} onClick={() => setOpen(false)}
-              className="flex items-center gap-3 p-2 hover:bg-secondary border-b border-border last:border-0">
-              {s.coverUrl
-                ? <img src={s.coverUrl} className="w-8 h-10 object-cover rounded bg-muted" alt="" />
-                : <div className="w-8 h-10 rounded bg-secondary flex items-center justify-center"><BookOpen size={12} className="text-muted-foreground/40" /></div>}
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-foreground truncate">{s.title}</p>
-                <p className="text-[10px] text-muted-foreground">{s.author}</p>
+      {open && (
+        <div className="sm:hidden fixed inset-0 z-50 flex flex-col">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={handleClose} 
+          />
+
+          <div
+            className="relative flex flex-col bg-card border-b border-border shadow-2xl rounded-b-3xl animate-in slide-in-from-top duration-300"
+            style={{ maxHeight: "92vh" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50">
+              <Search size={16} className="text-muted-foreground shrink-0" />
+              <input
+                autoFocus
+                placeholder="Search titles, authors…"
+                value={search}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground"
+              />
+              {search && (                
+                <button onClick={() => onSearchChange("")} className="text-muted-foreground hover:text-foreground">
+                  <X size={14} />
+                </button>
+              )}
+              <button
+                onClick={handleClose}
+                className="text-xs font-semibold text-primary"
+              >
+                Cancel
+              </button>
+            </div>
+
+            {search && suggestions.length > 0 && (
+              <div className="px-4 py-2 border-b border-border/30">
+                <span className="text-[10px] font-black tracking-widest text-muted-foreground/40 uppercase">
+                  {suggestions.length} result{suggestions.length !== 1 ? "s" : ""}
+                </span>
               </div>
-            </Link>
-          ))}
+            )}
+
+            <div className="flex-1 overflow-y-auto overscroll-contain">
+              {!search ? (
+                <div className="py-12 text-center text-sm text-muted-foreground/50">
+                  Type to search your library…
+                </div>
+              ) : suggestions.length === 0 ? (
+                <div className="flex flex-col items-center py-12 gap-2">
+                  <BookOpen size={32} className="text-muted-foreground/20" />
+                  <p className="text-sm text-muted-foreground/60">
+                    No results for "<span className="text-foreground/70">{search}</span>"
+                  </p>
+                </div>
+              ) : (
+                suggestions.map((s: any) => <ResultItem key={s.id} s={s} />)
+              )}
+            </div>
+
+            <div className="flex justify-center py-2 shrink-0">
+              <div className="w-10 h-1 rounded-full bg-border/50" />
+            </div>
+          </div>
         </div>
       )}
-    </div>
+
+      {open && (
+        <div
+          className="hidden sm:block fixed inset-0 z-40"
+          onClick={handleClose} 
+        />
+      )}
+    </>
   );
 }
 
-/* ─── Lists Search (FIXED) ───────────────────────────── */
+/* ─── Lists Search ───────────────────────────────────── */
 function ListsSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  
+
   useEffect(() => {
     const h = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
@@ -216,19 +423,19 @@ function ListsSearch({ value, onChange }: { value: string; onChange: (v: string)
   }, []);
 
   return (
-    <div className="relative flex items-center" ref={ref}>      
-      <div className={`flex items-center bg-secondary border border-border rounded-xl transition-all duration-300 overflow-hidden 
+    <div className="relative flex items-center" ref={ref}>
+      <div className={`flex items-center bg-secondary border border-border rounded-xl transition-all duration-300 overflow-hidden
         ${open ? "w-56 md:w-72 px-3 py-1.5 max-w-[160px]" : "w-8 h-8 justify-center px-0"}`}>
-        
+
         <Search size={16} className={`text-muted-foreground shrink-0 cursor-pointer ${open ? "mr-2" : ""}`} onClick={() => setOpen(true)} />
-        
+
         {open && (
           <input autoFocus placeholder="Search lists…" value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="bg-transparent text-xs w-full min-w-0 outline-none text-foreground placeholder:text-muted-foreground" 
+            className="bg-transparent text-xs w-full min-w-0 outline-none text-foreground placeholder:text-muted-foreground"
           />
         )}
-        
+
         {open && value && (
           <button onClick={() => onChange("")} className="text-muted-foreground hover:text-foreground shrink-0">
             <X size={12} />
@@ -525,7 +732,10 @@ function ShortcutDialog({ open, onClose }: { open: boolean; onClose: () => void 
         { label: "Edit Notes", keys: ["S"] },
         { label: "Edit Rating", keys: ["R"] },
         { label: "Prev / Next Story", keys: ["←", "→"] },
-        { label: "Back to Library", keys: ["ESC"] },
+        { 
+          label: "Close Search / Back to Library", 
+          keys: ["ESC"],          
+        },
       ]
     },
   ];
@@ -542,14 +752,16 @@ function ShortcutDialog({ open, onClose }: { open: boolean; onClose: () => void 
             <div key={group.title}>
               <h3 className="text-[10px] font-black tracking-widest text-muted-foreground/70 uppercase mb-3 pl-1">{group.title}</h3>
               <div className="space-y-3">
-                {group.items.map((item, idx) => (
-                  <div key={idx} className="flex items-center justify-between">
-                    <span className="text-sm text-foreground/90 font-medium">{item.label}</span>
-                    <div className="flex items-center gap-1.5">
-                      {item.keys.map((key, i) => (
-                        <kbd key={i} className="inline-flex items-center justify-center px-2.5 py-1 min-w-[2.5rem] text-xs font-bold font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-md">{key}</kbd>
-                      ))}
-                    </div>
+                {group.items.map((item: any, idx: number) => (
+                  <div key={idx}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-foreground/90 font-medium">{item.label}</span>
+                      <div className="flex items-center gap-1.5">
+                        {item.keys.map((key: string, i: number) => (
+                          <kbd key={i} className="inline-flex items-center justify-center px-2.5 py-1 min-w-[2.5rem] text-xs font-bold font-mono bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-md">{key}</kbd>
+                        ))}
+                      </div>
+                    </div>                    
                   </div>
                 ))}
               </div>
@@ -656,12 +868,16 @@ function ExportDialog({ open, onClose, onExport }: { open: boolean; onClose: () 
 function QRCanvas({ value, size = 54 }: { value: string; size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
+    let cancelled = false;
     if (!canvasRef.current) return;
     QRCode.toCanvas(canvasRef.current, value, {
       width: size,
       margin: 0,
       color: { dark: "#0d0d18", light: "#ffffff" },
+    }).catch(e => {
+      if (!cancelled) console.error("QRCode error:", e);
     });
+    return () => { cancelled = true; };
   }, [value, size]);
   return (
     <canvas ref={canvasRef} width={size} height={size} style={{ display: "block", borderRadius: 4 }} />
@@ -683,16 +899,9 @@ interface MemberCardProps {
 }
 
 function MemberCard({
-  username,
-  avatarUrl,
-  memberSince = "2026",
-  storiesCount,
-  totalChapters,
-  completedCount,
-  avgRating,
-  memberId,
-  email,
-  issueDate,
+  username, avatarUrl, memberSince = "2026",
+  storiesCount, totalChapters, completedCount, avgRating,
+  memberId, email, issueDate,
 }: MemberCardProps) {
   const { currentTheme, mode } = useTheme();
   const primary = currentTheme?.[mode]?.primary ?? "#f59e0b";
@@ -709,222 +918,93 @@ function MemberCard({
   const displayDate = issueDate || new Date().toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }).replace(/\//g, ". ");
 
   return (
-      <div
-        style={{
-           maxWidth: "400px",
-          width: "100%",
-          margin: "0 auto",
-          borderRadius: 14,
-          overflow: "hidden",
-          position: "relative",
-          fontFamily: "system-ui, -apple-system, sans-serif",
-          boxShadow: `0 16px 48px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1)`,
-          background: bg,
-        }}
-        className="group"
-      >
-        {/* gradient overlay */}
-        <div style={{
-          position: "absolute", inset: 0,
-          background: `linear-gradient(135deg, ${primary}cc 0%, ${primary}88 35%, ${card}dd 100%)`,
-          pointerEvents: "none",
-        }}/>
-
-        {/* noise texture */}
-        <div style={{
-          position: "absolute", inset: 0, opacity: 0.055, pointerEvents: "none",
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
-          backgroundSize: "128px 128px",
-        }}/>
-
-        {/* glossy sheen */}
-        <div style={{
-          position: "absolute", inset: 0, pointerEvents: "none",
-          background: "linear-gradient(160deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.06) 40%, transparent 65%)",
-        }}/>
-
-        {/* decorative circles */}
-        <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
-          viewBox="0 0 320 180" fill="none" preserveAspectRatio="none">
-          <circle cx="290" cy="15" r="70" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5"/>
-          <circle cx="290" cy="15" r="42" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5"/>
-          <circle cx="-10" cy="170" r="65" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5"/>
-          <circle cx="175" cy="25" r="1.5" fill="rgba(255,255,255,0.5)"/>
-          <circle cx="275" cy="70" r="1" fill="rgba(255,255,255,0.4)"/>
-          <line x1="190" y1="48" x2="190" y2="54" stroke="rgba(255,255,255,0.4)" strokeWidth="0.8"/>
-          <line x1="187" y1="51" x2="193" y2="51" stroke="rgba(255,255,255,0.4)" strokeWidth="0.8"/>
-          <line x1="270" y1="110" x2="270" y2="116" stroke="rgba(255,255,255,0.25)" strokeWidth="0.8"/>
-          <line x1="267" y1="113" x2="273" y2="113" stroke="rgba(255,255,255,0.25)" strokeWidth="0.8"/>
-        </svg>
-
-        <div style={{ position: "relative", display: "flex", flexDirection: "column" }}>
-          {/* TOP CONTENT (Avatar + Info) */}
-          <div style={{ display: "flex" }}>
-            {/* LEFT STRIP */}
-            <div style={{
-              width: 100,
-              flexShrink: 0,
-              padding: "12px 10px 10px 12px",
-              borderRight: "0.5px solid rgba(255,255,255,0.12)",
-              display: "flex",
-              flexDirection: "column",
-              gap: 6,
-            }}>
-              <div style={{
-                width: "100%",
-                aspectRatio: "3/4",
-                borderRadius: 8,
-                background: "rgba(255,255,255,0.15)",
-                border: "1px solid rgba(255,255,255,0.3)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-              }}>
-                {avatarUrl
-                  ? <img src={avatarUrl} alt={username} style={{ width: "100%", height: "100%", objectFit: "cover" }}/>
-                  : <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                      <circle cx="12" cy="7" r="4"/>
-                    </svg>
-                }
-              </div>
-              <span style={{ fontSize: 7, color: "rgba(255,255,255,0.4)", textAlign: "center", letterSpacing: "0.1em", textTransform: "uppercase" }}>Photo</span>
-              <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 2 }}>
-                {[
-                  { label: "Stories",  val: storiesCount },
-                  { label: "Chapters", val: totalChapters },
-                  { label: "Done",     val: completedCount },
-                  { label: "Avg ★",    val: avgRating > 0 ? avgRating.toFixed(1) : "—" },
-                ].map(({ label, val }) => (
-                  <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 7, color: "rgba(255,255,255,0.4)", letterSpacing: "0.04em" }}>{label}</span>
-                    <span style={{ fontSize: 9, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>{val}</span>
-                  </div>
-                ))}
-              </div>
+    <div style={{ maxWidth: "400px", width: "100%", margin: "0 auto", borderRadius: 14, overflow: "hidden", position: "relative", fontFamily: "system-ui, -apple-system, sans-serif", boxShadow: `0 16px 48px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.1)`, background: bg }} className="group">
+      <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${primary}cc 0%, ${primary}88 35%, ${card}dd 100%)`, pointerEvents: "none" }}/>
+      <div style={{ position: "absolute", inset: 0, opacity: 0.055, pointerEvents: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`, backgroundSize: "128px 128px" }}/>
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(160deg, rgba(255,255,255,0.28) 0%, rgba(255,255,255,0.06) 40%, transparent 65%)" }}/>
+      <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} viewBox="0 0 320 180" fill="none" preserveAspectRatio="none">
+        <circle cx="290" cy="15" r="70" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5"/>
+        <circle cx="290" cy="15" r="42" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5"/>
+        <circle cx="-10" cy="170" r="65" stroke="rgba(255,255,255,0.05)" strokeWidth="0.5"/>
+        <circle cx="175" cy="25" r="1.5" fill="rgba(255,255,255,0.5)"/>
+        <circle cx="275" cy="70" r="1" fill="rgba(255,255,255,0.4)"/>
+        <line x1="190" y1="48" x2="190" y2="54" stroke="rgba(255,255,255,0.4)" strokeWidth="0.8"/>
+        <line x1="187" y1="51" x2="193" y2="51" stroke="rgba(255,255,255,0.4)" strokeWidth="0.8"/>
+        <line x1="270" y1="110" x2="270" y2="116" stroke="rgba(255,255,255,0.25)" strokeWidth="0.8"/>
+        <line x1="267" y1="113" x2="273" y2="113" stroke="rgba(255,255,255,0.25)" strokeWidth="0.8"/>
+      </svg>
+      <div style={{ position: "relative", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex" }}>
+          <div style={{ width: 100, flexShrink: 0, padding: "12px 10px 10px 12px", borderRight: "0.5px solid rgba(255,255,255,0.12)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ width: "100%", aspectRatio: "3/4", borderRadius: 8, background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+              {avatarUrl ? <img src={avatarUrl} alt={username} style={{ width: "100%", height: "100%", objectFit: "cover" }}/> : <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>}
             </div>
-
-            {/* RIGHT MAIN */}
-            <div style={{ flex: 1, padding: "12px 12px 10px 12px", display: "flex", flexDirection: "column", gap: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <BookOpen size={11} color="rgba(255,255,255,0.9)"/>
-                    <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.18em", color: "rgba(255,255,255,0.95)", textShadow: "0 1px 4px rgba(0,0,0,0.2)" }}>
-                      JEJAKBACA
-                    </span>
-                  </div>
-                  <span style={{ fontSize: 7, color: "rgba(255,255,255,0.5)", letterSpacing: "0.14em", textTransform: "uppercase", display: "block", marginTop: 1 }}>
-                    Reader Card
-                  </span>
+            <span style={{ fontSize: 7, color: "rgba(255,255,255,0.4)", textAlign: "center", letterSpacing: "0.1em", textTransform: "uppercase" }}>Photo</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 2 }}>
+              {[{ label: "Stories", val: storiesCount }, { label: "Chapters", val: totalChapters }, { label: "Done", val: completedCount }, { label: "Avg ★", val: avgRating > 0 ? avgRating.toFixed(1) : "—" }].map(({ label, val }) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: 7, color: "rgba(255,255,255,0.4)", letterSpacing: "0.04em" }}>{label}</span>
+                  <span style={{ fontSize: 9, fontWeight: 500, color: "rgba(255,255,255,0.85)" }}>{val}</span>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <span style={{ fontSize: 7, color: "rgba(255,255,255,0.4)", letterSpacing: "0.05em", display: "block" }}>Date of issue</span>
-                  <span style={{ fontSize: 8, color: "rgba(255,255,255,0.75)", letterSpacing: "0.04em" }}>{displayDate}</span>
-                </div>
-              </div>
-
-              <div style={{ height: "0.5px", background: "rgba(255,255,255,0.18)", marginBottom: 6 }}/>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5px 8px", flex: 1 }}>
-                {[
-                  { label: "Name",   val: `@${username}`,  big: true },
-                  { label: "Since",  val: memberSince },
-                  { label: "Status", val: "Active" },
-                  { label: "Tier",   val: "★ Reader", gold: true },
-                ].map(({ label, val, big, gold }) => (
-                  <div key={label}>
-                    <span style={{ fontSize: 7, color: "rgba(255,255,255,0.45)", letterSpacing: "0.12em", textTransform: "uppercase", display: "block", marginBottom: 1 }}>
-                      {label}
-                    </span>
-                    <span style={{
-                      fontSize: big ? 15 : 12,
-                      fontWeight: 500,
-                      color: gold ? "rgba(255,230,100,0.95)" : "#fff",
-                      textShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                      lineHeight: 1.1,
-                      display: "block",
-                    }}>
-                      {val}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ height: "0.5px", background: "rgba(255,255,255,0.18)", margin: "6px 0" }}/>
-
-              <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 6 }}>
-                <div>
-                  <span style={{ fontSize: 7, color: "rgba(255,255,255,0.4)", letterSpacing: "0.12em", textTransform: "uppercase", display: "block", marginBottom: 1 }}>
-                    Member ID
-                  </span>
-                  <span style={{ fontSize: 9, color: "rgba(255,255,255,0.75)", fontFamily: "monospace", letterSpacing: "0.07em" }}>
-                    {cardId}
-                  </span>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
-                  <div style={{
-                    background: "rgba(255,255,255,0.93)",
-                    borderRadius: 6,
-                    padding: 3,
-                    border: "0.5px solid rgba(255,255,255,0.4)",
-                  }}>
-                    <QRCanvas value={cardId} size={44}/>
-                  </div>
-                  <span style={{ fontSize: 6, color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                    Scan ID
-                  </span>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
-
-          {/* ── NEW: EMAIL SECTION (BLURRED) ── */}
-          {email && (
-            <div style={{
-              position: "relative",
-              background: "rgba(0,0,0,0.2)",
-              borderTop: "0.5px solid rgba(255,255,255,0.1)",
-              padding: "4px 12px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-            }}>
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                <p
-                  className="text-[10px] text-amber-100/80 blur-sm group-hover:blur-0 group-active:blur-0 select-none transition-all duration-300 cursor-pointer text-center"
-                  style={{ letterSpacing: "0.05em" }}
-                >
-                  {email}
-                </p>
-                <Eye size={8} className="text-amber-500/50 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity" />
+          <div style={{ flex: 1, padding: "12px 12px 10px 12px", display: "flex", flexDirection: "column", gap: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <BookOpen size={11} color="rgba(255,255,255,0.9)"/>
+                  <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: "0.18em", color: "rgba(255,255,255,0.95)" }}>JEJAKBACA</span>
+                </div>
+                <span style={{ fontSize: 7, color: "rgba(255,255,255,0.5)", letterSpacing: "0.14em", textTransform: "uppercase", display: "block", marginTop: 1 }}>Reader Card</span>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <span style={{ fontSize: 7, color: "rgba(255,255,255,0.4)", letterSpacing: "0.05em", display: "block" }}>Date of issue</span>
+                <span style={{ fontSize: 8, color: "rgba(255,255,255,0.75)", letterSpacing: "0.04em" }}>{displayDate}</span>
               </div>
             </div>
-          )}
-
-          {/* FOOTER */}
-          <div style={{
-            position: "relative",
-            background: "rgba(0,0,0,0.15)",
-            borderTop: "0.5px solid rgba(255,255,255,0.1)",
-            padding: "4px 14px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}>
-            {["Your reading journey, tracked", "JejakBaca © 2026"].map((t, i) => (
-              <span key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {i > 0 && <span style={{ width: 2, height: 2, borderRadius: "50%", background: "rgba(255,255,255,0.25)", display: "inline-block" }}/>}
-                <span style={{ fontSize: 6, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase" }}>{t}</span>
-              </span>
-            ))}
+            <div style={{ height: "0.5px", background: "rgba(255,255,255,0.18)", marginBottom: 6 }}/>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "5px 8px", flex: 1 }}>
+              {[{ label: "Name", val: `@${username}`, big: true }, { label: "Since", val: memberSince }, { label: "Status", val: "Active" }, { label: "Tier", val: "★ Reader", gold: true }].map(({ label, val, big, gold }) => (
+                <div key={label}>
+                  <span style={{ fontSize: 7, color: "rgba(255,255,255,0.45)", letterSpacing: "0.12em", textTransform: "uppercase", display: "block", marginBottom: 1 }}>{label}</span>
+                  <span style={{ fontSize: big ? 15 : 12, fontWeight: 500, color: gold ? "rgba(255,230,100,0.95)" : "#fff", lineHeight: 1.1, display: "block" }}>{val}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ height: "0.5px", background: "rgba(255,255,255,0.18)", margin: "6px 0" }}/>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 6 }}>
+              <div>
+                <span style={{ fontSize: 7, color: "rgba(255,255,255,0.4)", letterSpacing: "0.12em", textTransform: "uppercase", display: "block", marginBottom: 1 }}>Member ID</span>
+                <span style={{ fontSize: 9, color: "rgba(255,255,255,0.75)", fontFamily: "monospace", letterSpacing: "0.07em" }}>{cardId}</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                <div style={{ background: "rgba(255,255,255,0.93)", borderRadius: 6, padding: 3, border: "0.5px solid rgba(255,255,255,0.4)" }}>
+                  <QRCanvas value={cardId} size={44}/>
+                </div>
+                <span style={{ fontSize: 6, color: "rgba(255,255,255,0.3)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Scan ID</span>
+              </div>
+            </div>
           </div>
         </div>
+        {email && (
+          <div style={{ position: "relative", background: "rgba(0,0,0,0.2)", borderTop: "0.5px solid rgba(255,255,255,0.1)", padding: "4px 12px", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+              <p className="text-[10px] text-amber-100/80 blur-sm group-hover:blur-0 group-active:blur-0 select-none transition-all duration-300 cursor-pointer text-center" style={{ letterSpacing: "0.05em" }}>{email}</p>
+              <Eye size={8} className="text-amber-500/50 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-opacity" />
+            </div>
+          </div>
+        )}
+        <div style={{ position: "relative", background: "rgba(0,0,0,0.15)", borderTop: "0.5px solid rgba(255,255,255,0.1)", padding: "4px 14px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+          {["Your reading journey, tracked", "JejakBaca © 2026"].map((t, i) => (
+            <span key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {i > 0 && <span style={{ width: 2, height: 2, borderRadius: "50%", background: "rgba(255,255,255,0.25)", display: "inline-block" }}/>}
+              <span style={{ fontSize: 6, color: "rgba(255,255,255,0.4)", letterSpacing: "0.1em", textTransform: "uppercase" }}>{t}</span>
+            </span>
+          ))}
+        </div>
       </div>
+    </div>
   );
 }
 
@@ -943,6 +1023,7 @@ function ProfilePanel({
   ctaPreference?: "floating" | "inside";
   onCtaChange?: (val: "floating" | "inside") => void;
 }) {
+  const { user, signInWithGoogle, signOut, memberSince } = useAuth();
   const [backupOpen, setBackupOpen] = useState(false);
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [ctaOpen, setCtaOpen] = useState(false);
@@ -952,93 +1033,84 @@ function ProfilePanel({
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  const { user, signInWithGoogle, signOut, memberSince } = useAuth();
-  const isGuest = !user || localStorage.getItem("jejakbaca_skip_login") === "true";
-
-  const [localCta, setLocalCta] = useState<"floating" | "inside">(() => {
-    const saved = localStorage.getItem("jejakbaca_cta_pref");
-    return saved === "floating" || saved === "inside" ? saved : "floating";
-  });
-  const currentCta = ctaPreference ?? localCta;
-  const handleCtaChange = (val: "floating" | "inside") => {
-    if (onCtaChange) onCtaChange(val);
-    else { setLocalCta(val); localStorage.setItem("jejakbaca_cta_pref", val); }
-  };
-
+  
   const [username, setUsername] = useState(() => localStorage.getItem("jejakbaca_username") || "User");
-  const [editUsername, setEditUsername] = useState(username);
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem("jejakbaca_avatar") || "");
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const [issueDate, setIssueDate] = useState<string | undefined>(undefined);
+  const [issueDate, setIssueDate] = useState<string | undefined>(() => localStorage.getItem("jejakbaca_issue_date") || undefined);
 
-  // ── Pull dari tabel profiles dulu, fallback ke user_metadata, lalu localStorage ──
+  const [editUsername, setEditUsername] = useState(username);
+  const [editAvatarUrl, setEditAvatarUrl] = useState(avatarUrl);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const profileFetchedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setEditUsername(username);
+    setEditAvatarUrl(avatarUrl);
+  }, [username, avatarUrl]);
+
   useEffect(() => {
     if (!user) return;
+    if (profileFetchedRef.current === user.id) return;
+
+    profileFetchedRef.current = user.id;
 
     (async () => {
       try {
         const { supabase } = await import("@/integrations/supabase/client");
-
-        // Pull dari tabel profiles (sumber kebenaran utama)
         const { data: profile } = await supabase
           .from("profiles")
-          .select("username, avatar_url, issue_date") // Ambil issue_date
+          .select("username, avatar_url, issue_date")
           .eq("user_id", user.id)
           .single();
 
-        // Fallback ke user_metadata
-        const metaName =
-          user.user_metadata?.display_name ||
-          user.user_metadata?.full_name ||
-          user.user_metadata?.name;
-        const metaAvatar =
-          user.user_metadata?.avatar_url ||
-          user.user_metadata?.picture;
+        const metaName = user.user_metadata?.display_name || user.user_metadata?.full_name || user.user_metadata?.name;
+        const metaAvatar = user.user_metadata?.avatar_url || user.user_metadata?.picture;
 
-        // Tentukan Issue Date
         let finalIssueDate = profile?.issue_date;
         if (!finalIssueDate) {
-            const today = new Date().toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }).replace(/\//g, ". ");
-            finalIssueDate = today;
+          finalIssueDate = new Date().toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" }).replace(/\//g, ". ");
         }
 
-        const resolvedName  = profile?.username    || metaName  || localStorage.getItem("jejakbaca_username") || "User";
-        const resolvedAvatar = profile?.avatar_url || metaAvatar || localStorage.getItem("jejakbaca_avatar")  || "";
+        const currentLocalName = localStorage.getItem("jejakbaca_username");
+        const currentLocalAvatar = localStorage.getItem("jejakbaca_avatar");
+
+        const cloudName = profile?.username;
+        const cloudAvatar = profile?.avatar_url;
+
+        const resolvedName = cloudName || currentLocalName || metaName || "User";
+        const resolvedAvatar = cloudAvatar || currentLocalAvatar || metaAvatar || "";
 
         setUsername(resolvedName);
-        setEditUsername(resolvedName);
         setAvatarUrl(resolvedAvatar);
         setIssueDate(finalIssueDate);
 
-        // Simpan ke localStorage
-        localStorage.setItem("jejakbaca_username", resolvedName);
-        if (resolvedAvatar) localStorage.setItem("jejakbaca_avatar", resolvedAvatar);
+        if (cloudName || currentLocalName) {
+          localStorage.setItem("jejakbaca_username", resolvedName);
+        }
+        if (cloudAvatar || currentLocalAvatar) {
+          if (resolvedAvatar) localStorage.setItem("jejakbaca_avatar", resolvedAvatar);
+        }
         localStorage.setItem("jejakbaca_issue_date", finalIssueDate);
         window.dispatchEvent(new Event("storage"));
 
-        // Upsert ke Database jika issue_date belum ada
         if (!profile?.issue_date) {
-             await supabase
-              .from("profiles")
-              .upsert(
-                { 
-                  user_id: user.id, 
-                  username: resolvedName, 
-                  avatar_url: resolvedAvatar,
-                  issue_date: finalIssueDate
-                },
-                { onConflict: "user_id" }
-              );
+          await supabase.from("profiles").upsert(
+            { user_id: user.id, username: resolvedName, avatar_url: resolvedAvatar, issue_date: finalIssueDate },
+            { onConflict: "user_id" }
+          );
         }
-
       } catch (e) {
-        console.error("Failed to load profile:", e);
+        console.error("Gagal load profile:", e);
+        
+        const fallbackName = localStorage.getItem("jejakbaca_username");
+        const fallbackAvatar = localStorage.getItem("jejakbaca_avatar");
+        
+        if (fallbackName) setUsername(fallbackName);
+        if (fallbackAvatar) setAvatarUrl(fallbackAvatar);
       }
     })();
   }, [user]);
 
-  // ── Listen storage changes ──
   useEffect(() => {
     const h = () => {
       const u = localStorage.getItem("jejakbaca_username");
@@ -1052,25 +1124,20 @@ function ProfilePanel({
     return () => window.removeEventListener("storage", h);
   }, []);
 
-  // ── Save profile ──
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
       localStorage.setItem("jejakbaca_username", editUsername);
-      localStorage.setItem("jejakbaca_avatar", avatarUrl);
+      localStorage.setItem("jejakbaca_avatar", editAvatarUrl);
       setUsername(editUsername);
+      setAvatarUrl(editAvatarUrl);
       window.dispatchEvent(new Event("storage"));
 
       if (user && !isGuest) {
         const { supabase } = await import("@/integrations/supabase/client");
-
         const { error: profileError } = await supabase
           .from("profiles")
-          .upsert(
-            { user_id: user.id, username: editUsername, avatar_url: avatarUrl },
-            { onConflict: "user_id" }
-          );
-
+          .upsert({ user_id: user.id, username: editUsername, avatar_url: editAvatarUrl }, { onConflict: "user_id" });
         if (profileError) console.error("Failed to save profile:", profileError);
         else console.log("✅ Profile saved");
       }
@@ -1082,6 +1149,8 @@ function ProfilePanel({
     }
   };
 
+  const isGuest = !user || localStorage.getItem("jejakbaca_skip_login") === "true";
+
   const handleAuthAction = async () => {
     if (isGuest) {
       localStorage.removeItem("jejakbaca_skip_login");
@@ -1092,6 +1161,7 @@ function ProfilePanel({
       localStorage.removeItem("jejakbaca_avatar");
       localStorage.removeItem("jejakbaca_issue_date");
       localStorage.removeItem("jejakbaca_skip_login");
+      profileFetchedRef.current = null; 
       onClose();
     }
   };
@@ -1109,118 +1179,79 @@ function ProfilePanel({
 
         <div className="flex-1 overflow-y-auto">
           <div className="m-4 mb-3">
-            <MemberCard
-              username={username}
-              avatarUrl={avatarUrl}
-              memberSince={memberSince}
-              storiesCount={storiesCount}
-              totalChapters={totalChapters}
-              completedCount={completedCount}
-              avgRating={avgRating}
-              email={user?.email}
-              issueDate={issueDate}
-            />
+            <MemberCard username={username} avatarUrl={avatarUrl} memberSince={memberSince} storiesCount={storiesCount} totalChapters={totalChapters} completedCount={completedCount} avgRating={avgRating} email={user?.email} issueDate={issueDate} />
           </div>
 
-          {/* HANYA UNTUK GUEST: Strip Peringatan tetap di luar */}
           {isGuest && (
             <div className="mx-4 mb-4">
               <div className="flex items-start gap-3 px-3.5 py-3 rounded-xl bg-amber-500/8 border border-amber-500/20">
                 <div className="w-2 h-2 rounded-full bg-amber-400 mt-1.5 shrink-0 animate-pulse" />
                 <div>
                   <p className="text-[12px] font-semibold text-amber-300">Guest Mode</p>
-                  <p className="text-[11px] text-amber-400/70 mt-0.5 leading-relaxed">
-                    Sign in to sync your library across devices.
-                  </p>
+                  <p className="text-[11px] text-amber-400/70 mt-0.5 leading-relaxed">Sign in to sync your library across devices.</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Edit Profile button */}
           <div className="px-4 mb-4">
-            <button
-              onClick={() => setEditProfileOpen(true)}
-              className="w-full py-2 rounded-xl border border-border bg-secondary/50 text-xs font-semibold text-foreground hover:bg-muted hover:border-primary/30 transition-all flex items-center justify-center gap-2"
-            >
+            <button onClick={() => setEditProfileOpen(true)} className="w-full py-2 rounded-xl border border-border bg-secondary/50 text-xs font-semibold text-foreground hover:bg-muted hover:border-primary/30 transition-all flex items-center justify-center gap-2">
               <Edit size={13} /> Edit Profile
             </button>
           </div>
 
-          {/* Edit Profile form */}
           {editProfileOpen && (
             <div className="mx-4 mb-4 rounded-xl border border-border bg-secondary/30 overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                 <span className="text-xs font-bold">Edit Profile</span>
-                <button onClick={() => setEditProfileOpen(false)} className="p-1 rounded hover:bg-secondary">
-                  <X size={12} className="text-muted-foreground" />
-                </button>
+                <button onClick={() => setEditProfileOpen(false)} className="p-1 rounded hover:bg-secondary"><X size={12} className="text-muted-foreground" /></button>
               </div>
               <div className="p-4 space-y-3">
                 <div>
                   <label className="text-[10px] font-bold tracking-widest text-muted-foreground/50 uppercase block mb-1.5">Username</label>
-                  <input
-                    value={editUsername}
-                    onChange={e => setEditUsername(e.target.value)}
-                    className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 text-foreground"
-                  />
+                  <input value={editUsername} onChange={e => setEditUsername(e.target.value)} className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 text-foreground" />
                 </div>
                 <div>
                   <label className="text-[10px] font-bold tracking-widest text-muted-foreground/50 uppercase block mb-1.5">Avatar</label>
                   <div className="flex items-center gap-3 mb-2">
                     <div className="w-12 h-12 rounded-xl bg-secondary border border-border overflow-hidden flex items-center justify-center">
-                      {avatarUrl
-                        ? <img src={avatarUrl} className="w-full h-full object-cover" alt="avatar" />
-                        : <User size={20} className="text-muted-foreground/40" />}
+                      {editAvatarUrl ? <img src={editAvatarUrl} className="w-full h-full object-cover" alt="avatar" /> : <User size={20} className="text-muted-foreground/40" />}
                     </div>
-                    <button
-                      onClick={() => avatarInputRef.current?.click()}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-secondary text-xs font-semibold hover:bg-muted transition-colors"
-                    >
+                    <button onClick={() => avatarInputRef.current?.click()} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-secondary text-xs font-semibold hover:bg-muted transition-colors">
                       <Camera size={12} /> Upload
                     </button>
-                    <input
-                      ref={avatarInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={e => {
-                        const f = e.target.files?.[0];
-                        if (!f) return;
-                        const r = new FileReader();
-                        r.onload = ev => setAvatarUrl(ev.target?.result as string);
-                        r.readAsDataURL(f);
-                      }}
-                    />
+                    <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (!f) return; const r = new FileReader(); r.onload = ev => setEditAvatarUrl(ev.target?.result as string); r.readAsDataURL(f); }} />
                   </div>
-                  <input
-                    value={avatarUrl}
-                    onChange={e => setAvatarUrl(e.target.value)}
-                    placeholder="Or paste image URL..."
+                  
+                  <input 
+                    value={editAvatarUrl} 
+                    onChange={e => {
+                      const value = e.target.value;
+                      setEditAvatarUrl(value);
+                    }}
+                    onBlur={e => {
+                      const value = e.target.value;
+                      if (value && !isValidImageUrl(value)) {
+                        alert("Please enter a valid image URL (must start with http:// or https://)");
+                        setEditAvatarUrl("");
+                      }
+                    }}
+                    placeholder="https://example.com/photo.jpg" 
+                    pattern="https?://.*" 
+                    type="url" 
                     className="w-full bg-secondary border border-border rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-primary/30 text-foreground placeholder:text-muted-foreground"
+                    title="Enter a valid image URL (must be a direct link to an image file)"
                   />
+                  <p className="text-[10px] text-muted-foreground/60 mt-1.5">Direct image URL only (JPG, PNG, WebP, etc.)</p>
                 </div>
-                <button
-                  onClick={handleSaveProfile}
-                  disabled={saving}
-                  className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
-                >
-                  {saving ? (
-                    <>
-                      <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                      </svg>
-                      Saving...
-                    </>
-                  ) : "Save Changes"}
+                <button onClick={handleSaveProfile} disabled={saving} className="w-full py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+                  {saving ? (<><svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>Saving...</>) : "Save Changes"}
                 </button>
               </div>
             </div>
           )}
 
           <div className="px-4 space-y-2 pb-4">
-            {/* Appearance */}
             <div className="rounded-xl overflow-hidden border border-border bg-secondary/20">
               <button onClick={() => setAppearanceOpen(!appearanceOpen)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors">
                 <Palette size={15} className="text-primary shrink-0" />
@@ -1251,7 +1282,6 @@ function ProfilePanel({
               )}
             </div>
 
-            {/* CTA */}
             <div className="rounded-xl overflow-hidden border border-border bg-secondary/20">
               <button onClick={() => setCtaOpen(!ctaOpen)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors">
                 <Settings size={15} className="text-primary shrink-0" />
@@ -1260,16 +1290,15 @@ function ProfilePanel({
               </button>
               {ctaOpen && (
                 <div className="border-t border-border p-4 bg-secondary/30">
-                  <p className="text-[10px] text-muted-foreground/50 mb-3">Where to show the button</p>
+                  <p className="text-[10px] text-muted-foreground/50 mb-3">Where to show button</p>
                   <div className="flex gap-2 p-1 bg-secondary rounded-xl border border-border">
-                    <button onClick={() => handleCtaChange("inside")} className={`flex-1 flex items-center justify-center py-2 rounded-lg text-xs font-semibold transition-all ${currentCta === "inside" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>In Card</button>
-                    <button onClick={() => handleCtaChange("floating")} className={`flex-1 flex items-center justify-center py-2 rounded-lg text-xs font-semibold transition-all ${currentCta === "floating" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>Floating</button>
+                    <button onClick={() => onCtaChange?.("inside")} className={`flex-1 flex items-center justify-center py-2 rounded-lg text-xs font-semibold transition-all ${ctaPreference === "inside" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>In Card</button>
+                    <button onClick={() => onCtaChange?.("floating")} className={`flex-1 flex items-center justify-center py-2 rounded-lg text-xs font-semibold transition-all ${ctaPreference === "floating" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>Floating</button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Backup */}
             <div className="rounded-xl overflow-hidden border border-border bg-secondary/20">
               <button onClick={() => setBackupOpen(!backupOpen)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors">
                 <HardDrive size={15} className="text-primary shrink-0" />
@@ -1288,12 +1317,8 @@ function ProfilePanel({
               )}
             </div>
 
-            {/* Shortcuts */}
             <div className="rounded-xl overflow-hidden border border-border bg-secondary/20">
-              <button
-                onClick={() => { if (onOpenShortcuts) onOpenShortcuts(); else setShortcutsOpen(true); }}
-                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors"
-              >
+              <button onClick={() => { if (onOpenShortcuts) onOpenShortcuts(); else setShortcutsOpen(true); }} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors">
                 <Keyboard size={15} className="text-primary shrink-0" />
                 <span className="text-sm font-semibold text-foreground flex-1 text-left">Shortcuts</span>
                 <ChevronRight size={14} className="text-muted-foreground/50" />
@@ -1302,20 +1327,13 @@ function ProfilePanel({
           </div>
         </div>
 
-        {/* Bottom action */}
         <div className="px-4 pb-5 pt-3 border-t border-border shrink-0">
           {isGuest ? (
-            <button
-              onClick={handleAuthAction}
-              className="w-full py-2.5 rounded-xl text-xs font-bold text-primary border border-primary/40 hover:bg-primary/10 transition-colors flex items-center justify-center gap-2"
-            >
+            <button onClick={handleAuthAction} className="w-full py-2.5 rounded-xl text-xs font-bold text-primary border border-primary/40 hover:bg-primary/10 transition-colors flex items-center justify-center gap-2">
               <LogIn size={14} /> Sign In / Login
             </button>
           ) : (
-            <button
-              onClick={handleAuthAction}
-              className="w-full py-2.5 rounded-xl text-xs text-red-400 hover:bg-red-500/10 transition-colors font-semibold border border-transparent hover:border-red-500/20 flex items-center justify-center gap-2"
-            >
+            <button onClick={handleAuthAction} className="w-full py-2.5 rounded-xl text-xs text-red-400 hover:bg-red-500/10 transition-colors font-semibold border border-transparent hover:border-red-500/20 flex items-center justify-center gap-2">
               <LogOut size={14} /> Sign Out
             </button>
           )}
@@ -1332,7 +1350,7 @@ function ProfilePanel({
 
 /* ─── Main Navbar ────────────────────────────────────── */
 export function Navbar(props: NavbarProps) {
-  const { stories } = useStories();
+  const { stories, triggerSync } = useStories();
   const location = useLocation();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -1346,7 +1364,6 @@ export function Navbar(props: NavbarProps) {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // ── KEYBOARD SHORTCUTS ──
   const filterOpenRef = useRef(false);
   const onOpenShortcutsRef = useRef(props.onOpenShortcuts);
   useEffect(() => { filterOpenRef.current = filterOpen; }, [filterOpen]);
@@ -1356,13 +1373,15 @@ export function Navbar(props: NavbarProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
-
-      if (e.key === "?") {
-        e.preventDefault();
-        setShortcutsOpen(prev => !prev);
+           
+      if (e.key === "Escape") {        
+        if (!props.variant || props.variant !== "library") {          
+           if (props.onOpenShortcuts) props.onOpenShortcuts();
+        }
         return;
       }
 
+      if (e.key === "?") { e.preventDefault(); setShortcutsOpen(prev => !prev); return; }
       if (props.variant === "library") {
         if ((e.key === "f" || e.key === "F") && !e.ctrlKey && !e.metaKey) {
           if (!filterOpenRef.current) { e.preventDefault(); setFilterOpen(true); }
@@ -1371,7 +1390,7 @@ export function Navbar(props: NavbarProps) {
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown, true);
-  }, [props.variant]);
+  }, [props.variant, props.onOpenShortcuts]);
 
   const isLibrary = location.pathname === "/" || location.pathname === "/home";
   const isLists = location.pathname === "/lists" || location.pathname.startsWith("/list/");
@@ -1380,9 +1399,8 @@ export function Navbar(props: NavbarProps) {
     try {
       const allStories = await dexieAPI.getAll();
       if (allStories.length === 0) { alert("Your library is empty — nothing to export."); return; }
-
       if (fmt === "json") {
-        const blob = new Blob([JSON.stringify(allStories, null, 2)], { type: "application/json" });
+        const blob = new Blob([JSON.stringify(allStories, null,2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url; a.download = `jejakbaca-backup-${new Date().toISOString().slice(0, 10)}.json`;
@@ -1390,27 +1408,17 @@ export function Navbar(props: NavbarProps) {
       } else if (fmt === "csv") {
         const headers = ["ID", "Title", "Author", "Status", "Rating", "Current Chapter", "Total Chapters", "Genres", "Tags", "Synopsis", "Updated At"];
         const rows = [headers.join(",")];
-        const esc = (v: any) => {
-          if (v === null || v === undefined) return '""';
-          const str = Array.isArray(v) ? v.join("; ") : String(v);
-          return `"${str.replace(/"/g, '""')}"`;
-        };
-        allStories.forEach(s => {
-          rows.push([esc(s.id), esc(s.title), esc(s.author), esc(s.status), s.rating ?? 0, s.currentChapter ?? 0,
-            (s as any).totalChapters ?? 0, esc((s as any).genres), esc(s.tags), esc(s.synopsis), esc(s.updatedAt)].join(","));
-        });
+        const esc = (v: any) => { if (v === null || v === undefined) return '""'; const str = Array.isArray(v) ? v.join("; ") : String(v); return `"${str.replace(/"/g, '""')}"`; };
+        allStories.forEach(s => { rows.push([esc(s.id), esc(s.title), esc(s.author), esc(s.status), s.rating ?? 0, s.currentChapter ?? 0, (s as any).totalChapters ?? 0, esc((s as any).genres), esc(s.tags), esc(s.synopsis), esc(s.updatedAt)].join(",")); });
         const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url; a.download = `jejakbaca-${new Date().toISOString().slice(0, 10)}.csv`;
         document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
       }
-    } catch (err) {
-      console.error("Export error:", err);
-      alert("Export failed. Check the console for details.");
-    }
+    } catch (err) { console.error("Export error:", err); alert("Export failed."); }
   };
-
+  
   const handleImport = () => {
     const input = document.createElement("input");
     input.type = "file"; input.accept = ".json,.csv";
@@ -1449,8 +1457,8 @@ export function Navbar(props: NavbarProps) {
                 added++;
               } catch (err) { console.error("Failed to import:", raw, err); failed++; }
             }
-            alert(`Import complete! Added ${added} new stories.${failed > 0 ? ` Failed: ${failed}` : ""}`);
-            window.location.reload();
+            alert(`Import complete! Added ${added} new stories.${failed > 0 ? ` Failed: ${failed}` : ""}`);            
+            await triggerSync();
           }
         } catch (err) { console.error("Import error:", err); alert("Import failed."); }
       };
@@ -1458,10 +1466,6 @@ export function Navbar(props: NavbarProps) {
     };
     input.click();
   };
-
-  const totalChapters = props.totalChapters;
-  const completedCount = props.completedCount;
-  const avgRating = props.avgRating;
 
   return (
     <>
@@ -1482,9 +1486,7 @@ export function Navbar(props: NavbarProps) {
                 <FilterIcon size={16} />
                 {props.filterCount > 0 && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-amber-400 border-2 border-card rounded-full" />}
               </button>
-              <div className="hidden sm:block">
-                <AddStoryDialog showLabel />
-              </div>
+              <div className="hidden sm:block"><AddStoryDialog showLabel /></div>
               <ProfileButton onClick={() => setProfileOpen(true)} />
             </div>
           )}
@@ -1493,8 +1495,7 @@ export function Navbar(props: NavbarProps) {
             <div className="flex items-center gap-2 ml-auto">
               <ListsSearch value={props.listSearch} onChange={props.onListSearchChange} />
               <div className="hidden sm:block">
-                <NewListDialogTrigger showLabel existingCount={0}
-                  onCreate={(name, color, visibility) => props.onNewList(name, color, visibility)} />
+                <NewListDialogTrigger showLabel existingCount={0} onCreate={(name, color, visibility) => props.onNewList(name, color, visibility)} />
               </div>
               <ProfileButton onClick={() => setProfileOpen(true)} />
             </div>
@@ -1502,7 +1503,6 @@ export function Navbar(props: NavbarProps) {
         </div>
       </header>
 
-      {/* ── Mobile Bottom Nav ── */}
       {isMobile && (
         <nav className="fixed bottom-0 left-0 right-0 z-30 bg-card/95 backdrop-blur-xl border-t border-border">
           <div className="flex items-center justify-around px-2 h-16">
@@ -1510,32 +1510,20 @@ export function Navbar(props: NavbarProps) {
               <Home size={22} strokeWidth={2} />
               <span className="text-[10px] font-medium">Home</span>
             </Link>
-
             <div className="flex flex-col items-center gap-1">
               {props.variant === "lists" ? (
                 <>
-                  <NewListDialogTrigger showLabel={false} existingCount={0}
-                    onCreate={(name, color, visibility) => (props as ListsNavbarProps).onNewList(name, color, visibility)}
-                    trigger={
-                      <button className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/35 hover:brightness-110 active:scale-95 transition-all -mt-5">
-                        <Plus size={22} className="text-primary-foreground" strokeWidth={2.5} />
-                      </button>
-                    }
-                  />
+                  <NewListDialogTrigger showLabel={false} existingCount={0} onCreate={(name, color, visibility) => (props as ListsNavbarProps).onNewList(name, color, visibility)}
+                    trigger={<button className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/35 hover:brightness-110 active:scale-95 transition-all -mt-5"><Plus size={22} className="text-primary-foreground" strokeWidth={2.5} /></button>} />
                   <span className="text-[10px] font-semibold text-muted-foreground">Add List</span>
                 </>
               ) : (
                 <>
-                  <AddStoryDialog trigger={
-                    <button className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/35 hover:brightness-110 active:scale-95 transition-all -mt-5">
-                      <Plus size={22} className="text-primary-foreground" strokeWidth={2.5} />
-                    </button>
-                  } />
+                  <AddStoryDialog trigger={<button className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-lg shadow-primary/35 hover:brightness-110 active:scale-95 transition-all -mt-5"><Plus size={22} className="text-primary-foreground" strokeWidth={2.5} /></button>} />
                   <span className="text-[10px] font-semibold text-muted-foreground">Add Story</span>
                 </>
               )}
             </div>
-
             <Link to="/lists" className={`flex flex-col items-center justify-center w-16 h-full gap-1 transition-colors ${isLists ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>
               <List size={22} strokeWidth={2} />
               <span className="text-[10px] font-medium">Lists</span>
@@ -1544,32 +1532,22 @@ export function Navbar(props: NavbarProps) {
         </nav>
       )}
 
-      {/* Profile Panel */}
       <ProfilePanel
         open={profileOpen}
         onClose={() => setProfileOpen(false)}
         storiesCount={props.storiesCount}
-        totalChapters={totalChapters}
-        completedCount={completedCount}
-        avgRating={avgRating}
+        totalChapters={props.totalChapters}
+        completedCount={props.completedCount}
+        avgRating={props.avgRating}
         onExport={handleExport}
         onImport={handleImport}
-        onOpenShortcuts={() => {
-          if (props.onOpenShortcuts) props.onOpenShortcuts();
-          else setShortcutsOpen(true);
-        }}
+        onOpenShortcuts={() => { if (props.onOpenShortcuts) props.onOpenShortcuts(); else setShortcutsOpen(true); }}
         ctaPreference={props.ctaPreference}
         onCtaChange={props.onCtaChange}
       />
 
       {props.variant === "library" && (
-        <FilterPanel
-          open={filterOpen}
-          onClose={() => setFilterOpen(false)}
-          filters={props.filters}
-          onChange={props.onFiltersChange}
-          allTags={props.allTags ?? []}
-        />
+        <FilterPanel open={filterOpen} onClose={() => setFilterOpen(false)} filters={props.filters} onChange={props.onFiltersChange} allTags={props.allTags ?? []} />
       )}
 
       <ShortcutDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />

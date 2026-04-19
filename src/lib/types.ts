@@ -1,4 +1,4 @@
-export type StoryStatus = "reading" | "completed" | "on-hold" | "dropped" | "plan-to-read" | "re-reading";
+export type StoryStatus = "reading" | "completed" | "on-hold" | "dropped" | "plan-to-read" | "re-reading" | "hiatus";
 
 export interface Bookmark {
   id: string;

@@ -2,9 +2,10 @@ import { StoryStatus } from "@/lib/types";
 import { Sword, Users, Flower2, Globe, HelpCircle } from "lucide-react"; // <--- Tambahkan import ini
 
 export const STATUS_OPTIONS: { value: StoryStatus; label: string; color: string }[] = [
-  { value: "reading",      label: "On-going",     color: "#22c55e" },
+  { value: "reading",      label: "On-going",     color: "#22c55f" },
   { value: "completed",    label: "Completed",    color: "#3b82f6" },
   { value: "on-hold",      label: "On-hold",      color: "#eab308" },
+  { value: "hiatus",       label: "Hiatus",       color: "#f97316" },
   { value: "dropped",      label: "Dropped",      color: "#ef4444" },
   { value: "plan-to-read", label: "Plan to Read", color: "#6b7280" },
   { value: "re-reading",   label: "Re-reading",   color: "#a855f7" },

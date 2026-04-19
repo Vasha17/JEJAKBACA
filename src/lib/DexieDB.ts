@@ -9,7 +9,7 @@ export enum SyncStatus {
 }
 
 export interface DexieStory extends Story {
-  data: any; 
+  data: any;
   sync_status: SyncStatus;
   last_sync?: string;
   version: number;
@@ -30,40 +30,34 @@ export class JejakBacaDB extends Dexie {
 export const db = new JejakBacaDB();
 
 // ── Lazy Initialization ────────────────────────────────────────────────────
-let isInitializing = false;
 let initPromise: Promise<JejakBacaDB | null> | null = null;
 let isFallbackMode = false;
 let memoryStories: Story[] = [];
 
-async function getDB(): Promise<JejakBacaDB | null> {
-  if (db.isOpen) return db; // Jika sudah dibuka, pakai instance langsung
+async function getDB(): Promise<JejakBacaDB | null> {  
+  if (db.isOpen()) return db;
   
-  if (initPromise) return initPromise;
-
-  initPromise = (async () => {
-    if (isInitializing) return db; 
-    isInitializing = true;
-
-    try {      
-      if (!window.indexedDB) throw new Error("IndexedDB not supported");
-
-      await db.open(); 
-      console.log("✅ Dexie Connected");
-      
-      await migrateFromLocalStorageInternal(db);
-      return db;
-    } catch (error) {
-      console.warn("⚠️ IndexedDB blocked. Switching to Memory Mode.", error);
-      isFallbackMode = true;
+  if (!initPromise) {
+    initPromise = (async () => {
       try {
-        const stored = localStorage.getItem('jejakbaca_stories_fallback');
-        if (stored) memoryStories = JSON.parse(stored);
-      } catch (e) {}
-      return null;
-    } finally {
-      isInitializing = false;
-    }
-  })();
+        if (!window.indexedDB) throw new Error("IndexedDB not supported");
+        await db.open();
+        console.log("✅ Dexie Connected");
+        await migrateFromLocalStorageInternal(db);
+        return db;
+      } catch (error) {
+        console.warn("⚠️ IndexedDB blocked. Switching to Memory Mode.", error);
+        isFallbackMode = true;
+        // Reset promise agar bisa retry di masa depan jika perlu
+        initPromise = null;
+        try {
+          const stored = localStorage.getItem('jejakbaca_stories_fallback');
+          if (stored) memoryStories = JSON.parse(stored);
+        } catch (e) {}
+        return null;
+      }
+    })();
+  }
 
   return initPromise;
 }
@@ -80,7 +74,7 @@ function toDexie(story: Story, status: SyncStatus = SyncStatus.LOCAL): DexieStor
   };
 }
 
-function toStory(record: DexieStory): Story {  
+function toStory(record: DexieStory): Story {
   const { sync_status, last_sync, version, updated_at, data, ...story } = record;
   return story;
 }
@@ -91,7 +85,7 @@ export const dexieAPI = {
     if (isFallbackMode) return [...memoryStories];
     const dbConn = await getDB();
     if (!dbConn) return [...memoryStories];
-    return await dbConn.stories.orderBy('updated_at').reverse().toArray().then(recs => recs.map(toStory));
+    return dbConn.stories.orderBy('updated_at').reverse().toArray().then(recs => recs.map(toStory));
   },
 
   get: async (id: string): Promise<Story | undefined> => {
@@ -110,7 +104,6 @@ export const dexieAPI = {
     }
     const dbConn = await getDB();
     if (!dbConn) { memoryStories.push(story); persistFallback(); return story; }
-    
     const dexieStory = toDexie(story);
     await dbConn.stories.add(dexieStory);
     return story;
@@ -138,7 +131,7 @@ export const dexieAPI = {
       Object.assign(item, updates);
       const now = new Date().toISOString();
       item.updated_at  = now;
-      item.updatedAt   = now; 
+      item.updatedAt   = now;
       item.sync_status = SyncStatus.LOCAL;
       item.version     = (item.version ?? 0) + 1;
     });
@@ -157,8 +150,7 @@ export const dexieAPI = {
 
   setSynced: async (ids: string[], version: number): Promise<void> => {
     const dbConn = await getDB();
-    if (!dbConn) return;
-    if (ids.length === 0) return;
+    if (!dbConn || ids.length === 0) return;
     await dbConn.stories
       .where('id').anyOf(ids)
       .modify({ sync_status: SyncStatus.SYNCED, last_sync: new Date().toISOString(), version });
@@ -173,6 +165,15 @@ export const dexieAPI = {
       .toArray();
   },
 
+  getPendingCount: async (): Promise<number> => {
+    const dbConn = await getDB();
+    if (!dbConn) return 0;
+    return dbConn.stories
+      .where('sync_status').equals(SyncStatus.LOCAL)
+      .or('sync_status').equals(SyncStatus.CONFLICT)
+      .count();
+  },
+
   clearConflicts: async (): Promise<void> => {
     const dbConn = await getDB();
     if (!dbConn) return;
@@ -181,16 +182,76 @@ export const dexieAPI = {
       .modify({ sync_status: SyncStatus.LOCAL });
   },
 
-  upsertFromCloud: async (story: Story, version: number): Promise<void> => {
+  upsertFromCloud: async (story: Story, cloudVersion: number): Promise<void> => {
     const dbConn = await getDB();
     if (!dbConn) return;
+
     const existing = await dbConn.stories.get(story.id);
+
+    // Tidak ada lokal → insert langsung
+    if (!existing) {
+      await dbConn.stories.put({
+        ...toDexie(story, SyncStatus.SYNCED),
+        version: cloudVersion,
+        last_sync: new Date().toISOString(),
+      });
+      return;
+    }
+
+    if (existing.sync_status === SyncStatus.LOCAL) {
+      await dbConn.stories.where('id').equals(story.id).modify(item => {        
+        item.sync_status = SyncStatus.CONFLICT;
+        item.data = story; 
+      });
+      console.warn(`⚠️ Conflict detected for story "${story.title}" — local version preserved`);
+      return;
+    }
+    
+    if (existing.sync_status === SyncStatus.CONFLICT) {
+      console.warn(`⚠️ Story "${story.title}" masih conflict, skip cloud update`);
+      return;
+    }
+    
     await dbConn.stories.put({
       ...toDexie(story, SyncStatus.SYNCED),
-      version,
+      version: cloudVersion,
       last_sync: new Date().toISOString(),
-      sync_status: existing?.sync_status === SyncStatus.LOCAL ? SyncStatus.CONFLICT : SyncStatus.SYNCED,
     });
+  },
+
+  // Helper: ambil versi cloud yang tersimpan dari conflict
+  getConflictCloudVersion: async (id: string): Promise<Story | null> => {
+    const dbConn = await getDB();
+    if (!dbConn) return null;
+    const record = await dbConn.stories.get(id);
+    if (!record || record.sync_status !== SyncStatus.CONFLICT) return null;
+    return record.data as Story ?? null;
+  },
+
+  // Resolve conflict: pilih "local" atau "cloud"
+  resolveConflict: async (id: string, resolution: 'local' | 'cloud'): Promise<void> => {
+    const dbConn = await getDB();
+    if (!dbConn) return;
+    const record = await dbConn.stories.get(id);
+    if (!record || record.sync_status !== SyncStatus.CONFLICT) return;
+
+    if (resolution === 'local') {
+      // Pakai versi lokal → mark sebagai LOCAL supaya di-push ke cloud
+      await dbConn.stories.where('id').equals(id).modify(item => {
+        item.sync_status = SyncStatus.LOCAL;
+        item.data = undefined;
+      });
+    } else {
+      // Pakai versi cloud → overwrite lokal dengan data cloud yang tersimpan
+      const cloudStory = record.data as Story;
+      if (!cloudStory) return;
+      await dbConn.stories.put({
+        ...toDexie(cloudStory, SyncStatus.SYNCED),
+        version: record.version,
+        last_sync: new Date().toISOString(),
+        data: undefined,
+      });
+    }
   },
 
   sync: async (userId: string): Promise<void> => {
@@ -205,9 +266,9 @@ function persistFallback() {
 
 async function migrateFromLocalStorageInternal(db: JejakBacaDB): Promise<void> {
   const existing = await db.stories.count();
-  if (existing > 0) return;
+  if (existing > 0) return; 
   try {
-    const { loadStories } = await import('./storage'); 
+    const { loadStories } = await import('./storage');
     const stories = loadStories();
     if (stories.length === 0) return;
     const dexieStories: DexieStory[] = stories.map(s => ({
@@ -215,7 +276,7 @@ async function migrateFromLocalStorageInternal(db: JejakBacaDB): Promise<void> {
       id: s.id || crypto.randomUUID(),
       createdAt: s.createdAt || new Date().toISOString(),
       updated_at: s.updatedAt || new Date().toISOString(),
-      data: undefined, 
+      data: undefined,
       sync_status: SyncStatus.LOCAL,
       version: 1,
     }));

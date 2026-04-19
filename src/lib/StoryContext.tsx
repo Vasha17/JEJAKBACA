@@ -68,10 +68,19 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         // 1. Load dari Dexie dulu (data lokal) agar UI tidak kosong
-        const localStories = await dexieAPI.getAll();
-        if (mountedRef.current) setStories(localStories);
+        const [localStories, initialUnsynced] = await Promise.all([
+          dexieAPI.getAll(),
+          dexieAPI.getUnsynced(),
+        ]);
 
-        // 2. Cek apakah user sudah login
+        if (mountedRef.current) {
+          setStories(localStories);          
+          setSyncStats(prev => ({ ...prev, pendingCount: initialUnsynced.length }));
+        }
+
+        // 2. Cek apakah user sudah login & online
+        if (!navigator.onLine) return;
+
         const { supabase } = await import("@/integrations/supabase/client");
         const { data } = await supabase.auth.getUser();
         const userId = data.user?.id;
@@ -102,8 +111,11 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (e) {
         console.error("StoryContext: gagal load/sync stories", e);
-        if (mountedRef.current) {
-          setSyncStats(prev => ({ ...prev, status: "error" }));
+        if (mountedRef.current) {          
+          try {
+            const unsynced = await dexieAPI.getUnsynced();
+            setSyncStats(prev => ({ ...prev, status: "error", pendingCount: unsynced.length }));
+          } catch {}
         }
       }
     })();
@@ -112,6 +124,44 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
       mountedRef.current = false;
     };
   }, []);
+
+  // ── Periodic sync tiap 30 detik ───────────────────────────────────────────────
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (!mountedRef.current) return;
+      if (!navigator.onLine) return;
+
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data } = await supabase.auth.getUser();
+        if (!data.user?.id) return;
+
+        const unsynced = await dexieAPI.getUnsynced();
+        if (unsynced.length === 0) return; 
+
+        console.log("⏰ Periodic sync:", unsynced.length, "pending");
+        await dexieAPI.sync(data.user.id);
+        
+        const [all, remaining] = await Promise.all([
+          dexieAPI.getAll(),
+          dexieAPI.getUnsynced(),
+        ]);
+        
+        if (mountedRef.current) {
+          setStories(all);
+          setSyncStats({
+            lastSync: new Date().toISOString(),
+            pendingCount: remaining.length,
+            status: remaining.length === 0 ? "success" : "idle",
+          });
+        }
+      } catch (e) {
+        console.warn("Periodic sync failed:", e);
+      }
+    }, 30_000);
+
+    return () => clearInterval(interval);
+  }, []); 
 
   // ── Core optimistic update helper ─────────────────────────────────────────────
   const applyUpdate = useCallback(async (id: string, updates: Partial<Story>) => {
@@ -320,7 +370,12 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
   );
 
   // ── Manual trigger sync ───────────────────────────────────────────────────────
-  const triggerSync = useCallback(async () => {
+  const triggerSync = useCallback(async () => {    
+    if (!navigator.onLine) {
+      console.log("⏭️ Skipping sync — offline");
+      return;
+    }
+
     setSyncStats((prev) => ({ ...prev, status: "syncing" }));
     try {
       const { supabase } = await import("@/integrations/supabase/client");

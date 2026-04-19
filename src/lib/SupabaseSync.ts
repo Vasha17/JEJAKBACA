@@ -1,7 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
-import { db, dexieAPI, SyncStatus, DexieStory } from './DexieDB';
+import { dexieAPI } from './DexieDB';
 import type { Story } from './types'; 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 interface SyncStats {
   local: number;
@@ -65,7 +65,9 @@ export const syncAPI = {
 
         const storyData = cloudDataRaw as unknown as Story; 
        
-        await dexieAPI.upsertFromCloud(storyData, cloudRecord.version);
+        if (cloudRecord.version !== null) {
+          await dexieAPI.upsertFromCloud(storyData, cloudRecord.version);
+        }
       })
     );
 
@@ -124,35 +126,4 @@ export function useRealtimeSync(userId?: string) {
       supabase.removeChannel(channel);
     };
   }, [userId]);
-}
-
-// React hook for sync stats
-export function useSyncStats() {
-  const [stats, setStats] = useState<SyncStats>({ local: 0, cloud: 0, conflicts: 0 });
-
-  const updateStats = async () => {
-    const unsyncedRecords = await dexieAPI.getUnsynced();
-    const conflicts = unsyncedRecords.filter(r => r.sync_status === SyncStatus.CONFLICT).length;
-    const local = unsyncedRecords.filter(r => r.sync_status === SyncStatus.LOCAL).length;
-    
-    let cloud = 0;
-    const { data } = await supabase.auth.getSession();
-    if (data.session?.user) {
-      const { count } = await supabase
-        .from('stories')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', data.session.user.id);
-      cloud = count || 0;
-    }
-
-    setStats({ local, cloud, conflicts });
-  };
-
-  useEffect(() => {
-    updateStats();
-    const interval = setInterval(updateStats, 5000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return stats;
 }
