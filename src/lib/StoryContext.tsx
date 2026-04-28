@@ -215,10 +215,23 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
     [applyUpdate]
   );
 
-  const deleteStory = useCallback(async (id: string) => {
-    await dexieAPI.delete(id);
-    setStories((prev) => prev.filter((s) => s.id !== id));
-  }, []);
+  const deleteStory = useCallback(async (id: string) => {  
+  setStories((prev) => prev.filter((s) => s.id !== id));
+  
+  await dexieAPI.delete(id);
+    
+  try {
+    if (navigator.onLine) {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase.auth.getUser();
+      if (data.user?.id) {
+        await supabase.from("stories").delete().eq("id", id).eq("user_id", data.user.id);
+      }
+    }
+  } catch (e) {
+    console.error("Failed to delete from Supabase:", e);
+  }
+}, []);
 
   // ── Bookmarks ─────────────────────────────────────────────────────────────────
   const addBookmark = useCallback(

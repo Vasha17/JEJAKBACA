@@ -4,7 +4,7 @@ import {
   BookOpen, Search, X, Plus, User, Filter as FilterIcon,
   Palette, HardDrive, Keyboard, FileDown, FileUp, Edit,
   Camera, ChevronRight, Sun, Moon, Settings, Home, List,
-  LogIn, LogOut, Eye,
+  LogIn, LogOut, Eye, KeyRound,
 } from "lucide-react";
 import { AddStoryDialog } from "@/component/AddStoryDialog";
 import { useStories } from "@/lib/StoryContext";
@@ -13,6 +13,7 @@ import { ThemePicker } from "@/component/ThemePicker";
 import { NewListDialogTrigger } from "@/component/NewListDialogTrigger";
 import { useAuth } from "@/component/Auth";
 import { dexieAPI } from "@/lib/DexieDB";
+import { VaultDialog } from "@/component/VaultDialog";
 import QRCode from "qrcode";
 
 /* ─── Filter Types ───────────────────────────────────── */
@@ -732,10 +733,8 @@ function ShortcutDialog({ open, onClose }: { open: boolean; onClose: () => void 
         { label: "Edit Notes", keys: ["S"] },
         { label: "Edit Rating", keys: ["R"] },
         { label: "Prev / Next Story", keys: ["←", "→"] },
-        { 
-          label: "Close Search / Back to Library", 
-          keys: ["ESC"],          
-        },
+        { label: "Close Search / Back to Library", keys: ["ESC"] },
+        { label: "Unlock Vault", keys: ["Search + ##"] },
       ]
     },
   ];
@@ -1032,6 +1031,7 @@ function ProfilePanel({
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [changePinOpen, setChangePinOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   
   const [username, setUsername] = useState(() => localStorage.getItem("jejakbaca_username") || "User");
@@ -1324,6 +1324,15 @@ function ProfilePanel({
                 <ChevronRight size={14} className="text-muted-foreground/50" />
               </button>
             </div>
+
+            {/* Hidden Vault PIN */}
+            <div className="rounded-xl overflow-hidden border border-border bg-secondary/20">
+              <button onClick={() => setChangePinOpen(true)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors">
+                <KeyRound size={15} className="text-primary shrink-0" />
+                <span className="text-sm font-semibold text-foreground flex-1 text-left">Hidden Vault PIN</span>
+                <ChevronRight size={14} className="text-muted-foreground/50" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1344,6 +1353,12 @@ function ProfilePanel({
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} onExport={onExport} />
       <ThemePicker open={themePickerOpen} onClose={() => setThemePickerOpen(false)} />
       <ShortcutDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <VaultDialog
+        open={changePinOpen}
+        onClose={() => setChangePinOpen(false)}
+        onUnlocked={() => setChangePinOpen(false)}
+        mode="change"
+      />
     </>
   );
 }

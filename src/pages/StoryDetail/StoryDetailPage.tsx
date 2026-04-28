@@ -16,6 +16,7 @@ import {
   CheckCircle2, XCircle, AlertCircle, History, GitBranch, Bell,
   Database, Globe, Image, RefreshCw, Zap, ChevronLeft, ChevronRight,
   MoreHorizontal, Search, HelpCircle,
+  EyeOff,
 } from "lucide-react";
 import { format } from "date-fns";
 import { RichTextEditor, RichTextDisplay } from "@/component/RichTextEditor";
@@ -482,7 +483,7 @@ export default function StoryDetail() {
 
   const handleReadNow = () => {
     if (!story.sources || story.sources.length === 0) {
-      alert("Belum ada link sumber baca untuk cerita ini."); return;
+      alert("There is no source link for this story yet."); return;
     }
     const best = [...story.sources].sort((a: any, b: any) => (b.currentChapter || 0) - (a.currentChapter || 0))[0];
     window.open(best.url, "_blank");
@@ -1102,6 +1103,29 @@ export default function StoryDetail() {
                         <button onClick={() => { setMoreDialog(false); handleOpenRelated(); setRelatedDialog(true); }} className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary text-left transition-colors">
                           <div className="p-1.5 rounded bg-secondary/50"><GitBranch className="w-4 h-4 text-foreground"/></div>
                           <div className="flex-1"><p className="text-sm font-medium text-foreground">Related Stories</p><p className="text-[10px] text-muted-foreground">Prequel, Sequel, dll.</p></div>
+                        </button>
+                        {/* Tombol Hidden Vault */}
+                        <button 
+                          onClick={() => { 
+                            setMoreDialog(false); // Tutup dialog
+                            updateStory(story.id, { hidden: !story.hidden }); // Toggle hidden
+                          }} 
+                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary text-left transition-colors"
+                        >
+                          <div className="p-1.5 rounded bg-secondary/50">
+                            {story.hidden 
+                              ? <Eye className="w-4 h-4 text-foreground"/>
+                              : <EyeOff className="w-4 h-4 text-foreground"/>
+                            }
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-foreground">
+                              {story.hidden ? "Show in Library" : "Hide from Library"}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {story.hidden ? "Story will reappear in the library" : "Move to Hidden Vault"}
+                            </p>
+                          </div>
                         </button>
                         <button onClick={() => { setMoreDialog(false); setDeleteStoryDialog(true); }} className="flex items-center gap-3 p-3 rounded-lg hover:bg-destructive/10 text-left transition-colors">
                           <div className="p-1.5 rounded bg-destructive/10"><Trash2 className="w-4 h-4 text-destructive"/></div>

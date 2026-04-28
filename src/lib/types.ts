@@ -78,6 +78,7 @@ export interface Story {
   relations: StoryRelation[];
   history: HistoryEntry[];
   genres?: string[];
+  hidden?: boolean; 
   demographic?: string;  
 }
 
@@ -172,6 +173,7 @@ export function createStory(partial: Partial<Story> & Pick<Story, "title">): Sto
     relations: [],
     history: [],
     originCountry: "",
+    hidden: false,
     ...partial, 
   };
 }
