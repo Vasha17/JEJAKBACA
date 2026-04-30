@@ -5,7 +5,8 @@ export enum SyncStatus {
   LOCAL    = 'local',
   SYNCED   = 'synced',
   CONFLICT = 'conflict',
-  SYNCING  = 'syncing'
+  SYNCING  = 'syncing',
+  DELETED  = 'deleted', 
 }
 
 export interface DexieStory extends Story {
@@ -16,13 +17,23 @@ export interface DexieStory extends Story {
   updated_at: string;
 }
 
+interface PendingDelete {
+  id: string;
+  deleted_at: string;
+}
+
 export class JejakBacaDB extends Dexie {
   stories!: Table<DexieStory>;
+  pending_deletes!: Table<PendingDelete>; // NEW
 
   constructor() {
     super('JejakBacaDB');
     this.version(2).stores({
       stories: 'id, title*, status, rating, updated_at, sync_status, version'
+    });    
+    this.version(3).stores({
+      stories: 'id, title*, status, rating, updated_at, sync_status, version',
+      pending_deletes: 'id, deleted_at'
     });
   }
 }
@@ -48,7 +59,6 @@ async function getDB(): Promise<JejakBacaDB | null> {
       } catch (error) {
         console.warn("⚠️ IndexedDB blocked. Switching to Memory Mode.", error);
         isFallbackMode = true;
-        // Reset promise agar bisa retry di masa depan jika perlu
         initPromise = null;
         try {
           const stored = localStorage.getItem('jejakbaca_stories_fallback');
@@ -136,7 +146,7 @@ export const dexieAPI = {
       item.version     = (item.version ?? 0) + 1;
     });
   },
-
+  
   delete: async (id: string): Promise<void> => {
     if (isFallbackMode) {
       memoryStories = memoryStories.filter(s => s.id !== id);
@@ -145,7 +155,55 @@ export const dexieAPI = {
     }
     const dbConn = await getDB();
     if (!dbConn) return;
+    await dbConn.stories.delete(id);    
+    try {
+      await dbConn.pending_deletes.put({ id, deleted_at: new Date().toISOString() });
+    } catch (e) {
+      console.warn('pending_deletes put failed:', e);
+    }
+  },
+  
+  deleteStory: async (id: string): Promise<void> => {
+    if (isFallbackMode) {
+      memoryStories = memoryStories.filter(s => s.id !== id);
+      persistFallback();
+      return;
+    }
+    const dbConn = await getDB();
+    if (!dbConn) return;    
     await dbConn.stories.delete(id);
+  },
+
+  // Ambil semua ID stories lokal (untuk diff dengan cloud)
+  getAllIds: async (): Promise<string[]> => {
+    if (isFallbackMode) return memoryStories.map(s => s.id);
+    const dbConn = await getDB();
+    if (!dbConn) return memoryStories.map(s => s.id);
+    const all = await dbConn.stories.toCollection().primaryKeys();
+    return all as string[];
+  },
+
+  // Ambil semua ID yang pending delete (belum di-push ke cloud)
+  getPendingDeletes: async (): Promise<string[]> => {
+    const dbConn = await getDB();
+    if (!dbConn) return [];
+    try {
+      const records = await dbConn.pending_deletes.toArray();
+      return records.map(r => r.id);
+    } catch (e) {
+      return [];
+    }
+  },
+
+  // Hapus entry dari pending_deletes setelah berhasil di-push ke cloud
+  clearPendingDelete: async (id: string): Promise<void> => {
+    const dbConn = await getDB();
+    if (!dbConn) return;
+    try {
+      await dbConn.pending_deletes.delete(id);
+    } catch (e) {
+      console.warn('clearPendingDelete failed:', e);
+    }
   },
 
   setSynced: async (ids: string[], version: number): Promise<void> => {
@@ -188,7 +246,6 @@ export const dexieAPI = {
 
     const existing = await dbConn.stories.get(story.id);
 
-    // Tidak ada lokal → insert langsung
     if (!existing) {
       await dbConn.stories.put({
         ...toDexie(story, SyncStatus.SYNCED),
@@ -219,7 +276,6 @@ export const dexieAPI = {
     });
   },
 
-  // Helper: ambil versi cloud yang tersimpan dari conflict
   getConflictCloudVersion: async (id: string): Promise<Story | null> => {
     const dbConn = await getDB();
     if (!dbConn) return null;
@@ -228,7 +284,6 @@ export const dexieAPI = {
     return record.data as Story ?? null;
   },
 
-  // Resolve conflict: pilih "local" atau "cloud"
   resolveConflict: async (id: string, resolution: 'local' | 'cloud'): Promise<void> => {
     const dbConn = await getDB();
     if (!dbConn) return;
@@ -236,13 +291,11 @@ export const dexieAPI = {
     if (!record || record.sync_status !== SyncStatus.CONFLICT) return;
 
     if (resolution === 'local') {
-      // Pakai versi lokal → mark sebagai LOCAL supaya di-push ke cloud
       await dbConn.stories.where('id').equals(id).modify(item => {
         item.sync_status = SyncStatus.LOCAL;
         item.data = undefined;
       });
     } else {
-      // Pakai versi cloud → overwrite lokal dengan data cloud yang tersimpan
       const cloudStory = record.data as Story;
       if (!cloudStory) return;
       await dbConn.stories.put({

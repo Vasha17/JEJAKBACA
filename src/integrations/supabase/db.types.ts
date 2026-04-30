@@ -14,36 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
-      lists: {
+      base_tags: {
         Row: {
-          id: string
-          user_id: string
-          name: string
-          color: string | null
-          status: string | null
-          description: string | null
-          updated_at: string | null
           created_at: string | null
+          id: number
+          name: string
         }
         Insert: {
-          id: string
-          user_id: string
-          name: string
-          color?: string | null
-          status?: string | null
-          description?: string | null
-          updated_at?: string | null
           created_at?: string | null
+          id?: number
+          name: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          name?: string
-          color?: string | null
-          status?: string | null
-          description?: string | null
-          updated_at?: string | null
           created_at?: string | null
+          id?: number
+          name?: string
+        }
+        Relationships: []
+      }
+      lists: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          status: string | null
+          story_ids: string[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id: string
+          name: string
+          status?: string | null
+          story_ids?: string[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          status?: string | null
+          story_ids?: string[] | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -54,6 +75,7 @@ export type Database = {
           updated_at: string | null
           user_id: string
           username: string | null
+          vault_pin: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -61,6 +83,7 @@ export type Database = {
           updated_at?: string | null
           user_id: string
           username?: string | null
+          vault_pin?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -68,6 +91,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
           username?: string | null
+          vault_pin?: string | null
         }
         Relationships: []
       }
@@ -75,7 +99,9 @@ export type Database = {
         Row: {
           created_at: string | null
           data: Json | null
+          hidden: boolean | null
           id: string
+          source_url: string | null
           title: string | null
           updated_at: string | null
           user_id: string
@@ -84,7 +110,9 @@ export type Database = {
         Insert: {
           created_at?: string | null
           data?: Json | null
+          hidden?: boolean | null
           id: string
+          source_url?: string | null
           title?: string | null
           updated_at?: string | null
           user_id: string
@@ -93,7 +121,9 @@ export type Database = {
         Update: {
           created_at?: string | null
           data?: Json | null
+          hidden?: boolean | null
           id?: string
+          source_url?: string | null
           title?: string | null
           updated_at?: string | null
           user_id?: string
@@ -106,7 +136,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      auto_linker: {
+        Args: { search_author: string; search_title: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

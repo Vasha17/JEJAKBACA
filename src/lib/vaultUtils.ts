@@ -11,7 +11,6 @@ async function hashPin(pin: string): Promise<string> {
 export async function setVaultPin(pin: string, userId?: string): Promise<void> {
   const hashed = await hashPin(pin);
   localStorage.setItem(VAULT_PIN_KEY, hashed);
-  
   if (userId) {
     try {
       const { supabase } = await import("@/integrations/supabase/client");
@@ -23,15 +22,48 @@ export async function setVaultPin(pin: string, userId?: string): Promise<void> {
   }
 }
 
-export async function verifyVaultPin(pin: string, _userId?: string): Promise<boolean> {
+// FIXED: fetch dari Supabase dulu, fallback localStorage
+export async function verifyVaultPin(pin: string, userId?: string): Promise<boolean> {
   const hashed = await hashPin(pin);
-  
-  // Fallback ke localStorage
+  if (userId) {
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase
+        .from("profiles")
+        .select("vault_pin")
+        .eq("user_id", userId)
+        .single();
+      if (data?.vault_pin) {
+        // Cache ke localStorage supaya offline tetap kerja
+        localStorage.setItem(VAULT_PIN_KEY, data.vault_pin);
+        return data.vault_pin === hashed;
+      }
+    } catch (e) {
+      console.error("Supabase PIN fetch failed, fallback localStorage:", e);
+    }
+  }
   const stored = localStorage.getItem(VAULT_PIN_KEY);
   return stored === hashed;
 }
 
-export async function hasVaultPin(_userId?: string): Promise<boolean> {
+// FIXED: cek Supabase dulu
+export async function hasVaultPin(userId?: string): Promise<boolean> {
+  if (userId) {
+    try {
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase
+        .from("profiles")
+        .select("vault_pin")
+        .eq("user_id", userId)
+        .single();
+      if (data?.vault_pin) {
+        localStorage.setItem(VAULT_PIN_KEY, data.vault_pin);
+        return true;
+      }
+    } catch (e) {
+      console.error("Supabase hasVaultPin failed, fallback:", e);
+    }
+  }
   return !!localStorage.getItem(VAULT_PIN_KEY);
 }
 

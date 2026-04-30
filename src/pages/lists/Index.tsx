@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
-  Plus, List as ListIcon, AlertTriangle, X,
+  Plus, List as ListIcon, AlertTriangle,
 } from "lucide-react";
 import { useStories } from "@/lib/StoryContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -195,7 +195,7 @@ const ListsIndex = () => {
     localStorage.setItem("my_reading_lists", JSON.stringify(newLists));
   };
 
-  const handleCreate = async (name: string, color: string, visibility: string) => {
+  const handleCreate = async (name: string, color: string, _visibility: string) => {
   const newList: ReadingList = {
     id: Date.now().toString(),
     name,
@@ -298,9 +298,19 @@ const ListsIndex = () => {
           </div>
         ) : (
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredLists.map((list) => (
-              <Link key={list.id} to={`/lists/${list.id}`}>
-                <ListCard list={list} onDelete={() => setDeleteTarget(list)} />
+            {filteredLists.map((list, index) => (
+              <Link
+                key={list.id}
+                to={`/lists/${list.id}`}
+                className="animate-fade-up"
+                style={{
+                  animationDelay: `${index * 80}ms`,
+                }}
+              >
+                <ListCard
+                  list={list}
+                  onDelete={() => setDeleteTarget(list)}
+                />
               </Link>
             ))}
             <NewListCard onClick={() => setDialogOpen(true)} />

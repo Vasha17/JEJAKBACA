@@ -1,6 +1,6 @@
-import { Link } from "react-router-dom";
 import { Story } from "@/lib/types";
-import { Star, BookOpen, Plus, X } from "lucide-react";
+import { Star, BookOpen, Plus, X, Check } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 // ─── Interfaces ───────────────────────────────────────
 interface StoryGridProps {
@@ -8,6 +8,9 @@ interface StoryGridProps {
   listId: string; 
   onLogChapter?: (id: string) => void;
   onRemove?: (id: string) => void;
+  bulkMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
 // ─── Constants ───────────────────────────────────────
@@ -26,11 +29,18 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 // ─── Component ───────────────────────────────────────
-export function StoryGrid({ story, listId, onLogChapter, onRemove }: StoryGridProps) {
+export function StoryGrid({ story, listId, onLogChapter, onRemove, bulkMode, selectedIds, onToggleSelect }: StoryGridProps) {
+  const navigate = useNavigate();
+  const isSelected = selectedIds?.has(story.id) ?? false;
   return (    
-    <Link 
-      to={`/story/${story.id}`}
-      state={{ fromListId: listId }}
+    <div
+      onClick={() => {
+        if (bulkMode) {
+          onToggleSelect?.(story.id);
+        } else {
+          navigate(`/story/${story.id}`, { state: { fromListId: listId } });
+        }
+      }}
       className="group relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-secondary border border-border transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 cursor-pointer block"
     >
       {/* Cover Image */}
@@ -64,6 +74,19 @@ export function StoryGrid({ story, listId, onLogChapter, onRemove }: StoryGridPr
           </div>
         )}
       </div>
+
+      {/* Bulk Mode Checkbox */}
+      {bulkMode && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect?.(story.id);
+          }}
+          className="absolute top-2 right-2 z-20 w-6 h-6 rounded bg-card/90 backdrop-blur border border-primary flex items-center justify-center shadow-md transition-colors"
+        >
+          {isSelected ? <Check size={14} className="text-primary" /> : null}
+        </button>
+      )}
 
       {/* Bottom Overlay: Info & Actions */}
       <div className="absolute inset-x-0 bottom-0 pt-10 pb-2 px-2 bg-gradient-to-t from-black/90 via-black/65 to-transparent z-10">
@@ -105,6 +128,6 @@ export function StoryGrid({ story, listId, onLogChapter, onRemove }: StoryGridPr
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   );
 }

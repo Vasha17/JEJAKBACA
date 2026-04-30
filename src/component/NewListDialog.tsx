@@ -1,4 +1,4 @@
-import { useState, useEffect, cloneElement, isValidElement } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, List as ListIcon } from "lucide-react";
 
@@ -29,7 +29,7 @@ interface NewListDialogProps {
   themeColor?: string;
 }
 
-export function NewListDialog({ open, onClose, onCreate, existingCount, themeColor = "#3b82f6" }: NewListDialogProps) {
+export function NewListDialog({ open, onClose, onCreate, existingCount }: NewListDialogProps) {
   const isMobile = useIsMobile();
   const [name, setName] = useState("");
   const [colorMode, setColorMode] = useState<"auto" | "manual">("auto");

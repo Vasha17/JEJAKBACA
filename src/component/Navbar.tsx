@@ -182,15 +182,13 @@ function LibrarySearch({ search, onSearchChange, stories }: {
 
   const suggestions = useMemo(() => {
     if (!search.trim()) return [];
-    return stories.filter((s: any) =>
-      s.title.toLowerCase().includes(search.toLowerCase()) ||
-      s.author?.toLowerCase().includes(search.toLowerCase())
-    );
+    return stories.filter((s: any) => {
+       if (s.hidden) return false;
+       return s.title.toLowerCase().includes(search.toLowerCase()) ||
+       s.author?.toLowerCase().includes(search.toLowerCase())
+    });
   }, [search, stories]);
 
-  const FORMAT_MAP: Record<string, string> = {
-    JP: "Manga", KR: "Manhwa", CN: "Manhua", TW: "Manhua", ID: "Komik", US: "Comic",
-  };
   const STATUS_COLORS: Record<string, string> = {
     "reading": "#22c55e", "completed": "#3b82f6", "on-hold": "#eab308",
     "dropped": "#ef4444", "plan-to-read": "#6b7280", "re-reading": "#a855f7",
@@ -276,8 +274,9 @@ function LibrarySearch({ search, onSearchChange, stories }: {
           )}
         </div>
 
+        {/* DESKTOP SEARCH OVERLAY */}
         {open && (
-          <div className="hidden sm:block fixed left-0 right-0 top-14 z-50 border-b border-border bg-card/95 backdrop-blur-xl shadow-2xl animate-in slide-in-from-top-1 duration-200">
+          <div className="hidden sm:block fixed left-0 right-0 top-14 z-50 border-b border-border bg-black/95 shadow-2xl animate-in slide-in-from-top-1 duration-200">
             <div className="flex items-center gap-3 px-6 py-3 border-b border-border/50">
               <Search size={16} className="text-muted-foreground shrink-0" />
               <input
@@ -334,6 +333,7 @@ function LibrarySearch({ search, onSearchChange, stories }: {
         )}
       </div>
 
+      {/* MOBILE SEARCH MODAL */}
       {open && (
         <div className="sm:hidden fixed inset-0 z-50 flex flex-col">
           <div
@@ -532,7 +532,7 @@ function PillGroup({ label, items, filterKey, filters, onToggle }: {
   );
 }
 
-function FilterPanel({ open, onClose, filters, onChange, allTags }: {
+export function FilterPanel({ open, onClose, filters, onChange, allTags }: {
   open: boolean; onClose: () => void;
   filters: Filters; onChange: (f: Filters) => void;
   allTags: string[];
@@ -570,16 +570,14 @@ function FilterPanel({ open, onClose, filters, onChange, allTags }: {
 
   const filteredGenres = ALL_GENRES.filter(g =>
     g.toLowerCase().includes(genreSearch.toLowerCase())
-  );
-
-  if (!open) return null;
+  );  
 
   const panelContent = (
     <>
       <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
         <div className="flex items-center gap-2">
           <FilterIcon size={14} className="text-primary" />
-          <span className="font-bold text-sm">Filter</span>
+          <span className="font-bold text-base">Filter</span>
           {totalActive > 0 && (
             <span className="text-[10px] bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 font-bold">{totalActive}</span>
           )}
@@ -705,19 +703,50 @@ function FilterPanel({ open, onClose, filters, onChange, allTags }: {
   );
 
   return (
-    <>
-      <div className="hidden sm:flex fixed inset-0 z-50 items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}>
-        <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
-          onClick={e => e.stopPropagation()}>
+    <>      
+      {open && (
+        <div 
+          className="hidden sm:block fixed inset-0 z-[100] bg-black/40 backdrop-blur-md transition-opacity duration-200" 
+          onClick={onClose} 
+        />
+      )}
+
+      {/* DESKTOP PANEL */}
+      <div className={`hidden sm:block fixed inset-x-0 top-0 z-[110] transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] bg-background/95 backdrop-blur-md shadow-2xl border-b border-border
+        ${open ? "opacity-100 translate-y-0 max-h-[100vh]" : "opacity-0 -translate-y-full pointer-events-none"}`}
+        style={{ transformOrigin: 'top center' }}
+      >
+        <div className="w-full max-w-7xl mx-auto">
           {panelContent}
         </div>
       </div>
-      <div className="sm:hidden fixed inset-0 z-50 flex flex-col justify-start" onClick={onClose}>
-        <div className="w-full bg-card border-b border-x border-border shadow-2xl flex flex-col rounded-b-3xl overflow-hidden animate-in slide-in-from-top duration-300"
-          style={{ maxHeight: "60vh" }} onClick={e => e.stopPropagation()}>
-          {panelContent}
+
+      {/* MOBILE PANEL */}
+      <div 
+        className={`sm:hidden fixed inset-0 z-[110] flex flex-col justify-start transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${open ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-full pointer-events-none"}`}
+      >
+        {/* Backdrop Mobile */}
+        <div 
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300" 
+          onClick={onClose} 
+        />
+
+        {/* Konten Mobile */}
+        <div 
+          className="relative w-full bg-card border-b border-x border-border shadow-2xl rounded-t-3xl overflow-hidden"
+          style={{ maxHeight: "60vh" }}
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Handle bar khas iOS */}
+          <div className="flex justify-center pt-3 pb-1 shrink-0">
+            <div className="w-10 h-1 rounded-full bg-border/50" />
+          </div>
+          
+          {/* Isi Panel */}
+          <div className="flex flex-col h-full">
+            {panelContent}
+          </div>
         </div>
-        <div className="flex-1" />
       </div>
     </>
   );
@@ -904,7 +933,7 @@ function MemberCard({
 }: MemberCardProps) {
   const { currentTheme, mode } = useTheme();
   const primary = currentTheme?.[mode]?.primary ?? "#f59e0b";
-  const bg = currentTheme?.[mode]?.background ?? "#0d0d18";
+  const bg = currentTheme?.[mode]?.background ?? "#000000";
   const card = currentTheme?.[mode]?.card ?? "#16213e";
 
   const cardId = useMemo(() => {
@@ -1171,7 +1200,8 @@ function ProfilePanel({
   return (
     <>
       {open && <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={onClose} />}
-      <div className={`fixed top-0 right-0 h-full w-96 z-50 bg-card border-l border-border shadow-2xl flex flex-col transform transition-transform duration-300 ease-out ${open ? "translate-x-0" : "translate-x-full"}`}>
+      {/* UPGRADED: iPhone feel easing */}
+      <div className={`fixed top-0 right-0 h-full w-96 z-50 bg-card border-l border-border shadow-2xl flex flex-col transform transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${open ? "translate-x-0" : "translate-x-full"}`}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <span className="font-bold text-sm">Profile</span>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary transition-colors"><X size={15} className="text-muted-foreground" /></button>
@@ -1325,7 +1355,6 @@ function ProfilePanel({
               </button>
             </div>
 
-            {/* Hidden Vault PIN */}
             <div className="rounded-xl overflow-hidden border border-border bg-secondary/20">
               <button onClick={() => setChangePinOpen(true)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-secondary/50 transition-colors">
                 <KeyRound size={15} className="text-primary shrink-0" />

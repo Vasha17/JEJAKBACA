@@ -1,7 +1,9 @@
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft, Pencil, Search, LayoutGrid, AlignJustify,
-  Check, X, BookOpen, Lock, PlusCircle, Trash2
+  Check, X, BookOpen, Lock, PlusCircle, Trash2,
+  CheckSquare, Settings, ChevronRight, ExternalLink,
+  Play, CheckCircle2, PauseCircle, BookMarked, Layers
 } from "lucide-react";
 import { StoryRow } from "@/component/StoryRow";
 import { StoryGrid } from "@/component/StoryGrid";
@@ -12,6 +14,56 @@ import { Navbar } from "@/component/Navbar";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useStories } from "@/lib/StoryContext";
 import { useAuth } from "@/component/Auth";
+
+/* ─── BulkActionBar ─────────────────────────────────────── */
+function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources }: {
+  count: number; onClose: () => void; onDelete: () => void;
+  onStatusChange: (status: string) => void; onOpenSources: (ids?: Set<string>) => void;
+}) {
+  const [statusOpen, setStatusOpen] = useState(false);
+  return (
+    <div className="fixed bottom-24 left-3 right-3 sm:bottom-8 sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 z-20 bg-card border border-border rounded-2xl shadow-2xl p-2 flex items-center gap-1 animate-in slide-in-from-bottom-4">
+      <span className="text-xs font-bold text-foreground px-1 mx-0.5 shrink-0">{count} Selected</span>
+      <div className="h-4 w-px bg-border mx-0.5 shrink-0" />
+      <div className="relative shrink-0">
+        <button onClick={() => setStatusOpen(prev => !prev)}
+          className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium hover:bg-secondary text-foreground transition-colors shrink min-w-0">
+          <Settings size={14} className="shrink-0" /><span className="truncate">Status</span>
+          <ChevronRight size={12} className={`transition-transform ${statusOpen ? "rotate-90" : ""} shrink-0`} />
+        </button>
+        {statusOpen && (
+          <div className="absolute bottom-full left-0 mb-2 flex flex-col gap-0.5 bg-card border border-border rounded-lg shadow-xl overflow-hidden w-[40vw] max-w-[200px] p-1 z-[100]">
+            {[
+              { value: "reading", label: "Reading", icon: <Play size={13} />, color: "text-green-400" },
+              { value: "completed", label: "Completed", icon: <CheckCircle2 size={13} />, color: "text-blue-400" },
+              { value: "on-hold", label: "On Hold", icon: <PauseCircle size={13} />, color: "text-yellow-400" },
+              { value: "hiatus", label: "Hiatus", icon: <BookMarked size={13} />, color: "text-orange-400" },
+              { value: "plan-to-read", label: "Plan to Read", icon: <BookMarked size={13} />, color: "text-purple-400" },
+              { value: "dropped", label: "Dropped", icon: <X size={13} />, color: "text-red-400" },
+              { value: "re-reading", label: "Re-reading", icon: <Layers size={13} />, color: "text-pink-400" },
+            ].map(s => (
+              <button key={s.value}
+                onClick={() => { onStatusChange(s.value); setStatusOpen(false); }}
+                className="text-left px-2 py-1.5 text-xs hover:bg-secondary rounded flex items-center gap-2 text-muted-foreground hover:text-foreground whitespace-nowrap">
+                <span className={s.color}>{s.icon}</span> {s.label}
+              </button>
+            ))}          
+          </div>
+        )}
+      </div>
+      <button onClick={() => onOpenSources()}
+        className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium hover:bg-blue-500/10 text-blue-400 transition-colors shrink min-w-0">
+        <ExternalLink size={14} className="shrink-0" /><span className="truncate">Open Tabs</span>
+      </button>
+      <button onClick={onDelete} className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium hover:bg-red-500/10 text-red-500 transition-colors shrink min-w-0">
+        <Trash2 size={14} className="shrink-0" /><span className="truncate">Remove</span>
+      </button>
+      <button onClick={onClose} className="p-1.5 hover:bg-secondary rounded-lg text-muted-foreground shrink-0">
+        <X size={14} />
+      </button>
+    </div>
+  );
+}
 
 /* ─── Toast ─────────────────────────────────────────────── */
 let toastEmitter: ((item: any) => void) | null = null;
@@ -126,10 +178,16 @@ const STATUS_OPTIONS: SelectOption[] = [
 function EditListModal({ open, onClose, listConfig, descHtml, onSave }: {
   open: boolean; onClose: () => void;
   listConfig: any; descHtml: string;
-  onSave: (desc: string) => void;
+  onSave: (desc: string, name: string) => void;
 }) {
   const [draftDesc, setDraftDesc] = useState(descHtml);
-  useEffect(() => { if (open) setDraftDesc(descHtml); }, [open, descHtml]);
+  const [draftName, setDraftName] = useState(listConfig?.name ?? "");
+  useEffect(() => {
+    if (open) {
+      setDraftDesc(descHtml);
+      setDraftName(listConfig?.name ?? "");
+    }
+  }, [open, descHtml, listConfig]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4">
@@ -141,7 +199,11 @@ function EditListModal({ open, onClose, listConfig, descHtml, onSave }: {
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">List Name</label>
-          <input value={listConfig?.name ?? ""} disabled className="w-full text-sm bg-secondary/50 border border-border rounded-xl px-3 py-2.5 text-foreground/50 outline-none cursor-not-allowed" />
+          <input
+            value={draftName}
+            onChange={e => setDraftName(e.target.value)}
+            className="w-full text-sm bg-secondary border border-border rounded-xl px-3 py-2.5 text-foreground outline-none focus:ring-2 focus:ring-primary/30"
+          />
         </div>
         <div className="space-y-1.5">
           <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description <span className="normal-case font-normal">(optional)</span></label>
@@ -151,7 +213,7 @@ function EditListModal({ open, onClose, listConfig, descHtml, onSave }: {
         </div>
         <div className="flex items-center justify-end gap-2 pt-1">
           <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-medium bg-secondary text-foreground hover:bg-secondary/80 transition-colors">Cancel</button>
-          <button onClick={() => { onSave(draftDesc); onClose(); }} className="px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:brightness-110 transition-all">Save</button>
+          <button onClick={() => { onSave(draftDesc, draftName); onClose(); }} className="px-5 py-2 rounded-xl text-sm font-semibold bg-primary text-primary-foreground hover:brightness-110 transition-all">Save</button>
         </div>
       </div>
     </div>
@@ -177,6 +239,8 @@ export default function ListDetail() {
     }
   }, [id, allStories]);
 
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [descHtml, setDescHtml] = useState("");
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -197,12 +261,6 @@ export default function ListDetail() {
       </div>
     </div>
   );
-
-  /* ── Stats ── */
-  const completedCount = listStories.filter((s) => s.status === "completed").length;
-  const readingCount   = listStories.filter((s) => s.status === "reading").length;
-  const planCount      = listStories.filter((s) => s.status === "plan-to-read").length;
-  const droppedCount   = listStories.filter((s) => s.status === "dropped").length;
 
   /* ── Filter & sort ── */
   let filtered = listStories.filter((s) => {
@@ -231,34 +289,50 @@ export default function ListDetail() {
     }
   };
 
-  const handleSaveDesc = async (newDesc: string) => {
+  const handleBulkStatus = (status: string) => {
+    selectedIds.forEach(sid => {
+      updateStory(sid, { status: status as import("@/lib/types").StoryStatus });
+    });
+    toast("Status Updated", `${selectedIds.size} stories updated`, <Check size={15} />);
+    setSelectedIds(new Set());
+    setBulkMode(false);
+  };
+
+  const onOpenSources = (ids?: Set<string>) => {
+    const storiesToOpen = ids || selectedIds;
+    storiesToOpen.forEach(sid => {
+      const story = listStories.find(s => s.id === sid);
+      if (story?.url) window.open(story.url, '_blank');
+    });
+    toast("Opening Sources", `${storiesToOpen.size} tabs opened`, <ExternalLink size={15} />);
+  };
+
+  const handleSaveDesc = async (newDesc: string, newName: string) => {
     const now = new Date().toISOString();
 
-    // 1. Update localStorage
     const savedLists = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
     localStorage.setItem("my_reading_lists", JSON.stringify(
-      savedLists.map((l: any) => l.id === id ? { ...l, description: newDesc, updatedAt: now } : l)
+      savedLists.map((l: any) => l.id === id ? { ...l, name: newName, description: newDesc, updatedAt: now } : l)
     ));
     setDescHtml(newDesc);
-    setListConfig((prev: any) => ({ ...prev, description: newDesc, updatedAt: now }));
+    setListConfig((prev: any) => ({ ...prev, name: newName, description: newDesc, updatedAt: now }));
 
-    // 2. Sync ke Supabase
     if (!isGuest && user) {
       try {
         const { supabase } = await import("@/integrations/supabase/client");
         const { error } = await supabase
           .from("lists")
-          .update({ description: newDesc, updated_at: now })
-          .eq("id", id)
+          .update({ name: newName, description: newDesc, updated_at: now })
+          .eq("id", id ?? "")
           .eq("user_id", user.id);
-        if (error) console.error("Failed to sync description:", error);
-        else console.log("✅ Description synced to Supabase");
+        if (error) console.error("Failed to sync:", error);
+        else console.log("✅ List synced to Supabase");
       } catch (e) {
         console.error("handleSaveDesc error:", e);
       }
     }
 
-    toast("Saved", "Description updated", <Check size={15} />);
+    toast("Saved", "List updated", <Check size={15} />);
   };
 
   const handleDragEnd = (result: DropResult) => {
@@ -269,7 +343,6 @@ export default function ListDetail() {
     setListStories(items);
   };
 
-  /* ── Global stats for Navbar ── */
   const globalTotalChapters  = allStories.reduce((sum: number, s: any) => sum + (s.currentChapter || 0), 0);
   const globalCompletedCount = allStories.filter((s: any) => s.status === "completed").length;
   const globalRatedStories   = allStories.filter((s: any) => s.rating > 0);
@@ -357,9 +430,21 @@ export default function ListDetail() {
               className="w-full text-xs bg-secondary border border-border rounded-xl pl-8 pr-3 py-2 text-foreground outline-none placeholder:text-muted-foreground hover:border-primary/30 focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-colors"
             />
           </div>
-          <div className="flex items-center gap-0.5 ml-auto">
-            <button onClick={() => setViewMode("list")} className={`p-2 rounded-md transition-colors ${viewMode === "list" ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}><AlignJustify size={14} /></button>
-            <button onClick={() => setViewMode("grid")} className={`p-2 rounded-md transition-colors ${viewMode === "grid" ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}><LayoutGrid size={14} /></button>
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="flex items-center bg-secondary rounded-xl p-0.5 border border-border">
+              <button onClick={() => setViewMode("list")}
+                className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "list" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                <AlignJustify size={15} />
+              </button>
+              <button onClick={() => setViewMode("grid")}
+                className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "grid" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                <LayoutGrid size={15} />
+              </button>
+            </div>
+            <button onClick={() => { setBulkMode(!bulkMode); setSelectedIds(new Set()); }}
+              className={`p-2 rounded-md border transition-all ${bulkMode ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-muted-foreground border-border hover:border-primary/40"}`}>
+              <CheckSquare size={15} />
+            </button>
           </div>
         </div>
 
@@ -384,7 +469,19 @@ export default function ListDetail() {
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 pb-4">
             {filtered.map((story) => (
-              <StoryGrid key={story.id} story={story} onLogChapter={handleLogChapter} onRemove={handleRemove} listId={id ?? ""} />
+              <div key={story.id} className="relative">
+                <StoryGrid story={story} onLogChapter={handleLogChapter} onRemove={handleRemove} listId={id ?? ""} bulkMode={bulkMode} selectedIds={selectedIds} onToggleSelect={(sid) => {
+                  const n = new Set(selectedIds);
+                  n.has(sid) ? n.delete(sid) : n.add(sid);
+                  setSelectedIds(n);
+                }} />
+                {bulkMode && (
+                  <button onClick={e => { e.stopPropagation(); const n = new Set(selectedIds); n.has(story.id) ? n.delete(story.id) : n.add(story.id); setSelectedIds(n); }}
+                    className="absolute top-2 right-2 z-10 w-6 h-6 rounded bg-card/90 backdrop-blur border border-primary flex items-center justify-center shadow-md">
+                    {selectedIds.has(story.id) ? <Check size={14} className="text-primary" /> : null}
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         ) : (
@@ -396,7 +493,17 @@ export default function ListDetail() {
                     <Draggable key={story.id} draggableId={story.id} index={i}>
                       {(provided, snapshot) => (
                         <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={snapshot.isDragging ? "opacity-80" : ""}>
-                          <StoryRow story={story} index={i} onLogChapter={handleLogChapter} onRemove={handleRemove} listId={id ?? ""} />
+                          <StoryRow
+                            story={story} index={i}
+                            onLogChapter={handleLogChapter} onRemove={handleRemove} listId={id ?? ""}
+                            bulkMode={bulkMode}
+                            selectedIds={selectedIds}
+                            onToggleSelect={(sid) => {
+                              const n = new Set(selectedIds);
+                              n.has(sid) ? n.delete(sid) : n.add(sid);
+                              setSelectedIds(n);
+                            }}
+                          />
                         </div>
                       )}
                     </Draggable>
@@ -406,6 +513,24 @@ export default function ListDetail() {
               )}
             </Droppable>
           </DragDropContext>
+        )}
+
+        {bulkMode && selectedIds.size > 0 && (
+          <BulkActionBar
+            count={selectedIds.size}
+            onClose={() => setSelectedIds(new Set())}
+            onDelete={() => {
+              if (confirm(`Remove ${selectedIds.size} stories from this list?`)) {
+                selectedIds.forEach(sid => {
+                  const s = listStories.find(x => x.id === sid);
+                  if (s) updateStory(sid, { lists: (s.lists || []).filter((lId: string) => lId !== (id ?? "")) });
+                });
+                setSelectedIds(new Set()); setBulkMode(false);
+              }
+            }}
+            onStatusChange={handleBulkStatus}
+            onOpenSources={() => onOpenSources(selectedIds)}
+          />
         )}
       </div>
     </div>

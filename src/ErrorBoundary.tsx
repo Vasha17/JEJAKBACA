@@ -17,14 +17,12 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren<unknown>, Er
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('=== BLACKBOXAI ERROR BOUNDARY ===');
+    console.error('=== JEJAKBACA ERROR BOUNDARY ===');
     console.error('Error:', error);
     console.error('Stack:', error.stack);
     console.error('Info:', errorInfo);
     console.error('Dexie DB ready?', typeof window !== 'undefined' ? (window as any).JejakBacaDB?.ready : 'SSR');
-    console.groupEnd();
 
-    // Log to localStorage for debugging
     try {
       localStorage.setItem('error_crash', JSON.stringify({
         time: new Date().toISOString(),
@@ -32,7 +30,7 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren<unknown>, Er
         stack: error.stack,
         componentStack: errorInfo.componentStack,
         userAgent: navigator.userAgent,
-        incognito: navigator['vendor'] === 'Google Inc.' && !localStorage.length, // Detect incognito
+        incognito: navigator['vendor'] === 'Google Inc.' && !localStorage.length,
       }));
     } catch {}
 
@@ -42,52 +40,40 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren<unknown>, Er
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12 text-center">
-          <div className="max-w-md w-full space-y-6">
-            <div className="w-24 h-24 mx-auto bg-destructive/10 rounded-2xl flex items-center justify-center">
-              <svg className="w-12 h-12 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="15" y1="9" x2="9" y2="15" />
-                <line x1="9" y1="9" x2="15" y2="15" />
-              </svg>
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 py-16 text-center">
+          <div className="max-w-sm w-full space-y-8">
+
+            {/* Big 404 type */}
+            <div className="relative select-none">
+              <span
+                className="text-[10rem] font-black leading-none tracking-tighter text-foreground/5 absolute inset-0 flex items-center justify-center"
+                aria-hidden="true"
+              >
+                404
+              </span>
+              <div className="relative z-10 flex flex-col items-center gap-4 py-10">
+                {/* Broken book / page icon */}
+                <svg width="56" height="56" viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-muted-foreground">
+                  <rect x="8" y="6" width="28" height="36" rx="3" stroke="currentColor" strokeWidth="2" strokeDasharray="4 2"/>
+                  <path d="M20 18h12M20 24h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M34 28l6 6M40 28l-6 6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                  <circle cx="37" cy="34" r="10" stroke="currentColor" strokeWidth="2"/>
+                </svg>
+                <p className="text-xs font-mono uppercase tracking-widest text-muted-foreground/60">Error</p>
+              </div>
             </div>
-            <div className="space-y-3">
-              <h1 className="text-2xl font-bold text-foreground tracking-tight">Oops! Something broke</h1>
-              <p className="text-muted-foreground">
-                We caught an error (likely Dexie/IndexedDB blocked). 
-                Check Console (F12) for details. Try normal browser mode.
+
+            {/* Copy */}
+            <div className="space-y-2">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                Page not found
+              </h1>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Sorry, we can't find the page you're looking for.                
               </p>
-              {this.state.error && (
-                <details className="text-xs text-muted-foreground bg-secondary/50 p-3 rounded-lg max-h-32 overflow-auto">
-                  <summary className="cursor-pointer font-medium mb-1">Error Details</summary>
-                  <code>{this.state.error.message}</code>
-                  <pre className="mt-2 text-[10px]">{this.state.error.stack}</pre>
-                </details>
-              )}
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 pt-4">
-              <button
-                onClick={() => window.location.reload()}
-                className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-semibold hover:bg-primary/90 transition-colors flex-1"
-              >
-                Reload Page
-              </button>
-              <button
-                className="px-6 py-2.5 border border-border bg-background rounded-xl font-semibold hover:bg-muted transition-colors flex-1"
-                onClick={() => {
-                  localStorage.clear();
-                  window.location.reload();
-                }}
-              >
-                Clear Storage & Retry
-              </button>
-            </div>
-            <div className="text-[11px] text-muted-foreground/60 space-y-1 pt-6 border-t border-border/30">
-              <p>F12 → Console for full error log</p>
-              <p>Incognito/Private mode blocks IndexedDB (storage privacy).</p>
             </div>
           </div>
-        </div>
+        </div>           
       );
     }
 
@@ -96,4 +82,3 @@ class ErrorBoundary extends React.Component<React.PropsWithChildren<unknown>, Er
 }
 
 export default ErrorBoundary;
-

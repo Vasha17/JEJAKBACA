@@ -5,16 +5,18 @@ import {
   BookOpen, X, ChevronRight, Flame, Clock, CheckCircle2, BookMarked, PauseCircle,
   LayoutGrid, AlignJustify, Star, Play, Layers, Eye, Check, CheckSquare,
   Square, Trash2, Settings, BookIcon, ExternalLink, ArrowUpDown, PlusCircle, Timer,
-  AlertCircle, Lock, Unlock, ArrowLeft,
-} from "lucide-react";
+  AlertCircle, Lock, LockOpen, ArrowLeft, Search, FilterIcon,
+} from "lucide-react"; // Added LockOpen import
 import { StoryStatus, getGlobalTags } from "@/lib/types";
 import { Dialog, DialogContent } from "@/component/ui/dialog";
 import "flag-icons/css/flag-icons.min.css";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Navbar, Filters, EMPTY_FILTERS } from "@/component/Navbar";
+import { Navbar, Filters, EMPTY_FILTERS, FilterPanel } from "@/component/Navbar";
 import { VaultDialog } from "@/component/VaultDialog";
+import { useAuth } from "@/component/Auth";
 import { isVaultUnlocked, lockVault } from "@/lib/vaultUtils";
 
+/* --- CONSTANTS --- */
 const STATUS_OPTIONS = [
   { value: "reading",       label: "Reading",      icon: <Play size={13}/>,         color: "text-green-400" },
   { value: "completed",     label: "Completed",    icon: <CheckCircle2 size={13}/>, color: "text-blue-400" },
@@ -30,7 +32,7 @@ const SORT_OPTIONS = [
   { value: "added",  label: "Recently Added",   icon: <PlusCircle size={13} className="text-muted-foreground" /> },
   { value: "rating", label: "Highest Rating",   icon: <Star size={13} className="text-muted-foreground" /> },
   { value: "title",  label: "Title A–Z",        icon: <ArrowUpDown size={13} className="text-muted-foreground" /> },
-  { value: "unread", label: "Long Unread",       icon: <Timer size={13} className="text-muted-foreground" /> },
+  { value: "unread", label: "Long Unread",      icon: <Timer size={13} className="text-muted-foreground" /> },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -42,6 +44,7 @@ const FORMAT_MAP: Record<string, string> = {
   JP: "Manga", KR: "Manhwa", CN: "Manhua", TW: "Manhua", ID: "Komik", US: "Comic",
 };
 
+/* --- UTILS --- */
 const getStatusInfo = (s: string) =>
   STATUS_OPTIONS.find(o => o.value === s) ?? STATUS_OPTIONS[3];
 
@@ -52,7 +55,7 @@ const highlightText = (text: string, query: string) => {
     ? <span key={i} className="text-primary font-bold bg-primary/10 rounded px-0.5">{p}</span> : p)}</>;
 };
 
-/* ─── Hero Story Rotation ────────────────────────────── */
+/* --- HERO ROTATION --- */
 function pickHeroStory(stories: any[]): any | null {
   if (!stories || stories.length === 0) return null;
   const candidates = stories.filter(
@@ -81,74 +84,165 @@ function pickHeroStory(stories: any[]): any | null {
   return chosen;
 }
 
-/* ─── Pull-to-Vault Overlay ──────────────────────────── */
-function VaultPullOverlay({
-  progress,
-  triggered,
-}: {
-  progress: number;
-  triggered: boolean;
-}) {
-  const scale  = 0.6 + 0.4 * progress;
-  const opacity = Math.min(1, progress * 1.4);
+/* --- COMPONENTS --- */
 
+/* 1. Top Reveal Vault */
+function VaultTopReveal({ progress, triggered }: { progress: number; triggered: boolean }) {
+  const translateY = -80 + progress * 80;
+  const opacity = Math.min(1, progress * 1.5);
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex flex-col items-center justify-end pb-10"
-      style={{ opacity }}
+      className="fixed inset-x-0 z-50 flex flex-col items-center pointer-events-none"
+      style={{
+        top: 0,
+        transform: `translateY(${translateY}px)`,
+        opacity,
+        transition: triggered ? "transform 0.2s cubic-bezier(0.34,1.56,0.64,1)" : "none",
+      }}
     >
       <div
-        className="absolute bottom-0 inset-x-0 h-48 transition-opacity duration-300"
+        className="absolute top-0 inset-x-0 transition-all duration-300"
         style={{
-          background:
-            "radial-gradient(ellipse 60% 80px at 50% 100%, hsl(var(--primary) / 0.18), transparent)",
-          opacity: progress,
+          height: 120,
+          background: triggered
+            ? "radial-gradient(ellipse 70% 100px at 50% 0%, hsl(var(--primary) / 0.35), transparent)"
+            : "radial-gradient(ellipse 70% 100px at 50% 0%, hsl(var(--primary) / 0.15), transparent)",
         }}
       />
       <div
-        className="relative flex flex-col items-center gap-2 mb-2"
+        className="relative flex items-center gap-2.5 px-5 py-3 mt-2 rounded-2xl border backdrop-blur-md transition-all duration-200"
         style={{
-          transform: `scale(${scale})`,
-          transition: triggered ? "transform 0.2s cubic-bezier(0.34,1.56,0.64,1)" : "none",
+          background: triggered ? "hsl(var(--primary) / 0.2)" : "hsl(var(--card) / 0.85)",
+          borderColor: triggered ? "hsl(var(--primary) / 0.6)" : "hsl(var(--border) / 0.5)",
+          boxShadow: triggered ? "0 8px 32px hsl(var(--primary) / 0.3)" : "0 4px 20px rgba(0,0,0,0.3)",
         }}
       >
-        <div
-          className="w-14 h-14 rounded-2xl flex items-center justify-center border transition-all duration-200"
-          style={{
-            background: triggered
-              ? "hsl(var(--primary) / 0.25)"
-              : "hsl(var(--card) / 0.85)",
-            borderColor: triggered
-              ? "hsl(var(--primary) / 0.7)"
-              : "hsl(var(--border) / 0.6)",
-            boxShadow: triggered
-              ? "0 0 24px hsl(var(--primary) / 0.35)"
-              : "0 4px 16px rgba(0,0,0,0.3)",
-            backdropFilter: "blur(12px)",
-          }}
-        >
-          <Lock
-            size={24}
-            className="transition-colors duration-200"
-            style={{ color: triggered ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}
-          />
-        </div>
+        <Lock size={16} style={{ color: triggered ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }} />
         <span
-          className="text-[11px] font-semibold tracking-wide transition-colors duration-200"
-          style={{
-            color: triggered
-              ? "hsl(var(--primary))"
-              : "hsl(var(--muted-foreground))",
-          }}
+          className="text-[12px] font-bold tracking-wide transition-colors duration-200"
+          style={{ color: triggered ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))" }}
         >
-          {triggered ? "Release to open vault" : "Pull to open vault"}
+          {triggered ? "Release to open vault" : "Keep pulling…"}
         </span>
       </div>
     </div>
   );
 }
 
-/* ─── Quick View Modal ───────────────────────────────── */
+/* 2. Vault Navbar */
+function VaultNavbar({
+  hiddenCount, search, onSearchChange, onBack, filterCount, onOpenFilter,
+}: {
+  hiddenCount: number;
+  search: string;
+  onSearchChange: (v: string) => void;
+  onBack: () => void;
+  filterCount: number;
+  onOpenFilter: () => void;
+}) {
+  const [searchOpen, setSearchOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const openSearch = () => {
+    setSearchOpen(true);
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    onSearchChange("");
+  };
+
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape" && searchOpen) closeSearch(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [searchOpen]);
+
+  return (
+    <div className="sticky top-0 z-20 w-full border-b border-border bg-background/90 backdrop-blur-sm">      
+      <div className="flex items-center h-20 px-4 sm:px-6 max-w-7xl mx-auto gap-3 relative">
+        
+        {/* Back Button */}
+        <button
+          onClick={onBack}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-secondary text-foreground hover:bg-muted transition-colors shrink-0"
+        >
+          <ArrowLeft size={16} />
+        </button>
+
+        {/* Center: Badge */}        
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none">
+          <div className="inline-flex items-center gap-2 rounded-full bg-secondary/80 px-3 py-1.5 border border-border pointer-events-auto">
+            <Lock size={12} className="text-primary font-bold" />
+            <span className="text-sm font-bold text-foreground tracking-wide">Private Stories</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            {hiddenCount} hidden {hiddenCount === 1 ? "story" : "stories"}
+          </p>
+        </div>
+
+        {/* Right: search expand + filter + lock */}
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          {/* Expandable search */}
+          <div
+            className={`flex items-center overflow-hidden transition-all duration-300 rounded-xl border bg-secondary
+              ${searchOpen ? "w-36 sm:w-52 border-border/80 px-2.5" : "w-9 border-transparent"}`}
+            style={{ height: 36 }}
+          >
+            {searchOpen ? (
+              <>
+                <Search size={13} className="text-muted-foreground shrink-0 mr-2" />
+                <input
+                  ref={inputRef}
+                  value={search}
+                  onChange={e => onSearchChange(e.target.value)}
+                  placeholder="Search vault…"
+                  className="flex-1 bg-transparent text-xs outline-none text-foreground placeholder:text-muted-foreground min-w-0"
+                />
+                {search && (
+                  <button onClick={() => onSearchChange("")} className="text-muted-foreground hover:text-foreground ml-1 shrink-0">
+                    <X size={11} />
+                  </button>
+                )}
+                <button onClick={closeSearch} className="text-muted-foreground hover:text-foreground ml-1.5 shrink-0">
+                  <X size={13} />
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={openSearch}
+                className="w-9 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Search size={16} />
+              </button>
+            )}
+          </div>
+
+          {/* Filter */}
+          <button
+            onClick={onOpenFilter}
+            className={`relative flex items-center justify-center w-9 h-9 rounded-xl border transition-all
+              ${filterCount > 0
+                ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                : "bg-secondary text-muted-foreground border-border hover:text-foreground"}`}
+          >
+            <FilterIcon size={16} />
+            {filterCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-400 border-2 border-card" />
+            )}
+          </button>
+          
+          <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 border border-primary/30">
+            <LockOpen size={15} className="text-primary" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* 3. Quick View Modal */
 function QuickViewModal({ story, onClose, onNavigate }: {
   story: any; onClose: () => void; onNavigate: (id: string) => void;
 }) {
@@ -167,7 +261,7 @@ function QuickViewModal({ story, onClose, onNavigate }: {
           : <div className="w-full h-full flex items-center justify-center"><BookOpen className="w-14 h-14 text-muted-foreground/15" /></div>}
       </div>
       <div className="absolute inset-x-0 bottom-0 pointer-events-none"
-        style={{ height: "55%", background: "linear-gradient(to top, rgba(0,0,0,0.90), transparent)" }} />
+        style={{ height: "75%", background: "linear-gradient(to top, rgba(0,0,0,0.90), transparent)" }} />
       <div className="absolute bottom-0 inset-x-0 p-4 space-y-2.5 pointer-events-none">
         <div className="flex items-center gap-1.5">
           <Star size={13} className="fill-amber-400 text-amber-400 shrink-0 mb-0.5" />
@@ -287,9 +381,7 @@ function QuickViewModal({ story, onClose, onNavigate }: {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
           <div className="relative flex flex-col rounded-t-3xl overflow-hidden animate-in slide-in-from-bottom duration-300"
             style={{ maxHeight: "92vh", background: "hsl(var(--card))", borderTop: "1px solid hsl(var(--border))", boxShadow: "0 -24px 60px rgba(0,0,0,0.4)" }}>
-            <div className="flex justify-center pt-3 shrink-0">
-              <div className="w-10 h-1 rounded-full bg-border" />
-            </div>
+            <div className="flex justify-center pt-3 shrink-0"><div className="w-10 h-1 rounded-full bg-border" /></div>
             <button onClick={onClose}
               className="absolute top-4 right-4 z-10 w-7 h-7 rounded-full bg-secondary border border-border flex items-center justify-center text-muted-foreground">
               <X size={13} />
@@ -352,8 +444,7 @@ function QuickViewModal({ story, onClose, onNavigate }: {
                     <p className="text-[10px] font-bold tracking-widest text-muted-foreground/50 uppercase">Where to Read</p>
                     <div className="grid grid-cols-3 gap-2">
                       {story.sources.slice(0, 3).map((src: any) => (
-                        <a key={src.id} href={src.url} target="_blank" rel="noopener noreferrer"
-                          onClick={e => e.stopPropagation()}
+                        <a key={src.id} href={src.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
                           className="flex flex-col px-3 py-2.5 rounded-xl border bg-secondary/50 border-border/60 hover:border-primary/40 transition-all">
                           <span className="text-[12px] font-bold text-foreground truncate">{src.name}</span>
                           <span className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">
@@ -371,8 +462,7 @@ function QuickViewModal({ story, onClose, onNavigate }: {
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm
                   bg-primary text-primary-foreground hover:brightness-110 active:scale-[0.98] transition-all shadow-lg shadow-primary/20">
                 View Series
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </button>
@@ -384,7 +474,7 @@ function QuickViewModal({ story, onClose, onNavigate }: {
   );
 }
 
-/* ─── Hero Section ───────────────────────────────────── */
+/* 4. Hero Section */
 function HeroSection({ story }: { story: any }) {
   if (!story) return null;
   const daysSinceUpdate = useMemo(() => {
@@ -393,13 +483,14 @@ function HeroSection({ story }: { story: any }) {
   }, [story]);
   const isLongUnread = daysSinceUpdate >= 7;
   return (
-    <div className="relative rounded-2xl overflow-hidden mb-6 group border border-border/50">
+    <div className="relative rounded-2xl overflow-hidden mb-6 group border border-border/50 transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl hover:shadow-primary/10 hover:border-primary/30">
+      <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
       {story.headerUrl
-        ? <div className="absolute inset-0 scale-110 blur-1xl opacity-60" style={{ backgroundImage: `url(${story.headerUrl})`, backgroundSize: "cover", backgroundPosition: "center" }} />
+        ? <div className="absolute inset-0 scale-110 blur-2xl opacity-40 transition-transform duration-700 group-hover:scale-125" style={{ backgroundImage: `url(${story.headerUrl})`, backgroundSize: "cover", backgroundPosition: "center" }} />
         : <div className="absolute inset-0 scale-110 blur-2xl opacity-40 bg-primary/20" />}
       <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/80 to-transparent backdrop-blur-[2px]" />
       <div className="relative flex items-center gap-5 p-5 sm:p-7">
-        <div className="flex-shrink-0 w-20 sm:w-28 aspect-[3/4] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 z-10 bg-secondary">
+        <div className="flex-shrink-0 w-20 sm:w-28 aspect-[3/4] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 z-10 bg-secondary transition-transform duration-500 group-hover:scale-[1.03]">
           {story.coverUrl
             ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover" />
             : <div className="w-full h-full flex items-center justify-center"><BookOpen className="w-8 h-8 text-muted-foreground/30" /></div>}
@@ -418,11 +509,11 @@ function HeroSection({ story }: { story: any }) {
           </div>
           <div className="flex items-center gap-2 pt-1">
             <Link to={`/story/${story.id}`}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/25 hover:scale-105 active:scale-95">
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold transition-all duration-200 shadow-lg shadow-primary/25 hover:shadow-[0_0_20px_rgba(var(--primary-rgb),0.4)] hover:-translate-y-0.5 active:scale-95 active:translate-y-0">
               <Play size={13} fill="currentColor" /> Continue Reading
             </Link>
             <Link to={`/story/${story.id}`}
-              className="flex items-center gap-2 px-3 py-2 sm:px-4 rounded-xl bg-secondary text-secondary-foreground text-xs font-medium hover:bg-secondary/80 transition-all">
+              className="flex items-center gap-2 px-3 py-2 sm:px-4 rounded-xl bg-secondary text-secondary-foreground text-xs font-medium hover:bg-secondary/80 transition-all active:scale-95">
               <BookOpen size={13} />
               <span className="hidden sm:inline">+1 Chapter</span>
               <span className="sm:hidden">+1</span>
@@ -434,7 +525,7 @@ function HeroSection({ story }: { story: any }) {
   );
 }
 
-/* ─── Bulk Action Bar ────────────────────────────────── */
+/* 5. Bulk Action Bar */
 function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources }: {
   count: number; onClose: () => void; onDelete: () => void;
   onStatusChange: (status: StoryStatus) => void; onOpenSources: (ids?: Set<string>) => void;
@@ -480,7 +571,7 @@ function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources
   );
 }
 
-/* ─── Empty State ─────────────────────────────── */
+/* 6. Empty State */
 function EmptyState({ isVault = false }: { isVault?: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-in fade-in duration-500">
@@ -504,13 +595,18 @@ function EmptyState({ isVault = false }: { isVault?: boolean }) {
   );
 }
 
-/* ─── Main Library ───────────────────────────────────── */
+/* --- MAIN LIBRARY COMPONENT --- */
 function Library() {
   const { stories, updateStory, deleteStory } = useStories();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-
+  const SCROLL_THRESHOLD = isMobile ? 80 : 1500;
+  const SCROLL_START_ZONE = 0;
+  const { user } = useAuth();
+  void user;
+  
+  const [showVaultDialog, setShowVaultDialog] = useState(false);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("recent");
   const [viewMode, setViewMode] = useState<"grid" | "timeline">("grid");
@@ -534,132 +630,83 @@ function Library() {
 
   const [pullProgress, setPullProgress] = useState(0);
   const [pullTriggered, setPullTriggered] = useState(false);
-  const [showVaultButton, setShowVaultButton] = useState(false);
-
-  const scrollStartY = useRef(0);
-  const scrollTimer = useRef<NodeJS.Timeout | null>(null);
-  const isScrollingDown = useRef(false);
+  const pullTriggeredRef = useRef(false);
+  const vaultUnlockedRef = useRef(vaultUnlocked);
+  const wheelAccum = useRef(0);
+  const wheelTimer = useRef<NodeJS.Timeout | null>(null);
   const touchStartY = useRef(0);
-  const touchStartScrollY = useRef(0);
   const isPulling = useRef(false);
   const pageRef = useRef<HTMLDivElement>(null);
-  const bottomSentinelRef = useRef<HTMLDivElement>(null);
 
-  const SCROLL_THRESHOLD = 80;
-  const SCROLL_START_ZONE = 10;
+  useEffect(() => { vaultUnlockedRef.current = vaultUnlocked; }, [vaultUnlocked]);
+  useEffect(() => { pullTriggeredRef.current = pullTriggered; }, [pullTriggered]);
 
-  const handleScrollReveal = useCallback(() => {
-    if (vaultUnlocked) return;
+  const setPull = useCallback((progress: number) => {
+    const triggered = progress >= 1;
+    setPullProgress(progress);
+    setPullTriggered(triggered);
+    pullTriggeredRef.current = triggered;
+  }, []);
 
-    const currentScrollY = window.scrollY;
-
-    if (currentScrollY > SCROLL_START_ZONE) {
-      if (isScrollingDown.current || pullProgress > 0) {
-        setPullProgress(0);
-        setPullTriggered(false);
-        setShowVaultButton(false);
-        isScrollingDown.current = false;
-        scrollStartY.current = 0;
-      }
-      return;
-    }
-
-    const isPullingDown = currentScrollY < scrollStartY.current;
-
-    if (isPullingDown) {
-      isScrollingDown.current = true;
-      const delta = scrollStartY.current - currentScrollY;
-      const progress = Math.min(1, delta / SCROLL_THRESHOLD);
-
-      setPullProgress(progress);
-      setPullTriggered(progress >= 1);
-      setShowVaultButton(progress >= 0.3); 
-    } else {
-      setPullProgress(0);
-      setPullTriggered(false);
-      setShowVaultButton(false);
-      isScrollingDown.current = false;
-      scrollStartY.current = currentScrollY;
-    }
-
-    if (!isScrollingDown.current) {
-      scrollStartY.current = currentScrollY;
-    }
-    
-    if (scrollTimer.current) clearTimeout(scrollTimer.current);
-    scrollTimer.current = setTimeout(() => {
-      if (pullTriggered) {        
-        setVaultOpen(true);
-      }      
-      setPullProgress(0);
-      setPullTriggered(false);
-      setShowVaultButton(false);
-      isScrollingDown.current = false;
-      scrollStartY.current = window.scrollY;
-    }, 150); 
-
-  }, [vaultUnlocked, pullTriggered, pullProgress]);
-
-  const handleTouchStart = useCallback((e: TouchEvent) => {
-    if (vaultUnlocked) return;
-    touchStartY.current = e.touches[0].clientY;
-    isPulling.current = false;
-  }, [vaultUnlocked]);
-
-  const handleTouchMove = useCallback((e: TouchEvent) => {
-    if (vaultUnlocked) return;
-    
-    const currentScrollTop = window.scrollY || document.documentElement.scrollTop;
-    if (currentScrollTop > 0) {
-      if (isPulling.current) {
-        isPulling.current = false;
-      }
-      return; 
-    }
-
-    const currentY = e.touches[0].clientY;
-    const touchDelta = currentY - touchStartY.current;
-
-    if (touchDelta > 0) {
-      isPulling.current = true;
-      const progress = Math.min(1, touchDelta / SCROLL_THRESHOLD);
-      
-      setPullProgress(progress);
-      setPullTriggered(progress >= 1);
-      
-      if (progress >= 0.3) {
-        setShowVaultButton(true);
-      }
-    } else {
-      if (isPulling.current) {
-        setPullProgress(0);
-        setPullTriggered(false);
-        setShowVaultButton(false);
-        isPulling.current = false;
-      }
-    }
-  }, [vaultUnlocked, isMobile]);
-
-  const handleTouchEnd = useCallback(() => {
-    if (vaultUnlocked) return;
-    
-    if (pullTriggered) {
-      setVaultOpen(true);
-    }
-    
-    isPulling.current = false;
+  const resetPull = useCallback(() => {
     setPullProgress(0);
     setPullTriggered(false);
-    setShowVaultButton(false);
-  }, [vaultUnlocked, pullTriggered]);
+    pullTriggeredRef.current = false;
+  }, []);
+
+  const handleWheel = useCallback((e: WheelEvent) => {
+    if (vaultUnlockedRef.current) return;
+    if (window.scrollY > SCROLL_START_ZONE) { wheelAccum.current = 0; return; }
+    if (e.deltaY < 0) {
+      wheelAccum.current += Math.abs(e.deltaY);
+      const progress = Math.min(1, wheelAccum.current / SCROLL_THRESHOLD);
+      setPull(progress);
+      if (wheelTimer.current) clearTimeout(wheelTimer.current);
+      wheelTimer.current = setTimeout(() => {
+        if (pullTriggeredRef.current) setVaultOpen(true);
+        wheelAccum.current = 0;
+        resetPull();
+      }, 400);
+    } else {
+      wheelAccum.current = 0;
+      resetPull();
+      if (wheelTimer.current) { clearTimeout(wheelTimer.current); wheelTimer.current = null; }
+    }
+  }, [setPull, resetPull]);
+
+  const handleTouchStart = useCallback((e: TouchEvent) => {
+    if (vaultUnlockedRef.current) return;
+    touchStartY.current = e.touches[0].clientY;
+    isPulling.current = false;
+  }, []);
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    if (vaultUnlockedRef.current) return;
+    if (window.scrollY > 0) {
+      if (isPulling.current) { isPulling.current = false; resetPull(); }
+      return;
+    }
+    const delta = e.touches[0].clientY - touchStartY.current;
+    if (delta > 0) {
+      isPulling.current = true;
+      setPull(Math.min(1, delta / SCROLL_THRESHOLD));
+    } else {
+      if (isPulling.current) { isPulling.current = false; resetPull(); }
+    }
+  }, [setPull, resetPull]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (vaultUnlockedRef.current) return;
+    if (pullTriggeredRef.current) setVaultOpen(true);
+    isPulling.current = false;
+    resetPull();
+  }, [resetPull]);
 
   useEffect(() => {
-    window.addEventListener("scroll", handleScrollReveal, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", handleScrollReveal);
-      if (scrollTimer.current) clearTimeout(scrollTimer.current);
-    };
-  }, [handleScrollReveal]);
+    if (isMobile) return;
+    window.addEventListener("wheel", handleWheel, { passive: true });
+    return () => { window.removeEventListener("wheel", handleWheel); if (wheelTimer.current) clearTimeout(wheelTimer.current); };
+  }, [isMobile, handleWheel]);
 
   useEffect(() => {
     if (!isMobile) return;
@@ -676,17 +723,15 @@ function Library() {
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [advFilters, setAdvFilters] = useState<Filters>(EMPTY_FILTERS);
+  const [vaultFilterOpen, setVaultFilterOpen] = useState(false);
   const [quickView, setQuickView] = useState<any | null>(null);
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
-
   const [heroStory, setHeroStory] = useState<any | null>(null);
 
   const hiddenStories = useMemo(() => stories.filter((s: any) => s.hidden), [stories]);
 
-  useEffect(() => {   
-    const pool = vaultUnlocked
-      ? hiddenStories
-      : stories.filter((s: any) => !s.hidden);
+  useEffect(() => {
+    const pool = vaultUnlocked ? hiddenStories : stories.filter((s: any) => !s.hidden);
     setHeroStory(pool.length > 0 ? pickHeroStory(pool) : null);
   }, [stories, vaultUnlocked, hiddenStories]);
 
@@ -753,13 +798,8 @@ function Library() {
     if (Object.keys(advFilters.country).length) result = result.filter((s: any) => applyAdvFilter(advFilters.country, (s.originCountry || "").toUpperCase()));
     if (Object.keys(advFilters.demographic).length) result = result.filter((s: any) => applyAdvFilter(advFilters.demographic, s.demographic ?? ""));
     if (Object.keys(advFilters.genres).length) result = result.filter((s: any) => applyAdvFilter(advFilters.genres, s.genres ?? []));
-
-    if (vaultUnlocked) {
-      result = result.filter((s: any) => s.hidden === true);
-    } else {
-      result = result.filter((s: any) => !s.hidden);
-    }
-
+    if (vaultUnlocked) result = result.filter((s: any) => s.hidden === true);
+    else result = result.filter((s: any) => !s.hidden);
     if (sortBy === "recent") result.sort((a: any, b: any) => new Date(b.chapterUpdatedAt).getTime() - new Date(a.chapterUpdatedAt).getTime());
     else if (sortBy === "added") result.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     else if (sortBy === "rating") result.sort((a: any, b: any) => b.rating - a.rating);
@@ -824,6 +864,10 @@ function Library() {
   return (
     <div className="flex flex-col min-h-screen bg-background" ref={pageRef}>
 
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]"
+        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
+      />
+
       {!vaultUnlocked ? (
         <Navbar
           variant="library"
@@ -841,36 +885,22 @@ function Library() {
           onCtaChange={handleCtaChange}
         />
       ) : (
-        <div className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur-sm px-4 py-3 sm:px-6">
-          <div className="flex items-center justify-between gap-3 max-w-7xl mx-auto">
-            <button
-              onClick={() => { lockVault(); setVaultUnlocked(false); }}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-secondary text-foreground hover:bg-muted transition-colors"
-            >
-              <ArrowLeft size={17} />
-            </button>
-            <div className="flex-1 flex flex-col items-center">
-              <div className="inline-flex items-center gap-2 rounded-full bg-secondary/80 px-3 py-1.5 border border-border">
-                <Lock size={13} className="text-primary" />
-                <span className="text-sm font-bold text-foreground tracking-wide">Private Stories</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                {hiddenStories.length} hidden {hiddenStories.length === 1 ? "story" : "stories"}
-              </p>
-            </div>
-            <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 border border-primary/30">
-              <Unlock size={17} className="text-primary" />
-            </div>
-          </div>
-        </div>
+        <VaultNavbar
+          hiddenCount={hiddenStories.length}
+          search={search}
+          onSearchChange={handleSearchChange}
+          onBack={() => { lockVault(); setVaultUnlocked(false); setSearch(""); }}
+          filterCount={advFilterCount}
+          onOpenFilter={() => setVaultFilterOpen(true)}
+        />
       )}
 
-      <main className={`flex-1 px-4 sm:px-6 py-6 space-y-6 max-w-7xl w-full mx-auto ${isMobile ? "pb-32" : "pb-16"}`}>
+      <main className={`relative z-10 flex-1 px-4 sm:px-6 py-6 space-y-6 max-w-7xl w-full mx-auto ${isMobile ? "pb-32" : "pb-16"}`}>
 
         {heroStory && !loading && <HeroSection story={heroStory} />}
 
         {!loading && (
-          <div className="flex items-center justify-between gap-4 pb-2">
+          <div className="flex items-center justify-between gap-4 pb-2 group">
             <div className="flex items-center gap-3">
               <span className="text-xs text-foreground font-medium">{filtered.length} results</span>
               <div className="relative">
@@ -880,7 +910,7 @@ function Library() {
                 >
                   {currentSortOption.icon}
                   <span>{currentSortOption.label}</span>
-                  <ChevronRight size={12} className={`transition-transform ${sortMenuOpen ? "rotate-90" : ""}`} />
+                  <ChevronRight size={12} className={`transition-transform group-hover:translate-x-0.5 ${sortMenuOpen ? "rotate-90" : ""}`} />
                 </button>
                 {sortMenuOpen && (
                   <div className="absolute top-full left-0 mt-1 z-50 flex flex-col gap-0.5 bg-card border border-border rounded-lg shadow-xl overflow-hidden min-w-[170px]">
@@ -907,17 +937,17 @@ function Library() {
             <div className="flex items-center gap-2 ml-auto">
               <div className="flex items-center bg-secondary rounded-xl p-0.5 border border-border">
                 <button onClick={() => setViewMode("grid")}
-                  className={`p-1.5 rounded-lg transition-all ${viewMode === "grid" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                  className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "grid" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground active:scale-90"}`}>
                   <LayoutGrid size={15} />
                 </button>
                 <button onClick={() => setViewMode("timeline")}
-                  className={`p-1.5 rounded-lg transition-all ${viewMode === "timeline" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+                  className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "timeline" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground active:scale-90"}`}>
                   <AlignJustify size={15} />
                 </button>
               </div>
               <button title="Bulk Mode"
                 onClick={() => { setBulkMode(!bulkMode); setSelectedIds(new Set()); }}
-                className={`p-2 rounded-md border transition-all ${bulkMode ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-secondary text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"}`}>
+                className={`p-2 rounded-md border transition-all duration-200 ${bulkMode ? "bg-primary text-primary-foreground border-primary shadow-sm active:scale-90" : "bg-secondary text-muted-foreground border-border hover:border-primary/40 hover:text-foreground active:scale-90"}`}>
                 <CheckSquare size={15} />
               </button>
             </div>
@@ -945,29 +975,31 @@ function Library() {
 
         {!loading && filtered.length > 0 && viewMode === "grid" && (
           <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-9 gap-3">
-            {filtered.map((story: any) => {
+            {filtered.map((story: any, index) => {
               const isSelected = selectedIds.has(story.id);
               const statusInfo = getStatusInfo(story.status);
               return (
                 <div key={story.id}
-                  className="group relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-secondary border border-border transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 cursor-pointer">
+                  className="group relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-secondary border border-border transition-all duration-300 hover:-translate-y-2 hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/10 hover:border-primary/50 cursor-pointer animate-fade-in-up"
+                  style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}>
                   {!bulkMode && <Link to={`/story/${story.id}`} className="absolute inset-0 z-0" />}
                   {story.coverUrl
-                    ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     : <div className="w-full h-full flex items-center justify-center bg-card"><BookOpen className="w-10 h-10 text-muted-foreground/20" /></div>}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 pointer-events-none z-0" />
                   <div className="absolute top-0 inset-x-0 p-2 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between z-10 pointer-events-none">
                     <div className="flex items-center gap-1 max-w-[55%]">
                       {story.originCountry && <span className={`fi fi-${story.originCountry.toLowerCase()} rounded-sm shadow-sm`} style={{ width: 14, height: 10 }} />}
                       <span className="text-[9px] font-bold text-white/80 truncate">{FORMAT_MAP[(story.originCountry || "").toUpperCase()]}</span>
                     </div>
                     <div className="flex items-center gap-1 bg-black/50 px-1.5 py-0.5 rounded-full border border-white/10">
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: STATUS_COLORS[story.status] }} />
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${story.status === 'reading' ? 'animate-pulse' : ''}`} style={{ backgroundColor: STATUS_COLORS[story.status] }} />
                       <span className="text-[9px] text-white/80 whitespace-nowrap">{statusInfo.label}</span>
                     </div>
                   </div>
                   <button
                     onClick={e => { e.preventDefault(); e.stopPropagation(); setQuickView(story); }}
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-70 transition-all hover:scale-110 hover:bg-black/60 border border-white/20">
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:scale-110 hover:bg-black/60 border border-white/20">
                     <Eye size={15} className="text-white drop-shadow-md" />
                   </button>
                   {bulkMode && (
@@ -992,7 +1024,7 @@ function Library() {
                       <div className="flex items-center gap-1 text-white/70">
                         <BookOpen size={10} /><span className="text-[10px] font-mono">{story.currentChapter}</span>
                       </div>
-                      <div className="flex items-center gap-0.5 bg-amber-400/20 px-1.5 py-0.5 rounded-full">
+                      <div className="flex items-center gap-0.5 bg-amber-400/20 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
                         <Star size={9} className="fill-amber-400 text-amber-400" />
                         <span className="text-[10px] font-bold text-amber-300">{story.rating || "—"}</span>
                       </div>
@@ -1011,7 +1043,7 @@ function Library() {
               const prevDate = i > 0 ? new Date(filtered[i - 1].chapterUpdatedAt) : null;
               const showDate = !prevDate || date.toDateString() !== prevDate.toDateString();
               return (
-                <div key={story.id} className="relative">
+                <div key={story.id} className="relative animate-fade-in-up" style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'both' }}>
                   {showDate && (
                     <div className="flex items-center gap-3 py-3 sticky top-0 bg-background/95 backdrop-blur z-10">
                       <div className="h-px flex-1 bg-border" />
@@ -1032,7 +1064,7 @@ function Library() {
                       </button>
                     )}
                     <Link to={`/story/${story.id}`} className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className="w-10 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-secondary">
+                      <div className="w-10 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-secondary group-hover:shadow-md transition-shadow">
                         {story.coverUrl
                           ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover" />
                           : <BookOpen size={16} className="m-auto mt-4 text-muted-foreground/30" />}
@@ -1054,17 +1086,25 @@ function Library() {
         )}
 
         {!vaultUnlocked && (
-          <div ref={bottomSentinelRef} className="flex flex-col items-center gap-2 pt-8 pb-4 opacity-20 select-none pointer-events-none">
+          <div className="flex flex-col items-center gap-2 pt-8 pb-4 opacity-20 select-none pointer-events-none">
             <Lock size={16} className="text-muted-foreground" />
             <span className="text-[10px] text-muted-foreground tracking-widest uppercase">
-              {isMobile ? "Pull down" : "Scroll down"} to open vault
+              {isMobile ? "Pull down from top" : "Scroll up from top"} to open vault
             </span>
           </div>
         )}
       </main>
 
+      {showVaultDialog && (
+        <VaultDialog
+          open={true}
+          onClose={() => setShowVaultDialog(false)}
+          onUnlocked={() => { setVaultUnlocked(true); setShowVaultDialog(false); }}
+        />
+      )}
+
       {!isMobile && !vaultUnlocked && (
-        <footer className="border-t border-border px-6 py-4 mt-auto">
+        <footer className="border-t border-border px-6 py-4 mt-auto relative z-10">
           <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-muted-foreground max-w-7xl mx-auto">
             <div className="flex items-center gap-2">
               <BookOpen size={12} className="text-primary" />
@@ -1076,7 +1116,7 @@ function Library() {
       )}
 
       {showPullOverlay && (
-        <VaultPullOverlay progress={pullProgress} triggered={pullTriggered} />
+        <VaultTopReveal progress={pullProgress} triggered={pullTriggered} />
       )}
 
       {bulkMode && selectedIds.size > 0 && (
@@ -1105,7 +1145,7 @@ function Library() {
               </div>
             </div>
             <div className="flex flex-col gap-2 mt-4">
-              <button className="w-full h-11 font-bold text-sm rounded-lg bg-destructive text-destructive-foreground flex items-center justify-center gap-2 shadow-lg hover:bg-destructive/90 transition-all" onClick={confirmBulkDelete}>
+              <button className="w-full h-11 font-bold text-sm rounded-lg bg-destructive text-destructive-foreground flex items-center justify-center gap-2 shadow-lg hover:bg-destructive/90 transition-all active:scale-95" onClick={confirmBulkDelete}>
                 <Trash2 className="w-4 h-4" />Yes, delete all
               </button>
               <button className="w-full h-11 text-sm rounded-lg hover:bg-secondary transition-colors text-muted-foreground" onClick={() => setBulkDeleteConfirm(false)}>
@@ -1129,6 +1169,16 @@ function Library() {
         onClose={() => setVaultOpen(false)}
         onUnlocked={() => { setVaultUnlocked(true); setVaultOpen(false); }}
       />
+
+      {vaultUnlocked && (
+        <FilterPanel
+          open={vaultFilterOpen}
+          onClose={() => setVaultFilterOpen(false)}
+          filters={advFilters}
+          onChange={setAdvFilters}
+          allTags={allTags}
+        />
+      )}
     </div>
   );
 }
