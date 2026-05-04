@@ -385,7 +385,7 @@ export default function ListDetail() {
         <div className="relative">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-wrap min-w-0">
-              <h1 className="text-3xl md:text-4xl font-black text-foreground leading-none tracking-tight truncate">
+              <h1 className="text-3xl md:text-4xl font-black text-foreground leading-none tracking-tight break-words">
                 {listConfig.name}
               </h1>
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-secondary border border-border text-muted-foreground shrink-0">
@@ -403,7 +403,7 @@ export default function ListDetail() {
 
           {descHtml ? (
             <div
-              className="mt-2 text-sm text-muted-foreground prose prose-sm max-w-none line-clamp-2 cursor-pointer hover:text-foreground/70 transition-colors"
+              className="mt-2 text-sm text-muted-foreground prose prose-sm max-w-none cursor-pointer hover:text-foreground/70 transition-colors"
               dangerouslySetInnerHTML={{ __html: descHtml }}
               onClick={() => setEditModalOpen(true)}
               title="Click to edit"

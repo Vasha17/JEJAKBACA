@@ -602,7 +602,7 @@ function Library() {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const SCROLL_THRESHOLD = isMobile ? 80 : 1500;
-  const SCROLL_START_ZONE = 0;
+  const SCROLL_START_ZONE = 20;
   const { user } = useAuth();
   void user;
   
@@ -627,6 +627,9 @@ function Library() {
 
   const [vaultOpen, setVaultOpen] = useState(false);
   const [vaultUnlocked, setVaultUnlocked] = useState(() => isVaultUnlocked());
+  const [showVaultHint, setShowVaultHint] = useState(() => {
+    return !localStorage.getItem("jejakbaca_vault_hint_shown");
+  });
 
   const [pullProgress, setPullProgress] = useState(0);
   const [pullTriggered, setPullTriggered] = useState(false);
@@ -639,7 +642,20 @@ function Library() {
   const pageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { vaultUnlockedRef.current = vaultUnlocked; }, [vaultUnlocked]);
+  useEffect(() => {
+    if (!showVaultHint) return;
+    const t = setTimeout(() => {
+      localStorage.setItem("jejakbaca_vault_hint_shown", "1");
+      setShowVaultHint(false);
+    }, 30000);
+    return () => clearTimeout(t);
+  }, [showVaultHint]);
   useEffect(() => { pullTriggeredRef.current = pullTriggered; }, [pullTriggered]);
+  useEffect(() => {
+    if (!isMobile) return;
+    document.body.style.overscrollBehavior = "none";
+    return () => { document.body.style.overscrollBehavior = ""; };
+  }, [isMobile]);
 
   const setPull = useCallback((progress: number) => {
     const triggered = progress >= 1;
@@ -653,7 +669,7 @@ function Library() {
     setPullTriggered(false);
     pullTriggeredRef.current = false;
   }, []);
-
+  
   const handleWheel = useCallback((e: WheelEvent) => {
     if (vaultUnlockedRef.current) return;
     if (window.scrollY > SCROLL_START_ZONE) { wheelAccum.current = 0; return; }
@@ -672,32 +688,40 @@ function Library() {
       resetPull();
       if (wheelTimer.current) { clearTimeout(wheelTimer.current); wheelTimer.current = null; }
     }
-  }, [setPull, resetPull]);
+  }, [setPull, resetPull, SCROLL_THRESHOLD, SCROLL_START_ZONE]);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (vaultUnlockedRef.current) return;
+    if (window.scrollY > SCROLL_START_ZONE) return; 
     touchStartY.current = e.touches[0].clientY;
     isPulling.current = false;
-  }, []);
+  }, [SCROLL_START_ZONE]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (vaultUnlockedRef.current) return;
-    if (window.scrollY > 0) {
+    
+    const currentY = e.touches[0].clientY;
+    const delta = currentY - touchStartY.current;
+
+    // Hanya aktif kalau di paling atas halaman
+    if (window.scrollY > SCROLL_START_ZONE) {
       if (isPulling.current) { isPulling.current = false; resetPull(); }
       return;
     }
-    const delta = e.touches[0].clientY - touchStartY.current;
-    if (delta > 0) {
+
+    if (delta > 10) {
       isPulling.current = true;
-      setPull(Math.min(1, delta / SCROLL_THRESHOLD));
-    } else {
-      if (isPulling.current) { isPulling.current = false; resetPull(); }
+      const progress = Math.min(1, (delta - 10) / SCROLL_THRESHOLD);
+      setPull(progress);
+    } else if (delta <= 0 && isPulling.current) {
+      isPulling.current = false;
+      resetPull();
     }
-  }, [setPull, resetPull]);
+  }, [setPull, resetPull, SCROLL_START_ZONE, SCROLL_THRESHOLD]);
 
   const handleTouchEnd = useCallback(() => {
     if (vaultUnlockedRef.current) return;
-    if (pullTriggeredRef.current) setVaultOpen(true);
+    if (isPulling.current && pullTriggeredRef.current) setVaultOpen(true);
     isPulling.current = false;
     resetPull();
   }, [resetPull]);
@@ -710,13 +734,14 @@ function Library() {
 
   useEffect(() => {
     if (!isMobile) return;
-    document.addEventListener("touchstart", handleTouchStart, { passive: true });
-    document.addEventListener("touchmove", handleTouchMove, { passive: true });
-    document.addEventListener("touchend", handleTouchEnd, { passive: true });
+    const el = pageRef.current ?? document;
+    el.addEventListener("touchstart", handleTouchStart as any, { passive: true });
+    el.addEventListener("touchmove", handleTouchMove as any, { passive: true });
+    el.addEventListener("touchend", handleTouchEnd as any, { passive: true });
     return () => {
-      document.removeEventListener("touchstart", handleTouchStart);
-      document.removeEventListener("touchmove", handleTouchMove);
-      document.removeEventListener("touchend", handleTouchEnd);
+      el.removeEventListener("touchstart", handleTouchStart as any);
+      el.removeEventListener("touchmove", handleTouchMove as any);
+      el.removeEventListener("touchend", handleTouchEnd as any);
     };
   }, [isMobile, handleTouchStart, handleTouchMove, handleTouchEnd]);
 
@@ -859,7 +884,7 @@ function Library() {
     setSearch(val);
   };
 
-  const showPullOverlay = !vaultUnlocked && pullProgress > 0.05;
+  const showPullOverlay = !vaultUnlocked && pullProgress > 0.02;
 
   return (
     <div className="flex flex-col min-h-screen bg-background" ref={pageRef}>
@@ -1085,7 +1110,7 @@ function Library() {
           </div>
         )}
 
-        {!vaultUnlocked && (
+        {!vaultUnlocked && showVaultHint && (
           <div className="flex flex-col items-center gap-2 pt-8 pb-4 opacity-20 select-none pointer-events-none">
             <Lock size={16} className="text-muted-foreground" />
             <span className="text-[10px] text-muted-foreground tracking-widest uppercase">

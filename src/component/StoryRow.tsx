@@ -123,10 +123,12 @@ export function StoryRow({ story, index, listId, onLogChapter, onRemove, onRatin
       {/* Rating */}
       {!bulkMode && (
         <div className="shrink-0 flex flex-col items-end gap-1.5 z-20" onClick={e => e.stopPropagation()}>
-          <StarRating rating={story.rating || 0} onChange={(r) => onRatingChange?.(story.id, r)} />
+          <div className="hidden sm:block">
+            <StarRating rating={story.rating || 0} onChange={(r) => onRatingChange?.(story.id, r)} />
+          </div>
           {story.rating > 0 && (
             <span className="text-[11px] font-black text-amber-400 tabular-nums leading-none">
-              {story.rating}.0
+              {story.rating}
             </span>
           )}
         </div>

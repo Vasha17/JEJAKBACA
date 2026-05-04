@@ -55,7 +55,8 @@ export default defineConfig({
     },
   },
 
-   server: {
+  server: {
+    host: '0.0.0.0',
     proxy: {      
       '/img-proxy': {
         target: 'https://f01.mrcdn.info',
