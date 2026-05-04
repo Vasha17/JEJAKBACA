@@ -9,6 +9,7 @@ import { useAuth, LoginPage } from "@/component/Auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSync } from "@/lib/SupabaseSync";
 import { dexieAPI } from "@/lib/DexieDB";
+import { Analytics } from "@vercel/analytics/react";
 import ErrorBoundary from "./ErrorBoundary";
 import ListsIndex from "./pages/lists/Index";
 import ListDetail from "./pages/lists/ListDetail";
@@ -184,6 +185,7 @@ const App = () => (
         <OfflineIndicator />
         <AppContent />
       </ErrorBoundary>
+      <Analytics />
     </TooltipProvider>
   </QueryClientProvider>
 );
