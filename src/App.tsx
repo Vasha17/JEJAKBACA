@@ -15,6 +15,7 @@ import ListDetail from "./pages/lists/ListDetail";
 import Library from "./pages/Library";
 import StoryDetail from "./pages/StoryDetail/StoryDetailPage";
 import NotFound from "./pages/NotFound";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 const queryClient = new QueryClient();
 
@@ -184,6 +185,7 @@ const App = () => (
         <OfflineIndicator />
         <AppContent />
       </ErrorBoundary>
+      <SpeedInsights />
     </TooltipProvider>
   </QueryClientProvider>
 );
