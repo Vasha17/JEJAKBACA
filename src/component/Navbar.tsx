@@ -152,20 +152,43 @@ function ProfileButton({ onClick }: { onClick: () => void }) {
 }
 
 /* ─── Library Search ─────────────────────────── */
-function LibrarySearch({ search, onSearchChange, stories }: {
+export function LibrarySearch({ search, onSearchChange, stories }: {
   search: string; onSearchChange: (v: string) => void; stories: any[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  const [localSearch, setLocalSearch] = useState(search);
+
+  useEffect(() => {
+    setLocalSearch(search);
+  }, [search]);
+
+  const handleSearchInput = (val: string) => {
+    setLocalSearch(val);
+    onSearchChange(val);
+  };
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (!open) return;
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        onSearchChange("");
+        setLocalSearch("");
+      }
     };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
-  }, []);
+  }, [open, onSearchChange]);
   
   useEffect(() => {
     const h = (e: KeyboardEvent) => {  
@@ -181,13 +204,13 @@ function LibrarySearch({ search, onSearchChange, stories }: {
   }, [open, onSearchChange]);
 
   const suggestions = useMemo(() => {
-    if (!search.trim()) return [];
+    if (!localSearch.trim()) return [];
     return stories.filter((s: any) => {
-       if (s.hidden) return false;
-       return s.title.toLowerCase().includes(search.toLowerCase()) ||
-       s.author?.toLowerCase().includes(search.toLowerCase())
+      if (s.hidden) return false;
+      return s.title.toLowerCase().includes(localSearch.toLowerCase()) ||
+      s.author?.toLowerCase().includes(localSearch.toLowerCase())
     });
-  }, [search, stories]);
+  }, [localSearch, stories]);
 
   const STATUS_COLORS: Record<string, string> = {
     "reading": "#22c55e", "completed": "#3b82f6", "on-hold": "#eab308",
@@ -240,9 +263,20 @@ function LibrarySearch({ search, onSearchChange, stories }: {
     );
   };
   
-  const handleClose = () => {
+  const handleClearText = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setLocalSearch("");
+    onSearchChange("");
+    inputRef.current?.focus();
+  };
+
+  const handleClose = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    setLocalSearch("");
+    onSearchChange("");
     setOpen(false);
-    onSearchChange(""); 
   };
 
   return (
@@ -261,45 +295,31 @@ function LibrarySearch({ search, onSearchChange, stories }: {
             <input
               ref={inputRef}
               placeholder="Search…"
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
+              value={localSearch}
+              onChange={(e) => handleSearchInput(e.target.value)}
               className="sm:block hidden bg-transparent text-xs w-full min-w-0 outline-none text-foreground placeholder:text-muted-foreground"
             />
           )}
 
-          {open && search && window.innerWidth >= 640 && (            
-            <button onClick={() => onSearchChange("")} className="text-muted-foreground hover:text-foreground shrink-0 ml-1">
-              <X size={12} />
-            </button>
+          {open && !isMobile && (
+            <>
+              {localSearch &&  (
+                <button onClick={handleClearText} className="text-muted-foreground hover:text-foreground shrink-0 ml-1">
+                  <X size={12} />
+                </button>
+              )}
+              <button onClick={handleClose} className="text-xs font-semibold text-primary ml-2 shrink-0">
+                Cancel
+              </button>
+            </>
           )}
         </div>
 
         {/* DESKTOP SEARCH OVERLAY */}
         {open && (
-          <div className="hidden sm:block fixed left-0 right-0 top-14 z-50 border-b border-border bg-black/95 shadow-2xl animate-in slide-in-from-top-1 duration-200">
-            <div className="flex items-center gap-3 px-6 py-3 border-b border-border/50">
-              <Search size={16} className="text-muted-foreground shrink-0" />
-              <input
-                autoFocus
-                placeholder="Search titles, authors…"
-                value={search}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground"
-              />
-              {search && (                
-                <button onClick={() => onSearchChange("")} className="text-muted-foreground hover:text-foreground">
-                  <X size={14} />
-                </button>
-              )}
-              <button
-                onClick={handleClose}
-                className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-lg hover:bg-secondary transition-colors"
-              >
-                ESC
-              </button>
-            </div>
+          <div className="hidden sm:block fixed left-0 right-0 top-14 z-50 border-b border-border bg-black/95 shadow-2xl animate-in slide-in-from-top-1 duration-200">            
 
-            {!search ? (
+            {!localSearch ? (
               <div className="px-6 py-8 text-center text-sm text-muted-foreground/50">
                 Type to search your library…
               </div>
@@ -351,24 +371,27 @@ function LibrarySearch({ search, onSearchChange, stories }: {
               <input
                 autoFocus
                 placeholder="Search titles, authors…"
-                value={search}
-                onChange={(e) => onSearchChange(e.target.value)}
+                value={localSearch}
+                onChange={(e) => handleSearchInput(e.target.value)}
                 className="flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground"
-              />
-              {search && (                
-                <button onClick={() => onSearchChange("")} className="text-muted-foreground hover:text-foreground">
+              />              
+              {localSearch && (                
+                <button 
+                  onClick={handleClearText}
+                  className="text-muted-foreground hover:text-foreground p-1"
+                >
                   <X size={14} />
                 </button>
-              )}
+              )}              
               <button
                 onClick={handleClose}
-                className="text-xs font-semibold text-primary"
+                className="text-xs font-semibold text-primary ml-1 shrink-0"
               >
                 Cancel
               </button>
             </div>
 
-            {search && suggestions.length > 0 && (
+            {localSearch &&  suggestions.length > 0 && (
               <div className="px-4 py-2 border-b border-border/30">
                 <span className="text-[10px] font-black tracking-widest text-muted-foreground/40 uppercase">
                   {suggestions.length} result{suggestions.length !== 1 ? "s" : ""}
@@ -377,7 +400,7 @@ function LibrarySearch({ search, onSearchChange, stories }: {
             )}
 
             <div className="flex-1 overflow-y-auto overscroll-contain">
-              {!search ? (
+              {!localSearch ? (
                 <div className="py-12 text-center text-sm text-muted-foreground/50">
                   Type to search your library…
                 </div>
@@ -399,13 +422,7 @@ function LibrarySearch({ search, onSearchChange, stories }: {
           </div>
         </div>
       )}
-
-      {open && (
-        <div
-          className="hidden sm:block fixed inset-0 z-40"
-          onClick={handleClose} 
-        />
-      )}
+     
     </>
   );
 }

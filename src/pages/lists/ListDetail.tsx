@@ -234,9 +234,13 @@ export default function ListDetail() {
     const savedLists = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
     const found = savedLists.find((l: any) => l.id === id);
     if (found) {
-      setListConfig(found);
-      setListStories(allStories.filter((s: any) => s.lists?.includes(id)));
-    }
+      setListConfig(found);  
+    const ordered = found.storyOrder
+      ? [...allStories.filter((s: any) => s.lists?.includes(id))]
+          .sort((a, b) => (found.storyOrder.indexOf(a.id) ?? 999) - (found.storyOrder.indexOf(b.id) ?? 999))
+      : allStories.filter((s: any) => s.lists?.includes(id));
+    setListStories(ordered);
+        }
   }, [id, allStories]);
 
   const [bulkMode, setBulkMode] = useState(false);
@@ -341,6 +345,10 @@ export default function ListDetail() {
     const [moved] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, moved);
     setListStories(items);
+    const savedLists = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
+    localStorage.setItem("my_reading_lists", JSON.stringify(
+      savedLists.map((l: any) => l.id === id ? { ...l, storyOrder: items.map((s: any) => s.id) } : l)
+    ));
   };
 
   const globalTotalChapters  = allStories.reduce((sum: number, s: any) => sum + (s.currentChapter || 0), 0);

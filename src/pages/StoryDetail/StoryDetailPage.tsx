@@ -273,9 +273,10 @@ export default function StoryDetail() {
     setNewRelType, setNewRelMode, setNewRelStoryId, setNewRelUrl,
     handleOpenRelated, handleRelTitleInput, handleAddRelation, handleRemoveRelation,
   } = useStoryRelations(story?.id || "", stories);
+  
 
   // ── Navigation ──────────────────────────────────────────────────────────────
-  const allStories   = stories || [];
+  const allStories = (stories || []).filter((s: any) => !s.hidden);
   const currentIndex = allStories.findIndex((s: any) => s.id === story?.id);
   const prevStory    = currentIndex > 0 ? allStories[currentIndex - 1] : null;
   const nextStory    = currentIndex < allStories.length - 1 ? allStories[currentIndex + 1] : null;
@@ -561,6 +562,10 @@ export default function StoryDetail() {
 
   const isTouchDevice = typeof window !== "undefined" &&
     ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+
+  const anyDialogOpen = coverDialog || headerDialog || ratingDialog || notesDialog || 
+  listsDialog || bookmarkDialog || sourceDialog || addSourceDialog || 
+  synopsisEditDialog || moreDialog || arcDialog || statusDialog;
 
   // ── JSX ──────────────────────────────────────────────────────────────────────
   return (
@@ -899,7 +904,7 @@ export default function StoryDetail() {
                               <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-card"/>
                             </button>
                           </DialogTrigger>
-                          <DialogContent className="sm:max-w-md border-emerald-500/50 bg-gradient-to-br from-emerald-900 to-slate-900 text-white shadow-2xl shadow-emerald-500/20 overflow-hidden">
+                          <DialogContent className="w-[92vw] sm:max-w-md border-emerald-500/50 bg-gradient-to-br from-emerald-900 to-slate-900 text-white shadow-2xl shadow-emerald-500/20 overflow-hidden">
                             <DialogHeader className="relative z-10 pb-2">
                               <div className="absolute -top-10 -right-10 text-emerald-500/10 opacity-50 pointer-events-none">
                                 <Bell size={120} strokeWidth={1}/>
@@ -940,7 +945,7 @@ export default function StoryDetail() {
                   </div>
                 )}
                 <div
-                  className="absolute bottom-full left-0 mb-2 w-max max-w-[200px] p-2 rounded-lg bg-popover border border-border shadow-xl text-[10px] text-muted-foreground opacity-0 group-hover/chapter:opacity-100 transition-opacity pointer-events-none z-50"
+                  className="absolute bottom-full left-0 mb-2 w-max max-w-[200px] p-2 rounded-lg bg-black/90 border border-border shadow-xl text-[10px] text-muted-foreground opacity-0 group-hover/chapter:opacity-100 transition-opacity pointer-events-none z-50"
                   onTouchStart={() => { if (!editingChapter) setTimeout(() => setChapterTooltip(true), 500); }}
                   onTouchEnd={() => setChapterTooltip(false)}
                 >
@@ -2064,7 +2069,7 @@ export default function StoryDetail() {
         </button>
       )}
 
-      {ctaPreference === "floating" && (
+      {ctaPreference === "floating" && !anyDialogOpen && (
         <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
           <div className="bg-black/80 text-white text-[10px] px-2 py-1 rounded mb-1 opacity-0 animate-in fade-in slide-in-from-bottom-2 duration-300 pointer-events-auto" id="read-tooltip">
             Press N to continue

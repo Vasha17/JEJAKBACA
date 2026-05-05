@@ -22,7 +22,6 @@ export async function setVaultPin(pin: string, userId?: string): Promise<void> {
   }
 }
 
-// FIXED: fetch dari Supabase dulu, fallback localStorage
 export async function verifyVaultPin(pin: string, userId?: string): Promise<boolean> {
   const hashed = await hashPin(pin);
   if (userId) {
@@ -33,8 +32,7 @@ export async function verifyVaultPin(pin: string, userId?: string): Promise<bool
         .select("vault_pin")
         .eq("user_id", userId)
         .single();
-      if (data?.vault_pin) {
-        // Cache ke localStorage supaya offline tetap kerja
+      if (data?.vault_pin) {        
         localStorage.setItem(VAULT_PIN_KEY, data.vault_pin);
         return data.vault_pin === hashed;
       }
@@ -46,7 +44,6 @@ export async function verifyVaultPin(pin: string, userId?: string): Promise<bool
   return stored === hashed;
 }
 
-// FIXED: cek Supabase dulu
 export async function hasVaultPin(userId?: string): Promise<boolean> {
   if (userId) {
     try {

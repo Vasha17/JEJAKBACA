@@ -5,13 +5,13 @@ import {
   BookOpen, X, ChevronRight, Flame, Clock, CheckCircle2, BookMarked, PauseCircle,
   LayoutGrid, AlignJustify, Star, Play, Layers, Eye, Check, CheckSquare,
   Square, Trash2, Settings, BookIcon, ExternalLink, ArrowUpDown, PlusCircle, Timer,
-  AlertCircle, Lock, LockOpen, ArrowLeft, Search, FilterIcon,
-} from "lucide-react"; // Added LockOpen import
+  AlertCircle, Lock, ArrowLeft, FilterIcon,
+} from "lucide-react"; 
 import { StoryStatus, getGlobalTags } from "@/lib/types";
 import { Dialog, DialogContent } from "@/component/ui/dialog";
 import "flag-icons/css/flag-icons.min.css";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Navbar, Filters, EMPTY_FILTERS, FilterPanel } from "@/component/Navbar";
+import { Navbar, Filters, EMPTY_FILTERS, FilterPanel, LibrarySearch } from "@/component/Navbar";
 import { VaultDialog } from "@/component/VaultDialog";
 import { useAuth } from "@/component/Auth";
 import { isVaultUnlocked, lockVault } from "@/lib/vaultUtils";
@@ -131,7 +131,7 @@ function VaultTopReveal({ progress, triggered }: { progress: number; triggered: 
 
 /* 2. Vault Navbar */
 function VaultNavbar({
-  hiddenCount, search, onSearchChange, onBack, filterCount, onOpenFilter,
+   hiddenCount, search, onSearchChange, onBack, filterCount, onOpenFilter, stories,
 }: {
   hiddenCount: number;
   search: string;
@@ -139,6 +139,7 @@ function VaultNavbar({
   onBack: () => void;
   filterCount: number;
   onOpenFilter: () => void;
+  stories: any[];
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -184,40 +185,11 @@ function VaultNavbar({
 
         {/* Right: search expand + filter + lock */}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-          {/* Expandable search */}
-          <div
-            className={`flex items-center overflow-hidden transition-all duration-300 rounded-xl border bg-secondary
-              ${searchOpen ? "w-36 sm:w-52 border-border/80 px-2.5" : "w-9 border-transparent"}`}
-            style={{ height: 36 }}
-          >
-            {searchOpen ? (
-              <>
-                <Search size={13} className="text-muted-foreground shrink-0 mr-2" />
-                <input
-                  ref={inputRef}
-                  value={search}
-                  onChange={e => onSearchChange(e.target.value)}
-                  placeholder="Search vault…"
-                  className="flex-1 bg-transparent text-xs outline-none text-foreground placeholder:text-muted-foreground min-w-0"
-                />
-                {search && (
-                  <button onClick={() => onSearchChange("")} className="text-muted-foreground hover:text-foreground ml-1 shrink-0">
-                    <X size={11} />
-                  </button>
-                )}
-                <button onClick={closeSearch} className="text-muted-foreground hover:text-foreground ml-1.5 shrink-0">
-                  <X size={13} />
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={openSearch}
-                className="w-9 h-9 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Search size={16} />
-              </button>
-            )}
-          </div>
+          <LibrarySearch
+            search={search}
+            onSearchChange={onSearchChange}
+            stories={stories}
+          />
 
           {/* Filter */}
           <button
@@ -232,10 +204,7 @@ function VaultNavbar({
               <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-400 border-2 border-card" />
             )}
           </button>
-          
-          <div className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 border border-primary/30">
-            <LockOpen size={15} className="text-primary" />
-          </div>
+                    
         </div>
       </div>
     </div>
@@ -917,6 +886,7 @@ function Library() {
           onBack={() => { lockVault(); setVaultUnlocked(false); setSearch(""); }}
           filterCount={advFilterCount}
           onOpenFilter={() => setVaultFilterOpen(true)}
+          stories={hiddenStories} 
         />
       )}
 
