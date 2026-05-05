@@ -468,7 +468,9 @@ export default function StoryDetail() {
     const file = e.target.files?.[0]; if (!file) return;
     try {
       const publicUrl = await uploadToStorage(file, "covers");
-      updateStory(story.id, { coverUrl: publicUrl }); setCoverDialog(false);
+      const updates: any = { coverUrl: publicUrl };
+      if (!story.headerUrl) updates.headerUrl = publicUrl;
+      updateStory(story.id, updates); setCoverDialog(false);
     } catch { alert("Failed to upload cover image."); }
     e.target.value = "";
   };
@@ -745,7 +747,11 @@ export default function StoryDetail() {
                       <DialogClose asChild>
                         <Button variant="ghost">Cancel</Button>
                       </DialogClose>
-                      <Button onClick={() => { updateStory(story.id, { coverUrl: coverUrlValue }); setCoverDialog(false); }}>Save</Button>
+                      <Button onClick={() => { 
+                        const updates: any = { coverUrl: coverUrlValue };
+                        if (!story.headerUrl) updates.headerUrl = coverUrlValue;
+                        updateStory(story.id, updates); setCoverDialog(false); 
+                      }}>Save</Button>
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
@@ -2104,55 +2110,65 @@ export default function StoryDetail() {
         onToggleGenre={handleToggleGenre}
       />
 
-      {/* Image croppers */}                  
-      
+    {/* ═══ IMAGE CROPPERS ═══════════════════════════════════════════ */}
+
       {/* Header Cropper */}
-        {story.headerUrl && (
-        <div onClick={e => e.stopPropagation()}>
-        <ImageCropper
-          open={headerCropOpen}
-          onOpenChange={open => { 
-            if (!open) {
-              setHeaderCropOpen(false);
+      {story.headerUrl && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ImageCropper
+            open={headerCropOpen}
+            onOpenChange={(open) => {
+              if (!open) setHeaderCropOpen(false);
+            }}            
+            imageSrc={
+              story.headerUrl.startsWith("http")
+                ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/img-proxy?url=${encodeURIComponent(story.headerUrl)}`
+                : story.headerUrl
             }
-          }}
-          imageSrc={story.headerUrl.includes('mrcdn.info') 
-            ? story.headerUrl.replace('https://f01.mrcdn.info', '/img-proxy') 
-            : story.headerUrl}
-          aspect={16 / 5}
-          title="Reposition Header"
-          onCropComplete={async (croppedBase64) => {
-            try {
-              const file = base64ToFile(croppedBase64, `header-crop-${Date.now()}.jpg`);
-              const publicUrl = await uploadToStorage(file, "headers");
-              updateStory(story.id, { headerUrl: publicUrl }); setHeaderCropOpen(false);
-            } catch { alert("Failed to save crop result."); }
-          }}          
-        />
-      </div>
-    )}
+            aspect={16 / 5}
+            title="Reposition Header"
+            onCropComplete={async (croppedBase64) => {
+              try {
+                const file = base64ToFile(croppedBase64, `header-crop-${Date.now()}.jpg`);
+                const publicUrl = await uploadToStorage(file, "headers");
+                updateStory(story.id, { headerUrl: publicUrl });
+                setHeaderCropOpen(false);
+              } catch (err) {
+                console.error("Header Crop Error:", err);                
+              }
+            }}
+          />
+        </div>
+      )}
 
       {/* Cover Cropper */}
-        {story.coverUrl && (
-        <div onClick={e => e.stopPropagation()}>
-        <ImageCropper
-          open={coverCropOpen}
-          onOpenChange={open => { if (!open) setCoverCropOpen(false); }}
-          imageSrc={story.coverUrl.includes('mrcdn.info') 
-            ? story.coverUrl.replace('https://f01.mrcdn.info', '/img-proxy') 
-            : story.coverUrl}
-          aspect={3 / 4}
-          title="Reposition Cover"
-          onCropComplete={async (croppedBase64) => {
-            try {
-              const file = base64ToFile(croppedBase64, `cover-crop-${Date.now()}.jpg`);
-              const publicUrl = await uploadToStorage(file, "covers");
-              updateStory(story.id, { coverUrl: publicUrl }); setCoverCropOpen(false);
-            } catch { alert("Failed to save crop result."); }
-          }}
-        />
-      </div>
-    )}
+      {story.coverUrl && (
+        <div onClick={(e) => e.stopPropagation()}>
+          <ImageCropper
+            open={coverCropOpen}
+            onOpenChange={(open) => {
+              if (!open) setCoverCropOpen(false);
+            }}            
+            imageSrc={
+              story.coverUrl.startsWith("http")
+                ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/img-proxy?url=${encodeURIComponent(story.coverUrl)}`
+                : story.coverUrl
+            }
+            aspect={3 / 4}
+            title="Reposition Cover"
+            onCropComplete={async (croppedBase64) => {
+              try {
+                const file = base64ToFile(croppedBase64, `cover-crop-${Date.now()}.jpg`);
+                const publicUrl = await uploadToStorage(file, "covers");
+                updateStory(story.id, { coverUrl: publicUrl });
+                setCoverCropOpen(false);
+              } catch (err) {
+                console.error("Cover Crop Error:", err);                
+              }
+            }}
+          />
+        </div>
+      )}
 
       {/* Country dialog */}
       <Dialog open={countryDialog} onOpenChange={setCountryDialog}>

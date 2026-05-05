@@ -444,33 +444,53 @@ function QuickViewModal({ story, onClose, onNavigate }: {
 }
 
 /* 4. Hero Section */
-function HeroSection({ story }: { story: any }) {
+function HeroSection({ story, onPlusOne }: { story: any; onPlusOne: (id: string) => void }) {
   if (!story) return null;
   const daysSinceUpdate = useMemo(() => {
     const ts = new Date(story.chapterUpdatedAt || story.updatedAt || 0).getTime();
     return Math.floor((Date.now() - ts) / (1000 * 60 * 60 * 24));
   }, [story]);
-  const isLongUnread = daysSinceUpdate >= 7;
+  const isLongUnread = daysSinceUpdate >= 7;  
+  const bgImage = story.headerUrl || story.coverUrl;
+
   return (
     <div className="relative rounded-2xl overflow-hidden mb-6 group border border-border/50 transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl hover:shadow-primary/10 hover:border-primary/30">
-      <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-      {story.headerUrl
-        ? <div className="absolute inset-0 scale-110 blur-2xl opacity-40 transition-transform duration-700 group-hover:scale-125" style={{ backgroundImage: `url(${story.headerUrl})`, backgroundSize: "cover", backgroundPosition: "center" }} />
-        : <div className="absolute inset-0 scale-110 blur-2xl opacity-40 bg-primary/20" />}
-      <div className="absolute inset-0 bg-gradient-to-r from-background/95 via-background/80 to-transparent backdrop-blur-[2px]" />
-      <div className="relative flex items-center gap-5 p-5 sm:p-7">
-        <div className="flex-shrink-0 w-20 sm:w-28 aspect-[3/4] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 z-10 bg-secondary transition-transform duration-500 group-hover:scale-[1.03]">
+      
+      {/* Background Image Layer */}
+      <div className="absolute inset-0 z-0">
+        {bgImage ? (
+          <img 
+            src={bgImage} 
+            alt="" 
+            className="absolute inset-0 w-full h-full object-cover scale-110 opacity-40 transition-transform duration-700 group-hover:scale-125" 
+          />
+        ) : (
+          <div className="absolute inset-0 scale-110 opacity-80 bg-primary/20" />
+        )}
+      </div>
+
+      {/* Overlay Gradient */}    
+      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-0" />            
+      <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none z-0" />
+           
+      {/* Content Container */}
+      <div className="relative flex items-center gap-5 p-5 sm:p-7 z-10">
+        
+        {/* Cover Image */}
+        <div className="flex-shrink-0 w-20 sm:w-28 aspect-[3/4] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 bg-secondary transition-transform duration-500 group-hover:scale-[1.03]">
           {story.coverUrl
-            ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover" />
+            ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover opacity-95 contrast-110 saturate-110" />
             : <div className="w-full h-full flex items-center justify-center"><BookOpen className="w-8 h-8 text-muted-foreground/30" /></div>}
         </div>
-        <div className="flex-1 min-w-0 space-y-2 z-10">
+
+        {/* Text Info */}
+        <div className="flex-1 min-w-0 space-y-2">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-primary/80 flex items-center gap-1.5">
             {isLongUnread
               ? <><Timer size={11} className="text-amber-400" /><span className="text-amber-400">Haven't read in {daysSinceUpdate}d</span></>
               : <><Flame size={11} className="text-orange-400" /> Continue Reading</>}
           </p>
-          <h2 className="text-xl sm:text-2xl font-black text-foreground leading-tight line-clamp-2">{story.title}</h2>
+          <h2 className="text-xl sm:text-2xl font-black text-foreground leading-tight line-clamp-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">{story.title}</h2>
           {story.author && <p className="text-xs text-muted-foreground">{story.author}</p>}
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><Star size={11} className="fill-yellow-400 text-yellow-400" />{story.rating || "—"}</span>
@@ -481,12 +501,13 @@ function HeroSection({ story }: { story: any }) {
               className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold transition-all duration-200 shadow-lg shadow-primary/25 hover:shadow-[0_0_20px_rgba(var(--primary-rgb),0.4)] hover:-translate-y-0.5 active:scale-95 active:translate-y-0">
               <Play size={13} fill="currentColor" /> Continue Reading
             </Link>
-            <Link to={`/story/${story.id}`}
+            <button
+              onClick={(e) => { e.preventDefault(); onPlusOne(story.id); }}
               className="flex items-center gap-2 px-3 py-2 sm:px-4 rounded-xl bg-secondary text-secondary-foreground text-xs font-medium hover:bg-secondary/80 transition-all active:scale-95">
               <BookOpen size={13} />
               <span className="hidden sm:inline">+1 Chapter</span>
               <span className="sm:hidden">+1</span>
-            </Link>
+            </button>
           </div>
         </div>
       </div>
@@ -848,6 +869,16 @@ function Library() {
 
   const currentSortOption = SORT_OPTIONS.find(opt => opt.value === sortBy) || SORT_OPTIONS[0];
 
+  const handlePlusOne = (id: string) => {
+  const story = stories.find(s => s.id === id);
+    if (!story) return;
+    updateStory(id, { 
+      currentChapter: (story.currentChapter || 0) + 1,
+      chapterUpdatedAt: new Date().toISOString(),
+    });
+    navigate(`/story/${id}`);
+  };
+
   const handleSearchChange = (val: string) => {
     if (val === "##") { setSearch(""); setVaultOpen(true); return; }
     setSearch(val);
@@ -892,7 +923,7 @@ function Library() {
 
       <main className={`relative z-10 flex-1 px-4 sm:px-6 py-6 space-y-6 max-w-7xl w-full mx-auto ${isMobile ? "pb-32" : "pb-16"}`}>
 
-        {heroStory && !loading && <HeroSection story={heroStory} />}
+        {heroStory && !loading && <HeroSection story={heroStory} onPlusOne={handlePlusOne} />}          
 
         {!loading && (
           <div className="flex items-center justify-between gap-4 pb-2 group">
@@ -982,7 +1013,7 @@ function Library() {
                     ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     : <div className="w-full h-full flex items-center justify-center bg-card"><BookOpen className="w-10 h-10 text-muted-foreground/20" /></div>}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 pointer-events-none z-0" />
-                  <div className="absolute top-0 inset-x-0 p-2 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between z-10 pointer-events-none">
+                  <div className="absolute top-0 inset-x-0 p-2 bg-gradient-to-b from-black/60 via-black/10 to-transparent flex items-center justify-between z-10 pointer-events-none">
                     <div className="flex items-center gap-1 max-w-[55%]">
                       {story.originCountry && <span className={`fi fi-${story.originCountry.toLowerCase()} rounded-sm shadow-sm`} style={{ width: 14, height: 10 }} />}
                       <span className="text-[9px] font-bold text-white/80 truncate">{FORMAT_MAP[(story.originCountry || "").toUpperCase()]}</span>

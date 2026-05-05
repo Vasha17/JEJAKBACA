@@ -186,7 +186,7 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
         setLocalSearch("");
       }
     };
-    document.addEventListener("mousedown", h);
+    document.addEventListener("click", h);
     return () => document.removeEventListener("mousedown", h);
   }, [open, onSearchChange]);
   
