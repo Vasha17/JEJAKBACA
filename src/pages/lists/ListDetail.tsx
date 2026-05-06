@@ -235,10 +235,14 @@ export default function ListDetail() {
     const found = savedLists.find((l: any) => l.id === id);
     if (found) {
       setListConfig(found);  
+    const inList = allStories.filter((s: any) => s.lists?.includes(id));
     const ordered = found.storyOrder
-      ? [...allStories.filter((s: any) => s.lists?.includes(id))]
-          .sort((a, b) => (found.storyOrder.indexOf(a.id) ?? 999) - (found.storyOrder.indexOf(b.id) ?? 999))
-      : allStories.filter((s: any) => s.lists?.includes(id));
+      ? [
+          ...inList.filter((s: any) => found.storyOrder.includes(s.id))
+            .sort((a: any, b: any) => found.storyOrder.indexOf(a.id) - found.storyOrder.indexOf(b.id)),
+          ...inList.filter((s: any) => !found.storyOrder.includes(s.id)),
+        ]
+      : inList;
     setListStories(ordered);
         }
   }, [id, allStories]);

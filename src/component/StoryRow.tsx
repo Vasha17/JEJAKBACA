@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Star, BookOpen, Trash2, PlusCircle, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -11,39 +10,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string 
 };
 
 // ─── Star Rating ──────────────────────────────────────
-function StarRating({ rating, onChange }: { rating: number; onChange?: (r: number) => void }) {
-  const [hovered, setHovered] = useState(0);
-  const active = hovered || rating;
-  return (
-    <div className="flex items-center gap-0.5" onMouseLeave={() => setHovered(0)}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <button
-          key={i}
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onChange?.(i === rating ? 0 : i); }}
-          onMouseEnter={() => setHovered(i)}
-          className="transition-transform hover:scale-110 active:scale-95 z-20 relative"
-          title={`Rate ${i}`}
-        >
-          <Star
-            size={17}
-            className={`transition-colors duration-100 ${
-              i <= active
-                ? "text-amber-400 fill-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.5)]"
-                : "text-zinc-600 fill-transparent"
-            }`}
-          />
-        </button>
-      ))}
-    </div>
-  );
-}
 
 // ─── Interfaces ───────────────────────────────────────
 interface StoryRowProps {
   story: any;
   index: number;
-  listId: string;
+  listId?: string;
   onLogChapter: (id: string) => void;
   onRemove: (id: string) => void;
   onRatingChange?: (id: string, rating: number) => void;
@@ -53,7 +25,7 @@ interface StoryRowProps {
 }
 
 // ─── Main Component ──────────────────────────────────
-export function StoryRow({ story, index, listId, onLogChapter, onRemove, onRatingChange, bulkMode, selectedIds, onToggleSelect }: StoryRowProps) {
+export function StoryRow({ story, index, listId, onLogChapter, onRemove, bulkMode, selectedIds, onToggleSelect }: StoryRowProps) {
   const statusCfg = STATUS_CONFIG[story.status] ?? STATUS_CONFIG["plan-to-read"];
   const navigate = useNavigate();
   const isSelected = selectedIds?.has(story.id) ?? false;
@@ -122,14 +94,12 @@ export function StoryRow({ story, index, listId, onLogChapter, onRemove, onRatin
 
       {/* Rating */}
       {!bulkMode && (
-        <div className="shrink-0 flex flex-col items-end gap-1.5 z-20" onClick={e => e.stopPropagation()}>
-          <div className="hidden sm:block">
-            <StarRating rating={story.rating || 0} onChange={(r) => onRatingChange?.(story.id, r)} />
-          </div>
+        <div className="shrink-0 flex flex-col items-end gap-1.5 z-20" onClick={e => e.stopPropagation()}>                      
           {story.rating > 0 && (
-            <span className="text-[11px] font-black text-amber-400 tabular-nums leading-none">
-              {story.rating}
-            </span>
+            <div className="flex items-center gap-0.5 bg-amber-400/20 px-1.5 py-0.5 rounded-full">
+              <Star size={11} className="fill-amber-400 text-amber-400" />
+              <span className="text-[12px] font-bold text-amber-300">{story.rating}</span>
+            </div>
           )}
         </div>
       )}

@@ -165,16 +165,16 @@ export default function StoryDetail() {
   const [tagMode, setTagMode]                   = useState<"manual" | "existing" | "suggested">("manual");
   const [suggestedTags, setSuggestedTags]       = useState<string[]>([]);
   const [suggestedLoading, setSuggestedLoading] = useState(false);
-  const [tagRefresh, setTagRefresh]             = useState(0);
-  const [showAllTags, setShowAllTags]           = useState(false);
+  const [tagRefresh, setTagRefresh]             = useState(0);  
 
   // ── Source edit states ──────────────────────────────────────────────────────
-  const [editSrcId, setEditSrcId]           = useState<string | null>(null);
-  const [editSrcChapter, setEditSrcChapter] = useState("");
-  const [editSrcUrl, setEditSrcUrl]         = useState("");
-  const [editSrcName, setEditSrcName]       = useState("");
-  const [editSrcLang, setEditSrcLang]       = useState("");
-  const [sourcesKey, setSourcesKey]         = useState(0);
+  const [editSrcId, setEditSrcId]                 = useState<string | null>(null);
+  const [editSrcChapter, setEditSrcChapter]       = useState("");
+  const [editSrcUrl, setEditSrcUrl]               = useState("");
+  const [editSrcName, setEditSrcName]             = useState("");
+  const [editSrcLang, setEditSrcLang]             = useState("");
+  const [sourcesKey, setSourcesKey]               = useState(0);
+  const [srcNameSuggestion, setSrcNameSuggestion] = useState("");
 
   // ── Genre states ────────────────────────────────────────────────────────────
   const [genrePickerOpen, setGenrePickerOpen] = useState(false);
@@ -833,7 +833,7 @@ export default function StoryDetail() {
                   </form>
                 ) : (
                   <p
-                    className={`text-xs sm:text-sm mt-1 cursor-pointer line-clamp-1 transition-colors ${story.altTitle ? "text-muted-foreground opacity-70 hover:opacity-100 hover:text-foreground" : "text-muted-foreground/30 hover:text-muted-foreground/60 italic"}`}
+                    className={`text-xs sm:text-sm mt-1 cursor-pointer transition-colors ${story.altTitle ? "text-muted-foreground opacity-70 hover:opacity-100 hover:text-foreground" : "text-muted-foreground/30 hover:text-muted-foreground/60 italic"}`}
                     onClick={() => { setAltTitleValue(story.altTitle || ""); setEditingAltTitle(true); }}
                   >
                     {story.altTitle || " no alternative title "}
@@ -889,13 +889,13 @@ export default function StoryDetail() {
                   <form
                     onSubmit={e => {
                       e.preventDefault();
-                      const ch = Math.max(1, parseInt(chapterValue) || 1);
+                      const ch = Math.max(0.5, parseFloat(chapterValue) || 1);
                       handleChapterUpdate(ch); setEditingChapter(false);
                     }}
                     className="flex gap-2 items-center w-full"
                   >
                     <span className="font-semibold text-xs sm:text-sm whitespace-nowrap">Ch.</span>
-                    <Input value={chapterValue} onChange={e => setChapterValue(e.target.value)} type="number" className="w-16 h-7 text-xs bg-card" autoFocus/>
+                    <Input value={chapterValue} onChange={e => setChapterValue(e.target.value)} type="number" step="0.5" className="w-16 h-7 text-xs bg-card" autoFocus/>
                     <Button size="sm" type="submit" className="h-7">Save</Button>
                   </form>
                 ) : (
@@ -934,7 +934,7 @@ export default function StoryDetail() {
                                   return (
                                     <div key={src.id} className="flex items-center justify-between p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/20 hover:bg-emerald-950/60 transition-colors group">
                                       <span className="text-xs font-semibold text-emerald-50">{src.name}</span>
-                                      <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
+                                      <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
                                         +{diff}
                                       </span>
                                     </div>
@@ -1202,7 +1202,7 @@ export default function StoryDetail() {
         <DialogContent className="w-[92vw] max-w-sm mx-auto">
           <DialogHeader><DialogTitle>Add Bookmark</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <Input value={bmChapter} onChange={e => setBmChapter(e.target.value)} placeholder="Chapter number" type="number"/>
+            <Input value={bmChapter} onChange={e => setBmChapter(e.target.value)} placeholder="Chapter number" type="number" step="0.5"/>
             <Input value={bmNote}    onChange={e => setBmNote(e.target.value)}    placeholder="Short note (optional)"/>
           </div>
           <DialogFooter>
@@ -1646,18 +1646,13 @@ export default function StoryDetail() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {(showAllTags ? story.tags : story.tags.slice(0, 6)).map((tag: string) => (
+                  {story.tags.map((tag: string) => (
                     <button key={tag} onClick={() => handleTagClick(tag)} title="Click to filter in Library"
                       className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-secondary text-secondary-foreground text-xs border border-border hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors cursor-pointer active:scale-95">
                       {tag}
                       <span className="opacity-50 hover:opacity-100" onClick={e => { e.stopPropagation(); removeTagFromStory(story.id, tag); }}>×</span>
                     </button>
-                  ))}
-                  {story.tags.length > 6 && (
-                    <button onClick={() => setShowAllTags(v => !v)} className="px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground border border-border rounded-full transition-colors">
-                      {showAllTags ? "Show less" : `+${story.tags.length - 6} more`}
-                    </button>
-                  )}
+                  ))}                                    
                 </div>
                 <div className="flex flex-wrap gap-1.5" key={tagRefresh}>
                   {tagMode === "manual" && (
@@ -1782,7 +1777,7 @@ export default function StoryDetail() {
                                     <Input value={editSrcName} onChange={e => setEditSrcName(e.target.value)} placeholder="Site name" className="h-7 text-xs bg-card"/>
                                     <Input value={editSrcUrl}  onChange={e => setEditSrcUrl(e.target.value)}  placeholder="URL"       className="h-7 text-xs bg-card"/>
                                     <div className="flex gap-2">
-                                      <Input value={editSrcChapter} onChange={e => setEditSrcChapter(e.target.value)} type="number" placeholder="Chapter" className="h-7 text-xs bg-card w-24"/>
+                                      <Input value={editSrcChapter} onChange={e => setEditSrcChapter(e.target.value)} type="number" step="0.5" placeholder="Chapter" className="h-7 text-xs bg-card w-24"/>
                                       <Input value={editSrcLang}    onChange={e => setEditSrcLang(e.target.value)}    placeholder="Lang"    className="h-7 text-xs bg-card flex-1"/>
                                     </div>
                                     <div className="flex gap-2 pt-1">
@@ -1826,10 +1821,39 @@ export default function StoryDetail() {
                     <DialogContent className="w-[92vw] max-w-md mx-auto">
                       <DialogHeader><DialogTitle>Add Reading Link</DialogTitle></DialogHeader>
                       <div className="space-y-2">
-                        <Input value={srcName} onChange={e => setSrcName(e.target.value)} placeholder="Site name (e.g. MangaDex)" className="bg-card text-sm"/>
+                        <div className="relative">
+                          <div className="relative">
+                            <Input 
+                              value={srcName} 
+                              onChange={e => {
+                                const val = e.target.value;
+                                setSrcName(val);
+                                const allSrcNames = stories.flatMap((s: any) => (s.sources || []).map((src: any) => src.name));
+                                const unique = [...new Set(allSrcNames)] as string[];
+                                const match = unique.find(n => n.toLowerCase().startsWith(val.toLowerCase()) && n.toLowerCase() !== val.toLowerCase());
+                                setSrcNameSuggestion(match ? val + match.slice(val.length) : "");
+                              }}
+                              placeholder="Site name (e.g. MyAnimeList, Webtoon, etc.)"
+                              className="bg-card text-sm"
+                              onKeyDown={e => {
+                                if (e.key === "Tab" && srcNameSuggestion) {
+                                  e.preventDefault();
+                                  setSrcName(srcNameSuggestion);
+                                  setSrcNameSuggestion("");
+                                }
+                              }}
+                            />
+                            {srcNameSuggestion && (
+                              <div className="absolute inset-0 flex items-center px-3 pointer-events-none">
+                                <span className="text-transparent">{srcName}</span>
+                                <span className="text-foreground/40 text-sm">{srcNameSuggestion.slice(srcName.length)}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                         <Input value={srcUrl}  onChange={e => setSrcUrl(e.target.value)}  placeholder="URL"                       className="bg-card text-sm"/>
                         <div className="flex gap-2">
-                          <Input value={srcChapter} onChange={e => setSrcChapter(e.target.value)} placeholder="Chapter" type="number" className="bg-card text-sm w-24"/>
+                          <Input value={srcChapter} onChange={e => setSrcChapter(e.target.value)} placeholder="Chapter" type="number" step="0.5" className="bg-card text-sm w-24"/>
                           <Input value={srcLang}    onChange={e => setSrcLang(e.target.value)}    placeholder="Lang (EN, ID, KR)"    className="bg-card text-sm flex-1"/>
                         </div>
                       </div>
@@ -2222,11 +2246,11 @@ export default function StoryDetail() {
             <div className="flex gap-2">
               <div className="flex-1">
                 <label className="text-[10px] text-muted-foreground mb-1 block">Chapter Start</label>
-                <Input value={arcStart} onChange={e => setArcStart(e.target.value)} type="number" placeholder="1" className="bg-card"/>
+                <Input value={arcStart} onChange={e => setArcStart(e.target.value)} type="number" step="0.5" placeholder="1" className="bg-card"/>
               </div>
               <div className="flex-1">
                 <label className="text-[10px] text-muted-foreground mb-1 block">Chapter End (blank = ongoing)</label>
-                <Input value={arcEnd} onChange={e => setArcEnd(e.target.value)} type="number" placeholder="100" className="bg-card"/>
+                <Input value={arcEnd} onChange={e => setArcEnd(e.target.value)} type="number" step="0.5" placeholder="100" className="bg-card"/>
               </div>
             </div>
 
