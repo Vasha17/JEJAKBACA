@@ -539,11 +539,7 @@ function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources
                 className="text-left px-2 py-1.5 text-xs hover:bg-secondary rounded flex items-center gap-2 text-muted-foreground hover:text-foreground whitespace-nowrap">
                 <span className={s.color}>{s.icon}</span> {s.label}
               </button>
-            ))}
-            <button onClick={() => { onOpenSources(); setStatusOpen(false); }}
-              className="text-left px-2 py-1.5 text-xs hover:bg-blue-500/10 rounded flex items-center gap-2 text-muted-foreground hover:text-blue-500 border-t border-border/50 whitespace-nowrap">
-              <ExternalLink size={14} className="text-blue-500" /> Open Sources
-            </button>
+            ))}            
           </div>
         )}
       </div>

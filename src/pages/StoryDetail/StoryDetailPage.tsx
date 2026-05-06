@@ -1718,14 +1718,14 @@ export default function StoryDetail() {
                 <div className="space-y-2">
                   {story.bookmarks.map((bm: any) => (
                     <div key={bm.id} className="relative group">
-                      <div className="peer flex items-center gap-3 py-3 px-3 border border-border/50 rounded-lg bg-card/50 cursor-default select-none">
+                      <div className="peer flex items-center gap-3 py-3 px-3 border border-border/50 rounded-lg bg-card/50 hover:bg-secondary hover:border-border transition-colors duration-200 cursor-default select-none group">
                         <Bookmark className="w-4 h-4 text-primary shrink-0"/>
                         <span className="font-semibold text-sm text-foreground whitespace-nowrap shrink-0">Ch. {bm.chapter}</span>
                         {bm.note && <p className="text-sm text-muted-foreground flex-1 min-w-0 truncate">{bm.note}</p>}
                         <span className="text-[10px] text-muted-foreground shrink-0 opacity-60">{format(new Date(bm.createdAt), "MM/dd/yy")}</span>
                         <button onClick={e => { e.stopPropagation(); removeBookmark(story.id, bm.id); }} className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><X className="w-4 h-4"/></button>
                       </div>
-                      <div className="absolute z-20 bottom-full left-0 mb-2 w-64 p-3 rounded-xl bg-popover border border-border shadow-xl opacity-0 pointer-events-none peer-hover:opacity-100 peer-hover:pointer-events-auto transition-all duration-150 space-y-2">
+                      <div className="absolute z-20 bottom-full left-0 mb-2 w-64 p-3 rounded-xl bg-background border border-border shadow-xl opacity-0 pointer-events-none peer-hover:opacity-100 peer-hover:pointer-events-auto transition-all duration-150 space-y-2 backdrop-blur-md">
                         <div className="flex items-center gap-2 text-primary">
                           <Bookmark className="w-4 h-4 fill-primary"/>
                           <span className="font-bold text-sm">Chapter {bm.chapter}</span>
@@ -1756,7 +1756,7 @@ export default function StoryDetail() {
                       <DialogHeader><DialogTitle>Edit Sources</DialogTitle></DialogHeader>
                       {story.sources && story.sources.length > 0 ? (
                         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-                          <p className="text-[10px] text-muted-foreground text-center">🔔 Pilih max 2 sumber untuk notifikasi ({trackedSourceIds.length}/2 aktif)</p>
+                          <p className="text-[10px] text-muted-foreground text-center">🔔 Select up to 2 sources for notifications. ({trackedSourceIds.length}/2 active)</p>
                           {story.sources.map((src: any) => {
                             const isTracked = trackedSourceIds.includes(src.id);
                             const canTrack  = isTracked || trackedSourceIds.length < 2;

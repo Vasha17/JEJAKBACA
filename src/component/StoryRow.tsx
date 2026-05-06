@@ -39,7 +39,7 @@ export function StoryRow({ story, index, listId, onLogChapter, onRemove, bulkMod
           navigate(`/story/${story.id}`, { state: { fromListId: listId } });
         }
       }}
-      className="group relative flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-border/60 bg-card hover:bg-card/80 hover:border-primary/50 transition-all duration-150 hover:shadow-md hover:shadow-primary/5 cursor-pointer"
+      className="group relative flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-border/60 bg-card hover:bg-card/80 hover:border-primary/50 transition-all duration-200 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-300"
     >
       {/* Checkbox / Index */}
       <div className="flex items-center shrink-0 w-8 z-10" onClick={e => e.stopPropagation()}>
@@ -52,8 +52,8 @@ export function StoryRow({ story, index, listId, onLogChapter, onRemove, bulkMod
           </button>
         ) : (
           <>
-            <span className="group-hover:hidden text-[11px] font-bold text-muted-foreground/40 w-5 text-right select-none">
-              {index + 1}
+            <span className="group-hover:hidden text-[11px] font-mono font-black text-muted-foreground/30 w-5 text-right select-none tabular-nums">
+              {String(index + 1).padStart(2, "0")}
             </span>
             <span className="hidden group-hover:flex text-muted-foreground/50 cursor-grab active:cursor-grabbing p-1">
               <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor">
@@ -67,9 +67,9 @@ export function StoryRow({ story, index, listId, onLogChapter, onRemove, bulkMod
       </div>
 
       {/* Cover */}
-      <div className="shrink-0 w-12 h-16 rounded-xl overflow-hidden bg-secondary border border-border/50 shadow-md">
+      <div className="shrink-0 w-12 h-16 rounded-xl overflow-hidden bg-secondary border border-border/50 shadow-md transition-all duration-200 group-hover:shadow-primary/20 group-hover:shadow-lg">
         {story.coverUrl
-          ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover" />
+          ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
           : <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><BookOpen size={18} /></div>
         }
       </div>

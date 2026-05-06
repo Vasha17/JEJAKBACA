@@ -51,6 +51,7 @@ export interface HistoryEntry {
 }
 
 export interface Story {
+  orderIndex: number;
   totalChapters?: any;
   type?: any;
   id: string;

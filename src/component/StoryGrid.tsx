@@ -41,7 +41,7 @@ export function StoryGrid({ story, listId, onLogChapter, onRemove, bulkMode, sel
           navigate(`/story/${story.id}`, { state: { fromListId: listId } });
         }
       }}
-      className="group relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-secondary border border-border transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 cursor-pointer block"
+      className="group relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-secondary border border-border transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 hover:scale-[1.02]cursor-pointer block animate-in fade-in zoom-in-95"
     >
       {/* Cover Image */}
       {story.coverUrl ? (
@@ -110,17 +110,17 @@ export function StoryGrid({ story, listId, onLogChapter, onRemove, bulkMode, sel
           </div>
 
           {/* Action Buttons (Hover only) */}
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20" onClick={e => e.stopPropagation()}>
             <button
               onClick={(e) => { e.stopPropagation(); onLogChapter?.(story.id); }}
-              className="p-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-white hover:bg-primary hover:border-primary transition-all hover:scale-110"
+              className="p-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-white hover:bg-primary hover:border-primary transition-all"
               title="+1 Chapter"
             >
               <Plus size={11} />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onRemove?.(story.id); }}
-              className="p-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-white hover:bg-red-500 hover:border-red-500 transition-all hover:scale-110"
+              className="p-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-white hover:bg-red-500 hover:border-red-500 transition-all"
               title="Remove"
             >
               <X size={11} />

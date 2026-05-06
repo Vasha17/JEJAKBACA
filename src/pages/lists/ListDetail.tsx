@@ -15,7 +15,6 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import { useStories } from "@/lib/StoryContext";
 import { useAuth } from "@/component/Auth";
 
-/* ─── BulkActionBar ─────────────────────────────────────── */
 function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources }: {
   count: number; onClose: () => void; onDelete: () => void;
   onStatusChange: (status: string) => void; onOpenSources: (ids?: Set<string>) => void;
@@ -65,7 +64,6 @@ function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources
   );
 }
 
-/* ─── Toast ─────────────────────────────────────────────── */
 let toastEmitter: ((item: any) => void) | null = null;
 function useIphoneToast() {
   const [toasts, setToasts] = useState<any[]>([]);
@@ -114,7 +112,6 @@ function ToastContainer() {
   );
 }
 
-/* ─── Select ─────────────────────────────────────────────── */
 interface SelectOption { value: string; label: string }
 function CustomSelect({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: SelectOption[] }) {
   const [open, setOpen] = useState(false);
@@ -128,15 +125,19 @@ function CustomSelect({ value, onChange, options }: { value: string; onChange: (
   return (
     <div ref={ref} className="relative">
       <button onClick={() => setOpen((p) => !p)} className="flex items-center gap-1.5 text-xs bg-secondary border border-border rounded-xl px-3 py-2 text-foreground outline-none hover:border-primary/40 transition-colors min-w-[120px]">
-        <span className="flex-1 text-left font-medium">{selected?.label ?? "Select"}</span>
+        <span className="flex-1 text-left font-medium flex items-center gap-1.5">
+          {selected?.icon && <span className={selected.iconColor ?? ""}>{selected.icon}</span>}
+          {selected?.label ?? "Select"}
+        </span>
         <svg width="10" height="10" viewBox="0 0 10 10" className={`text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 4l3 3 3-3" /></svg>
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150 min-w-full">
+        <div className="absolute top-full left-0 mt-1.5 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 min-w-full origin-top scale-in-95">
           {options.map((opt) => (
             <button key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }} className={`w-full text-left px-3 py-2.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2 ${opt.value === value ? "text-primary font-bold bg-primary/5" : "text-foreground"}`}>
               {opt.value === value && <Check size={11} className="text-primary shrink-0" />}
               {opt.value !== value && <span className="w-[11px]" />}
+              {opt.icon && <span className={opt.iconColor ?? "text-muted-foreground"}>{opt.icon}</span>}
               {opt.label}
             </button>
           ))}
@@ -146,7 +147,6 @@ function CustomSelect({ value, onChange, options }: { value: string; onChange: (
   );
 }
 
-/* ─── Helpers ────────────────────────────────────────────── */
 function formatTimeAgo(iso?: string) {
   if (!iso) return null;
   const diff = Date.now() - new Date(iso).getTime();
@@ -160,21 +160,23 @@ function formatTimeAgo(iso?: string) {
   return new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 }
 
-/* ─── Constants ──────────────────────────────────────────── */
 const SORT_OPTIONS: SelectOption[] = [
   { value: "custom", label: "Custom Order" },
   { value: "rating", label: "By Rating" },
-  { value: "title", label: "Title A–Z" },
-];
-const STATUS_OPTIONS: SelectOption[] = [
-  { value: "all", label: "All Status" },
-  { value: "reading", label: "Reading" },
-  { value: "completed", label: "Completed" },
-  { value: "plan-to-read", label: "Plan to Read" },
-  { value: "dropped", label: "Dropped" },
 ];
 
-/* ─── Edit Modal ─────────────────────────────────────────── */
+interface SelectOption { value: string; label: string; icon?: React.ReactNode; iconColor?: string }
+const STATUS_OPTIONS: SelectOption[] = [
+  { value: "all",          label: "All Status" },
+  { value: "reading",      label: "Reading",      icon: <Play size={11} />,        iconColor: "text-green-400" },
+  { value: "completed",    label: "Completed",    icon: <CheckCircle2 size={11} />, iconColor: "text-blue-400" },
+  { value: "on-hold",      label: "On Hold",      icon: <PauseCircle size={11} />, iconColor: "text-yellow-400" },
+  { value: "hiatus",       label: "Hiatus",       icon: <BookMarked size={11} />,  iconColor: "text-orange-400" },
+  { value: "plan-to-read", label: "Plan to Read", icon: <BookMarked size={11} />,  iconColor: "text-purple-400" },
+  { value: "dropped",      label: "Dropped",      icon: <X size={11} />,           iconColor: "text-red-400" },
+  { value: "re-reading",   label: "Re-reading",   icon: <Layers size={11} />,      iconColor: "text-pink-400" },
+];
+
 function EditListModal({ open, onClose, listConfig, descHtml, onSave }: {
   open: boolean; onClose: () => void;
   listConfig: any; descHtml: string;
@@ -220,7 +222,6 @@ function EditListModal({ open, onClose, listConfig, descHtml, onSave }: {
   );
 }
 
-/* ─── Main ───────────────────────────────────────────────── */
 export default function ListDetail() {
   const { id } = useParams();
   const { stories: allStories, updateStory } = useStories();
@@ -228,33 +229,57 @@ export default function ListDetail() {
   const isGuest = !user || localStorage.getItem("jejakbaca_skip_login") === "true";
 
   const [listConfig, setListConfig] = useState<any>(null);
-  const [listStories, setListStories] = useState<any[]>([]);
-
-  useEffect(() => {
-    const savedLists = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
-    const found = savedLists.find((l: any) => l.id === id);
-    if (found) {
-      setListConfig(found);  
-    const inList = allStories.filter((s: any) => s.lists?.includes(id));
-    const ordered = found.storyOrder
-      ? [
-          ...inList.filter((s: any) => found.storyOrder.includes(s.id))
-            .sort((a: any, b: any) => found.storyOrder.indexOf(a.id) - found.storyOrder.indexOf(b.id)),
-          ...inList.filter((s: any) => !found.storyOrder.includes(s.id)),
-        ]
-      : inList;
-    setListStories(ordered);
-        }
-  }, [id, allStories]);
+  const [baseStories, setBaseStories] = useState<any[]>([]);
 
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [descHtml, setDescHtml] = useState("");
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [search, setSearch] = useState("");
+  
   const [sortBy, setSortBy] = useState("custom");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+
+  useEffect(() => {
+    const savedLists = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
+    const found = savedLists.find((l: any) => l.id === id);
+    if (found) {
+      setListConfig(found);
+      const inList = allStories.filter((s: any) => s.lists?.includes(id));
+      const ordered = [...inList].sort((a, b) => (a.orderIndex ?? 99999) - (b.orderIndex ?? 99999));
+      setBaseStories(ordered);
+    } else {
+      setListConfig(null);
+      setBaseStories([]);
+    }
+  }, [id]);
+
+  useEffect(() => {
+  setBaseStories(prev => {
+    const inList = allStories.filter((s: any) => s.lists?.includes(id));
+    const prevIds = prev.map(s => s.id);
+    const newStories = inList.filter(s => !prevIds.includes(s.id));
+    const updated = prev.map(s => {
+      const fresh = inList.find(x => x.id === s.id);
+      if (!fresh) return s;
+      return { ...fresh, orderIndex: s.orderIndex };
+    });
+    return [...updated, ...newStories];
+  });
+}, [allStories]);
+
+  let displayStories = [...baseStories]; 
+
+  displayStories = displayStories.filter((s) => {
+    if (search && !s.title.toLowerCase().includes(search.toLowerCase())) return false;
+    if (statusFilter !== "all" && s.status !== statusFilter) return false;
+    return true;
+  });
+
+  if (sortBy === "rating") {
+    displayStories.sort((a, b) => b.rating - a.rating);
+  }
 
   useEffect(() => {
     if (listConfig) setDescHtml(listConfig.description || "");
@@ -270,18 +295,8 @@ export default function ListDetail() {
     </div>
   );
 
-  /* ── Filter & sort ── */
-  let filtered = listStories.filter((s) => {
-    if (search && !s.title.toLowerCase().includes(search.toLowerCase())) return false;
-    if (statusFilter !== "all" && s.status !== statusFilter) return false;
-    return true;
-  });
-  if (sortBy === "rating") filtered = [...filtered].sort((a, b) => b.rating - a.rating);
-  else if (sortBy === "title") filtered = [...filtered].sort((a, b) => a.title.localeCompare(b.title));
-
-  /* ── Handlers ── */
   const handleLogChapter = (storyId: string) => {
-    const story = listStories.find((s) => s.id === storyId);
+    const story = allStories.find((s) => s.id === storyId);
     if (story) {
       updateStory(storyId, { currentChapter: (story.currentChapter || 0) + 1, chapterUpdatedAt: new Date().toISOString() });
       toast(`+1 Chapter`, `${story.title} → Ch.${(story.currentChapter || 0) + 1}`, <PlusCircle size={15} />);
@@ -289,7 +304,7 @@ export default function ListDetail() {
   };
 
   const handleRemove = (storyId: string) => {
-    const s = listStories.find((s) => s.id === storyId);
+    const s = baseStories.find((s) => s.id === storyId);
     if (!s) return;
     if (confirm(`Remove "${s.title}" from this list?`)) {
       updateStory(storyId, { lists: (s.lists || []).filter((lId: string) => lId !== id) });
@@ -299,7 +314,7 @@ export default function ListDetail() {
 
   const handleBulkStatus = (status: string) => {
     selectedIds.forEach(sid => {
-      updateStory(sid, { status: status as import("@/lib/types").StoryStatus });
+      updateStory(sid, { status: status as any });
     });
     toast("Status Updated", `${selectedIds.size} stories updated`, <Check size={15} />);
     setSelectedIds(new Set());
@@ -309,7 +324,7 @@ export default function ListDetail() {
   const onOpenSources = (ids?: Set<string>) => {
     const storiesToOpen = ids || selectedIds;
     storiesToOpen.forEach(sid => {
-      const story = listStories.find(s => s.id === sid);
+      const story = baseStories.find(s => s.id === sid);
       if (story?.url) window.open(story.url, '_blank');
     });
     toast("Opening Sources", `${storiesToOpen.size} tabs opened`, <ExternalLink size={15} />);
@@ -317,14 +332,12 @@ export default function ListDetail() {
 
   const handleSaveDesc = async (newDesc: string, newName: string) => {
     const now = new Date().toISOString();
-
     const savedLists = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
     localStorage.setItem("my_reading_lists", JSON.stringify(
       savedLists.map((l: any) => l.id === id ? { ...l, name: newName, description: newDesc, updatedAt: now } : l)
     ));
     setDescHtml(newDesc);
     setListConfig((prev: any) => ({ ...prev, name: newName, description: newDesc, updatedAt: now }));
-
     if (!isGuest && user) {
       try {
         const { supabase } = await import("@/integrations/supabase/client");
@@ -334,25 +347,34 @@ export default function ListDetail() {
           .eq("id", id ?? "")
           .eq("user_id", user.id);
         if (error) console.error("Failed to sync:", error);
-        else console.log("✅ List synced to Supabase");
-      } catch (e) {
-        console.error("handleSaveDesc error:", e);
-      }
+      } catch (e) { console.error("handleSaveDesc error:", e); }
     }
-
     toast("Saved", "List updated", <Check size={15} />);
   };
 
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return;
-    const items = Array.from(listStories);
-    const [moved] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, moved);
-    setListStories(items);
-    const savedLists = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
-    localStorage.setItem("my_reading_lists", JSON.stringify(
-      savedLists.map((l: any) => l.id === id ? { ...l, storyOrder: items.map((s: any) => s.id) } : l)
-    ));
+  const handleDragEnd = async (result: DropResult) => {
+    if (!result.destination || sortBy !== "custom") return;
+
+    const sourceIndex = result.source.index;
+    const destIndex = result.destination.index;
+
+    const newBaseStories = [...baseStories];
+    const [movedStory] = newBaseStories.splice(sourceIndex, 1);
+    newBaseStories.splice(destIndex, 0, movedStory);
+
+    const updates = newBaseStories.map((story, index) => ({
+      id: story.id,
+      orderIndex: index * 10,
+    }));
+
+    updates.forEach(update => {
+      updateStory(update.id, { orderIndex: update.orderIndex });
+    });
+
+    setBaseStories(newBaseStories.map((s, idx) => ({
+      ...s,
+      orderIndex: updates[idx].orderIndex
+    })));
   };
 
   const globalTotalChapters  = allStories.reduce((sum: number, s: any) => sum + (s.currentChapter || 0), 0);
@@ -367,7 +389,6 @@ export default function ListDetail() {
   return (
     <div className="min-h-screen bg-background">
       <ToastContainer />
-
       <EditListModal
         open={editModalOpen}
         onClose={() => setEditModalOpen(false)}
@@ -375,7 +396,6 @@ export default function ListDetail() {
         descHtml={descHtml}
         onSave={handleSaveDesc}
       />
-
       <Navbar
         variant="lists"
         listSearch=""
@@ -386,14 +406,11 @@ export default function ListDetail() {
         completedCount={globalCompletedCount}
         avgRating={globalAvgRating}
       />
-
       <div className="px-4 md:px-8 py-6 max-w-screen-xl mx-auto space-y-6 pb-24 md:pb-32">
-
         <Link to="/lists" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft size={12} /> Back to Lists
         </Link>
 
-        {/* ── Header ── */}
         <div className="relative">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-wrap min-w-0">
@@ -404,64 +421,41 @@ export default function ListDetail() {
                 <Lock size={11} /> Private
               </span>
             </div>
-            <button
-              onClick={() => setEditModalOpen(true)}
-              className="shrink-0 p-2.5 rounded-xl bg-secondary border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
-              title="Edit list"
-            >
+            <button onClick={() => setEditModalOpen(true)} className="shrink-0 p-2.5 rounded-xl bg-secondary border border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors">
               <Pencil size={15} />
             </button>
           </div>
-
           {descHtml ? (
-            <div
-              className="mt-2 text-sm text-muted-foreground prose prose-sm max-w-none cursor-pointer hover:text-foreground/70 transition-colors"
-              dangerouslySetInnerHTML={{ __html: descHtml }}
-              onClick={() => setEditModalOpen(true)}
-              title="Click to edit"
-            />
+            <div className="mt-2 text-sm text-muted-foreground prose prose-sm max-w-none cursor-pointer hover:text-foreground/70 transition-colors" dangerouslySetInnerHTML={{ __html: descHtml }} onClick={() => setEditModalOpen(true)} title="Click to edit" />
           ) : (
-            <button onClick={() => setEditModalOpen(true)} className="mt-2 text-xs text-muted-foreground/50 italic hover:text-muted-foreground transition-colors">
-              + Add a description
-            </button>
+            <button onClick={() => setEditModalOpen(true)} className="mt-2 text-xs text-muted-foreground/50 italic hover:text-muted-foreground transition-colors">+ Add a description</button>
           )}
-
           {updatedAgo && <p className="mt-2 text-xs text-muted-foreground">Updated {updatedAgo}</p>}
         </div>
 
-        {/* ── Toolbar ── */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sticky top-0 z-10 bg-background/80 backdrop-blur-md py-2 -mx-4 px-4 border-b border-border/30">
           <CustomSelect value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
           <CustomSelect value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} />
           <div className="relative flex-1 min-w-[140px]">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search stories..."
-              className="w-full text-xs bg-secondary border border-border rounded-xl pl-8 pr-3 py-2 text-foreground outline-none placeholder:text-muted-foreground hover:border-primary/30 focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-colors"
-            />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search stories..." className="w-full text-xs bg-secondary border border-border rounded-xl pl-8 pr-3 py-2 text-foreground outline-none placeholder:text-muted-foreground hover:border-primary/30 focus:border-primary/40 focus:ring-1 focus:ring-primary/20 transition-colors" />
           </div>
           <div className="flex items-center gap-2 ml-auto">
             <div className="flex items-center bg-secondary rounded-xl p-0.5 border border-border">
-              <button onClick={() => setViewMode("list")}
-                className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "list" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+              <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "list" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
                 <AlignJustify size={15} />
               </button>
-              <button onClick={() => setViewMode("grid")}
-                className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "grid" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+              <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "grid" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
                 <LayoutGrid size={15} />
               </button>
             </div>
-            <button onClick={() => { setBulkMode(!bulkMode); setSelectedIds(new Set()); }}
-              className={`p-2 rounded-md border transition-all ${bulkMode ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-muted-foreground border-border hover:border-primary/40"}`}>
+            <button onClick={() => { setBulkMode(!bulkMode); setSelectedIds(new Set()); }} className={`p-2 rounded-md border transition-all ${bulkMode ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-muted-foreground border-border hover:border-primary/40"}`}>
               <CheckSquare size={15} />
             </button>
           </div>
         </div>
 
-        {/* ── Stories ── */}
-        {filtered.length === 0 ? (
+        {displayStories.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4 text-center animate-in fade-in duration-500">
             <div className="relative">
               <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl opacity-40 animate-pulse" />
@@ -480,12 +474,10 @@ export default function ListDetail() {
           </div>
         ) : viewMode === "grid" ? (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 pb-4">
-            {filtered.map((story) => (
+            {displayStories.map((story) => (
               <div key={story.id} className="relative">
                 <StoryGrid story={story} onLogChapter={handleLogChapter} onRemove={handleRemove} listId={id ?? ""} bulkMode={bulkMode} selectedIds={selectedIds} onToggleSelect={(sid) => {
-                  const n = new Set(selectedIds);
-                  n.has(sid) ? n.delete(sid) : n.add(sid);
-                  setSelectedIds(n);
+                  const n = new Set(selectedIds); n.has(sid) ? n.delete(sid) : n.add(sid); setSelectedIds(n);
                 }} />
                 {bulkMode && (
                   <button onClick={e => { e.stopPropagation(); const n = new Set(selectedIds); n.has(story.id) ? n.delete(story.id) : n.add(story.id); setSelectedIds(n); }}
@@ -501,19 +493,26 @@ export default function ListDetail() {
             <Droppable droppableId="stories">
               {(provided) => (
                 <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-1.5 pb-4">
-                  {filtered.map((story, i) => (
-                    <Draggable key={story.id} draggableId={story.id} index={i}>
+                  {displayStories.map((story, i) => (
+                    <Draggable key={story.id} draggableId={story.id} index={i} isDragDisabled={sortBy !== "custom"}>
                       {(provided, snapshot) => (
-                        <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className={snapshot.isDragging ? "opacity-80" : ""}>
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          className={snapshot.isDragging ? "opacity-80" : ""}
+                          style={{
+                            ...provided.draggableProps.style,
+                            animationDelay: `${i * 40}ms`,
+                          }}
+                        >
                           <StoryRow
                             story={story} index={i}
                             onLogChapter={handleLogChapter} onRemove={handleRemove} listId={id ?? ""}
                             bulkMode={bulkMode}
                             selectedIds={selectedIds}
                             onToggleSelect={(sid) => {
-                              const n = new Set(selectedIds);
-                              n.has(sid) ? n.delete(sid) : n.add(sid);
-                              setSelectedIds(n);
+                              const n = new Set(selectedIds); n.has(sid) ? n.delete(sid) : n.add(sid); setSelectedIds(n);
                             }}
                           />
                         </div>
@@ -534,7 +533,7 @@ export default function ListDetail() {
             onDelete={() => {
               if (confirm(`Remove ${selectedIds.size} stories from this list?`)) {
                 selectedIds.forEach(sid => {
-                  const s = listStories.find(x => x.id === sid);
+                  const s = baseStories.find(x => x.id === sid);
                   if (s) updateStory(sid, { lists: (s.lists || []).filter((lId: string) => lId !== (id ?? "")) });
                 });
                 setSelectedIds(new Set()); setBulkMode(false);
