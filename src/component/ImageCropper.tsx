@@ -16,26 +16,13 @@ interface ImageCropperProps {
 
 // Helper: Download gambar via fetch (Proxy)
 async function fetchImageAsBase64(url: string): Promise<string> {
-  const PROXY = `https://kjspeqcrfhzxnodjkznu.supabase.co/functions/v1/image-proxy`;
-
-  const isLocalhost = typeof window !== "undefined" && 
-    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-    
+  const PROXY = `https://kjspeqcrfhzxnodjkznu.supabase.co/functions/v1/img-proxy`;
+  
   let targetUrl: string = url;
         
   if (typeof window !== "undefined") {
-    if (isLocalhost) {
-      if (url.includes("mrcdn.info") && !url.startsWith("/img-proxy")) {
-         if (url.startsWith('https://f01.mrcdn.info')) {
-           targetUrl = url.replace('https://f01.mrcdn.info', window.location.origin + '/img-proxy');
-         } else {
-           targetUrl = url; 
-         }
-      } 
-    } else {
-      const encodedUrl = encodeURIComponent(url);
-      targetUrl = `${PROXY}?url=${encodedUrl}`;
-    }
+    const encodedUrl = encodeURIComponent(url);
+    targetUrl = `${PROXY}?url=${encodedUrl}`;
   }
 
   console.log("[Proxy] Fetching:", targetUrl);

@@ -2120,11 +2120,7 @@ export default function StoryDetail() {
             onOpenChange={(open) => {
               if (!open) setHeaderCropOpen(false);
             }}            
-            imageSrc={
-              story.headerUrl.startsWith("http")
-                ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/img-proxy?url=${encodeURIComponent(story.headerUrl)}`
-                : story.headerUrl
-            }
+            imageSrc={story.headerUrl}
             aspect={16 / 5}
             title="Reposition Header"
             onCropComplete={async (croppedBase64) => {
@@ -2135,7 +2131,7 @@ export default function StoryDetail() {
                 setHeaderCropOpen(false);
               } catch (err) {
                 console.error("Header Crop Error:", err);                
-              }
+              }              
             }}
           />
         </div>
@@ -2149,11 +2145,7 @@ export default function StoryDetail() {
             onOpenChange={(open) => {
               if (!open) setCoverCropOpen(false);
             }}            
-            imageSrc={
-              story.coverUrl.startsWith("http")
-                ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/img-proxy?url=${encodeURIComponent(story.coverUrl)}`
-                : story.coverUrl
-            }
+            imageSrc={story.coverUrl}
             aspect={3 / 4}
             title="Reposition Cover"
             onCropComplete={async (croppedBase64) => {
