@@ -6,6 +6,7 @@ export interface Bookmark {
   note: string;
   createdAt: string;
   updatedAt: string;
+  isHidden?: boolean;
 }
 
 export interface ReadingSource {
@@ -51,7 +52,7 @@ export interface HistoryEntry {
 }
 
 export interface Story {
-  orderIndex: number;
+  orderIndex?: number;
   totalChapters?: any;
   type?: any;
   id: string;
@@ -187,10 +188,11 @@ export interface ReadingList {
   coverUrl?: string;
   color?: string;
   visibility: "public" | "private";
+  isHidden?: boolean;
   userId: string;
-  storyIds: string[]; 
-  count: number;     
-  status: string;    
+  storyIds: string[];
+  count: number;
+  status: string;
   createdAt: string;
   updatedAt: string;
 }

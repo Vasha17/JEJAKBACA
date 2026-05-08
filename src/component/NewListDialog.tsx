@@ -24,7 +24,7 @@ function useIsMobile() {
 interface NewListDialogProps {
   open: boolean;
   onClose: () => void;
-  onCreate: (name: string, color: string, visibility: string) => void;
+  onCreate: (name: string, color: string, visibility: string, isHidden?: boolean) => void;
   existingCount: number;
   themeColor?: string;
 }
@@ -35,13 +35,14 @@ export function NewListDialog({ open, onClose, onCreate, existingCount }: NewLis
   const [colorMode, setColorMode] = useState<"auto" | "manual">("auto");
   const [palette, setPalette] = useState<PaletteName>("colorful");
   const [manualColor, setManualColor] = useState(PALETTES.colorful[0]);
+  const [isHidden] = useState(false);
 
   const autoColor = PALETTES[palette][existingCount % PALETTES[palette].length];
   const finalColor = colorMode === "auto" ? autoColor : manualColor;
 
   const handleCreate = () => {
     if (!name.trim()) return;
-    onCreate(name.trim(), finalColor, "private");
+    onCreate(name.trim(), finalColor, "private", isHidden);;
     setName("");
     setColorMode("auto");
     setPalette("colorful");
@@ -126,7 +127,7 @@ export function NewListDialog({ open, onClose, onCreate, existingCount }: NewLis
           </div>
           <div className="w-20 h-1.5 rounded-full overflow-hidden"
             style={{ background: `linear-gradient(to right, ${finalColor}33, ${finalColor})` }} />
-        </div>
+        </div>        
       </div>
     </div>
   );

@@ -130,6 +130,9 @@ export function RichTextEditor({
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
+      onBlur: ({ editor }) => {      
+      onChange(editor.getHTML());   
+    },                              
     editorProps: {
       attributes: {
         class:

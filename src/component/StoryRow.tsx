@@ -5,8 +5,11 @@ import { useNavigate } from "react-router-dom";
 const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
   reading:        { label: "Reading",      color: "text-emerald-400", dot: "bg-emerald-400" },
   completed:      { label: "Completed",    color: "text-sky-400",     dot: "bg-sky-400" },
+  "on-hold":      { label: "On Hold",      color: "text-yellow-400",  dot: "bg-yellow-400" },
+  hiatus:         { label: "Hiatus",       color: "text-orange-400",  dot: "bg-orange-400" },
   "plan-to-read": { label: "Plan to Read", color: "text-zinc-400",    dot: "bg-zinc-400" },
   dropped:        { label: "Dropped",      color: "text-red-400",     dot: "bg-red-400" },
+  "re-reading":   { label: "Re-reading",   color: "text-pink-400",    dot: "bg-pink-400" },
 };
 
 // ─── Star Rating ──────────────────────────────────────
@@ -39,7 +42,7 @@ export function StoryRow({ story, index, listId, onLogChapter, onRemove, bulkMod
           navigate(`/story/${story.id}`, { state: { fromListId: listId } });
         }
       }}
-      className="group relative flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-border/60 bg-card hover:bg-card/80 hover:border-primary/50 transition-all duration-200 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 cursor-pointer animate-in fade-in slide-in-from-bottom-2 duration-300"
+      className="group relative flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-border/60 bg-card hover:bg-card/80 hover:border-primary/50 transition-all duration-200 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 cursor-pointer animate-in fade-in slide-in-from-bottom-2"
     >
       {/* Checkbox / Index */}
       <div className="flex items-center shrink-0 w-8 z-10" onClick={e => e.stopPropagation()}>
@@ -81,7 +84,7 @@ export function StoryRow({ story, index, listId, onLogChapter, onRemove, bulkMod
         </p>
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`flex items-center gap-1.5 text-[11px] font-medium ${statusCfg.color}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+            <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${statusCfg.dot}`} />
             {statusCfg.label}
           </span>
           {story.currentChapter > 0 && (

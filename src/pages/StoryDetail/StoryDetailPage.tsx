@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useStories } from "@/lib/StoryContext";
@@ -275,17 +275,32 @@ export default function StoryDetail() {
   } = useStoryRelations(story?.id || "", stories);
   
 
-  // ── Navigation ──────────────────────────────────────────────────────────────
-  const allStories = (stories || []).filter((s: any) => !s.hidden);
-  const currentIndex = allStories.findIndex((s: any) => s.id === story?.id);
-  const prevStory    = currentIndex > 0 ? allStories[currentIndex - 1] : null;
-  const nextStory    = currentIndex < allStories.length - 1 ? allStories[currentIndex + 1] : null;
+   // ── Navigation ──────────────────────────────────────────────────────────────
+  const fromVault = location.state?.fromVault === true;
+  const allStories = useMemo(() => {    
+    const savedLists = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
+    const hiddenListIds = new Set(savedLists.filter((l: any) => l.isHidden).map((l: any) => l.id));
+    
+    return (stories || [])
+      .filter((s: any) => {     
+        const inHiddenList = (s.lists || []).some((lid: string) => hiddenListIds.has(lid));
+        const isHidden = s.hidden === true || inHiddenList;
+        return fromVault ? isHidden : !isHidden;
+      })
+      .sort((a: any, b: any) => 
+        new Date(b.chapterUpdatedAt).getTime() - new Date(a.chapterUpdatedAt).getTime()
+      ); 
+  }, [stories, fromVault]);
+
+    const currentIndex = allStories.findIndex((s: any) => s.id === story?.id);
+    const prevStory    = currentIndex > 0 ? allStories[currentIndex - 1] : null;
+    const nextStory    = currentIndex < allStories.length - 1 ? allStories[currentIndex + 1] : null;
 
   const handleNavigateStory = (targetId: string) => {
-    navigate(`/story/${targetId}`);
+    navigate(`/story/${targetId}`, { state: { fromVault } });
     window.scrollTo(0, 0);
   };
-
+  
   // ── Chapter update ──────────────────────────────────────────────────────────
   const handleChapterUpdate = useCallback((ch: number) => {
     if (!story) return;
@@ -321,10 +336,8 @@ export default function StoryDetail() {
       return next;
     });
   };
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // EARLY RETURNS
-  // ═══════════════════════════════════════════════════════════════════════════
+  
+  // EARLY RETURNS  
   if (isLoading) return <StoryDetailSkeleton />;
   if (!story) {
     return (
@@ -419,7 +432,7 @@ export default function StoryDetail() {
   };
 
   const handleSaveNote = () => {
-    const stripped = noteContent.replace(/<[^>]+>/g, "").trim();
+    const stripped = noteContent.replace(/<[^>]+>/g, "").replace(/\s/g, "").trim();
     if (!stripped) return;
     if (editingNote) {
       const updatedNotes = (story.notes || []).map((n: any) =>
@@ -557,8 +570,8 @@ export default function StoryDetail() {
   };
 
   const handleOpenListsDialog = () => {
-    const lists = safeGet<any[]>("my_reading_lists", []);
-    setCustomLists(lists);
+    const lists = safeGet<any[]>("my_reading_lists", []);    
+    setCustomLists(lists.filter(l => story.hidden ? l.isHidden : !l.isHidden));
     setListsDialog(true);
   };
 
@@ -1115,11 +1128,22 @@ export default function StoryDetail() {
                           <div className="p-1.5 rounded bg-secondary/50"><GitBranch className="w-4 h-4 text-foreground"/></div>
                           <div className="flex-1"><p className="text-sm font-medium text-foreground">Related Stories</p><p className="text-[10px] text-muted-foreground">Prequel, Sequel, dll.</p></div>
                         </button>
-                        {/* Tombol Hidden Vault */}
+                      {/* Tombol Hidden Vault */}
                         <button 
                           onClick={() => { 
-                            setMoreDialog(false); // Tutup dialog
-                            updateStory(story.id, { hidden: !story.hidden }); // Toggle hidden
+                            setMoreDialog(false); 
+                            
+                            if (story.hidden) {                              
+                              updateStory(story.id, { 
+                                hidden: false,
+                                lists: [] 
+                              });
+                            } else {                              
+                              updateStory(story.id, { 
+                                hidden: true,
+                                lists: ["Uncategorized"] 
+                              });
+                            }
                           }} 
                           className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary text-left transition-colors"
                         >
@@ -1134,7 +1158,7 @@ export default function StoryDetail() {
                               {story.hidden ? "Show in Library" : "Hide from Library"}
                             </p>
                             <p className="text-[10px] text-muted-foreground">
-                              {story.hidden ? "Story will reappear in the library" : "Move to Hidden Vault"}
+                              {story.hidden ? "Story will reappear in library" : "Move to Hidden Vault"}
                             </p>
                           </div>
                         </button>
@@ -1263,7 +1287,8 @@ export default function StoryDetail() {
                             addListToStory(story.id, list.id);
                           }
                           setTimeout(() => {
-                            setCustomLists(safeGet<any[]>("my_reading_lists", []));
+                            const lists = safeGet<any[]>("my_reading_lists", []);
+                            setCustomLists(lists.filter(l => story.hidden ? l.isHidden : !l.isHidden));
                           }, 50);
                         }}
                         className="sr-only"
@@ -1318,15 +1343,19 @@ export default function StoryDetail() {
                 className="bg-card text-sm h-9 flex-1"
                 onKeyDown={e => {
                   if (e.key === "Enter" && newListName.trim()) {
-                    const newId = Date.now().toString();
-                    const newList = {
-                      id: newId,
-                      name: newListName.trim(),
-                      description: "",
-                      status: "Custom",
-                      stories: [],
-                      color: "#3b82f6",
-                    };
+                  const newId = Date.now().toString();
+
+                  const isInHiddenList = story.hidden === true;
+
+                  const newList = {
+                    id: newId,
+                    name: newListName.trim(),
+                    description: "",
+                    status: "Custom",
+                    stories: [],
+                    color: "#3b82f6",
+                    isHidden: isInHiddenList,
+                  };
                     const existing = safeGet<any[]>("my_reading_lists", []);
                     const updated = [...existing, newList];
                     localStorage.setItem("my_reading_lists", JSON.stringify(updated));
@@ -1351,7 +1380,11 @@ export default function StoryDetail() {
                 className="h-9 px-3 shrink-0"
                 onClick={() => {
                   if (!newListName.trim()) return;
+
                   const newId = Date.now().toString();
+
+                  const isInHiddenList = story.hidden === true;
+
                   const newList = {
                     id: newId,
                     name: newListName.trim(),
@@ -1359,6 +1392,7 @@ export default function StoryDetail() {
                     status: "Custom",
                     stories: [],
                     color: "#3b82f6",
+                    isHidden: isInHiddenList,
                   };
                   const existing = safeGet<any[]>("my_reading_lists", []);
                   const updated = [...existing, newList];

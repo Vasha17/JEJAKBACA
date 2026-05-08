@@ -15,17 +15,23 @@ interface StoryGridProps {
 
 // ─── Constants ───────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
-  reading: "#22c55e",
-  completed: "#3b82f6",
-  "plan-to-read": "#6b7280",
-  dropped: "#ef4444",
+  "reading":       "#22c55e",
+  "completed":     "#3b82f6",
+  "on-hold":       "#eab308",
+  "hiatus":        "#f97316",
+  "dropped":       "#ef4444",
+  "plan-to-read":  "#6b7280",
+  "re-reading":    "#a855f7",
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  reading: "Reading",
-  completed: "Completed",
-  "plan-to-read": "Plan",
-  dropped: "Dropped",
+  "reading":       "Reading",
+  "completed":     "Completed",
+  "on-hold":       "On Hold",
+  "hiatus":        "Hiatus",
+  "dropped":       "Dropped",
+  "plan-to-read":  "Plan to Read",
+  "re-reading":    "Re-reading",
 };
 
 // ─── Component ───────────────────────────────────────
@@ -60,7 +66,7 @@ export function StoryGrid({ story, listId, onLogChapter, onRemove, bulkMode, sel
       <div className="absolute top-0 inset-x-0 p-2 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between z-10 pointer-events-none">
         <div className="flex items-center gap-1 bg-black/50 px-1.5 py-0.5 rounded-full border border-white/10 backdrop-blur-sm">
           <span
-            className="w-1.5 h-1.5 rounded-full shrink-0"
+            className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse"
             style={{ backgroundColor: STATUS_COLORS[story.status] ?? "#6b7280" }}
           />
           <span className="text-[9px] text-white/80 whitespace-nowrap font-medium">

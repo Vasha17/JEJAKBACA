@@ -5,9 +5,9 @@ import {
   BookOpen, X, ChevronRight, Flame, Clock, CheckCircle2, BookMarked, PauseCircle,
   LayoutGrid, AlignJustify, Star, Play, Layers, Eye, Check, CheckSquare,
   Square, Trash2, Settings, BookIcon, ExternalLink, ArrowUpDown, PlusCircle, Timer,
-  AlertCircle, Lock, ArrowLeft, FilterIcon,
-} from "lucide-react"; 
-import { StoryStatus, getGlobalTags } from "@/lib/types";
+  AlertCircle, Lock, ArrowLeft, FilterIcon, List as ListIcon, Plus
+} from "lucide-react";
+import { StoryStatus, ReadingList, getGlobalTags } from "@/lib/types";
 import { Dialog, DialogContent } from "@/component/ui/dialog";
 import "flag-icons/css/flag-icons.min.css";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -15,6 +15,9 @@ import { Navbar, Filters, EMPTY_FILTERS, FilterPanel, LibrarySearch } from "@/co
 import { VaultDialog } from "@/component/VaultDialog";
 import { useAuth } from "@/component/Auth";
 import { isVaultUnlocked, lockVault } from "@/lib/vaultUtils";
+import { ListCard } from "@/component/ListCard";
+import { useLocation } from "react-router-dom";
+import { NewListDialog } from "@/component/NewListDialog";
 
 /* --- CONSTANTS --- */
 const STATUS_OPTIONS = [
@@ -36,8 +39,13 @@ const SORT_OPTIONS = [
 ];
 
 const STATUS_COLORS: Record<string, string> = {
-  "reading": "#22c55e", "completed": "#3b82f6", "on-hold": "#eab308",
-  "dropped": "#ef4444", "plan-to-read": "#6b7280", "re-reading": "#a855f7",
+  "reading":       "#22c55e",
+  "completed":     "#3b82f6",
+  "on-hold":       "#eab308",
+  "hiatus":        "#f97316",  
+  "dropped":       "#ef4444",
+  "plan-to-read":  "#6b7280",
+  "re-reading":    "#a855f7",
 };
 
 const FORMAT_MAP: Record<string, string> = {
@@ -54,6 +62,7 @@ const highlightText = (text: string, query: string) => {
   return <>{parts.map((p, i) => p.toLowerCase() === query.toLowerCase()
     ? <span key={i} className="text-primary font-bold bg-primary/10 rounded px-0.5">{p}</span> : p)}</>;
 };
+
 
 /* --- HERO ROTATION --- */
 function pickHeroStory(stories: any[]): any | null {
@@ -131,7 +140,7 @@ function VaultTopReveal({ progress, triggered }: { progress: number; triggered: 
 
 /* 2. Vault Navbar */
 function VaultNavbar({
-   hiddenCount, search, onSearchChange, onBack, filterCount, onOpenFilter, stories,
+  hiddenCount, search, onSearchChange, onBack, filterCount, onOpenFilter, stories, onOpenLists,
 }: {
   hiddenCount: number;
   search: string;
@@ -140,14 +149,9 @@ function VaultNavbar({
   filterCount: number;
   onOpenFilter: () => void;
   stories: any[];
+  onOpenLists: () => void;
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const openSearch = () => {
-    setSearchOpen(true);
-    setTimeout(() => inputRef.current?.focus(), 50);
-  };
 
   const closeSearch = () => {
     setSearchOpen(false);
@@ -161,10 +165,8 @@ function VaultNavbar({
   }, [searchOpen]);
 
   return (
-    <div className="sticky top-0 z-20 w-full border-b border-border bg-background/90 backdrop-blur-sm">      
+    <div className="sticky top-0 z-20 w-full border-b border-border bg-background/90 backdrop-blur-sm">
       <div className="flex items-center h-20 px-4 sm:px-6 max-w-7xl mx-auto gap-3 relative">
-        
-        {/* Back Button */}
         <button
           onClick={onBack}
           className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-secondary text-foreground hover:bg-muted transition-colors shrink-0"
@@ -172,7 +174,6 @@ function VaultNavbar({
           <ArrowLeft size={16} />
         </button>
 
-        {/* Center: Badge */}        
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center pointer-events-none">
           <div className="inline-flex items-center gap-2 rounded-full bg-secondary/80 px-3 py-1.5 border border-border pointer-events-auto">
             <Lock size={12} className="text-primary font-bold" />
@@ -183,15 +184,12 @@ function VaultNavbar({
           </p>
         </div>
 
-        {/* Right: search expand + filter + lock */}
         <div className="flex items-center gap-1.5 shrink-0 ml-auto">
           <LibrarySearch
             search={search}
             onSearchChange={onSearchChange}
             stories={stories}
           />
-
-          {/* Filter */}
           <button
             onClick={onOpenFilter}
             className={`relative flex items-center justify-center w-9 h-9 rounded-xl border transition-all
@@ -204,14 +202,100 @@ function VaultNavbar({
               <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-400 border-2 border-card" />
             )}
           </button>
-                    
+          <button
+            onClick={onOpenLists}
+            className="relative flex items-center justify-center w-9 h-9 rounded-xl border bg-secondary text-muted-foreground border-border hover:text-foreground transition-all"
+          >
+            <ListIcon size={16} />
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-/* 3. Quick View Modal */
+/* 3. Vault List Panel */
+type VaultListsMap = Record<string, { list: ReadingList; stories: any[] }>;
+
+function VaultListPanel({ open, onClose, listsMap, onCreated }: {
+  open: boolean;
+  onClose: () => void;
+  listsMap: VaultListsMap;
+  onCreated: () => void;
+}) {
+  const [newListDialogOpen, setNewListDialogOpen] = useState(false);
+
+  if (!open) return null;
+
+  const handleCreate = (name: string, color: string, _visibility: string) => {
+    const savedLists: any[] = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
+    const newList = {
+      id: Date.now().toString(),
+      name,
+      description: "",
+      status: "Custom",
+      stories: [],
+      color,
+      isHidden: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    localStorage.setItem("my_reading_lists", JSON.stringify([...savedLists, newList]));
+    onCreated();
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 z-50 flex justify-end">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative w-full max-w-sm h-full bg-card border-l border-border flex flex-col animate-in slide-in-from-right duration-300">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Lock size={14} className="text-primary" />
+              <span className="font-bold text-sm text-foreground">Vault Lists</span>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground">
+              <X size={14} />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <button
+              onClick={() => setNewListDialogOpen(true)}
+              className="w-full py-3 rounded-xl border-2 border-dashed border-border bg-secondary/20 hover:border-primary/50 hover:bg-primary/5 transition-all flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground group"
+            >
+              <div className="w-5 h-5 rounded-full border border-current flex items-center justify-center group-hover:border-primary">
+                <Plus size={12} className="text-current" />
+              </div>
+              <span className="text-xs font-bold">Create Vault List</span>
+            </button>
+
+            {Object.entries(listsMap).map(([listId, data]) => (
+              <Link to={`/lists/${listId}`} key={listId} state={{ fromVault: true }} onClick={onClose}>
+                <ListCard list={{ ...data.list, stories: data.stories, count: data.stories.length }} />
+              </Link>
+            ))}
+
+            {Object.keys(listsMap).length === 0 && (
+              <p className="text-xs text-muted-foreground text-center py-8">
+                Vault is empty. Create a hidden list to get started.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <NewListDialog
+        open={newListDialogOpen}
+        onClose={() => setNewListDialogOpen(false)}
+        onCreate={handleCreate}
+        existingCount={Object.keys(listsMap).length}
+      />
+    </>
+  );
+}
+
+/* 4. Quick View Modal */
 function QuickViewModal({ story, onClose, onNavigate }: {
   story: any; onClose: () => void; onNavigate: (id: string) => void;
 }) {
@@ -266,7 +350,7 @@ function QuickViewModal({ story, onClose, onNavigate }: {
       <div className="flex flex-wrap items-center gap-1.5 pr-8">
         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold border"
           style={{ backgroundColor: `${STATUS_COLORS[story.status]}15`, color: STATUS_COLORS[story.status], borderColor: `${STATUS_COLORS[story.status]}30` }}>
-          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: STATUS_COLORS[story.status] }} />{si.label}
+          <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: STATUS_COLORS[story.status] }} />{si.label}
         </span>
         {story.demographic && (
           <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-secondary/80 text-muted-foreground border border-border">
@@ -443,47 +527,33 @@ function QuickViewModal({ story, onClose, onNavigate }: {
   );
 }
 
-/* 4. Hero Section */
-function HeroSection({ story, onPlusOne }: { story: any; onPlusOne: (id: string) => void }) {
+/* 5. Hero Section */
+function HeroSection({ story, onPlusOne, isVault }: { story: any; onPlusOne: (id: string) => void; isVault?: boolean }) {
   if (!story) return null;
   const daysSinceUpdate = useMemo(() => {
     const ts = new Date(story.chapterUpdatedAt || story.updatedAt || 0).getTime();
     return Math.floor((Date.now() - ts) / (1000 * 60 * 60 * 24));
   }, [story]);
-  const isLongUnread = daysSinceUpdate >= 7;  
+  const isLongUnread = daysSinceUpdate >= 7;
   const bgImage = story.headerUrl || story.coverUrl;
 
   return (
     <div className="relative rounded-2xl overflow-hidden mb-6 group border border-border/50 transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl hover:shadow-primary/10 hover:border-primary/30">
-      
-      {/* Background Image Layer */}
       <div className="absolute inset-0 z-0">
         {bgImage ? (
-          <img 
-            src={bgImage} 
-            alt="" 
-            className="absolute inset-0 w-full h-full object-cover scale-110 opacity-40 transition-transform duration-700 group-hover:scale-125" 
-          />
+          <img src={bgImage} alt="" className="absolute inset-0 w-full h-full object-cover scale-110 opacity-40 transition-transform duration-700 group-hover:scale-125" />
         ) : (
           <div className="absolute inset-0 scale-110 opacity-80 bg-primary/20" />
         )}
       </div>
-
-      {/* Overlay Gradient */}    
-      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-0" />            
+      <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-0" />
       <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none z-0" />
-           
-      {/* Content Container */}
       <div className="relative flex items-center gap-5 p-5 sm:p-7 z-10">
-        
-        {/* Cover Image */}
         <div className="flex-shrink-0 w-20 sm:w-28 aspect-[3/4] rounded-xl overflow-hidden shadow-2xl ring-1 ring-white/10 bg-secondary transition-transform duration-500 group-hover:scale-[1.03]">
           {story.coverUrl
             ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover opacity-95 contrast-110 saturate-110" />
             : <div className="w-full h-full flex items-center justify-center"><BookOpen className="w-8 h-8 text-muted-foreground/30" /></div>}
         </div>
-
-        {/* Text Info */}
         <div className="flex-1 min-w-0 space-y-2">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-primary/80 flex items-center gap-1.5">
             {isLongUnread
@@ -498,6 +568,7 @@ function HeroSection({ story, onPlusOne }: { story: any; onPlusOne: (id: string)
           </div>
           <div className="flex items-center gap-2 pt-1">
             <Link to={`/story/${story.id}`}
+              state={{ fromVault: isVault }}
               className="flex items-center gap-2 px-3 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold transition-all duration-200 shadow-lg shadow-primary/25 hover:shadow-[0_0_20px_rgba(var(--primary-rgb),0.4)] hover:-translate-y-0.5 active:scale-95 active:translate-y-0">
               <Play size={13} fill="currentColor" /> Continue Reading
             </Link>
@@ -515,7 +586,7 @@ function HeroSection({ story, onPlusOne }: { story: any; onPlusOne: (id: string)
   );
 }
 
-/* 5. Bulk Action Bar */
+/* 6. Bulk Action Bar */
 function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources }: {
   count: number; onClose: () => void; onDelete: () => void;
   onStatusChange: (status: StoryStatus) => void; onOpenSources: (ids?: Set<string>) => void;
@@ -539,7 +610,7 @@ function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources
                 className="text-left px-2 py-1.5 text-xs hover:bg-secondary rounded flex items-center gap-2 text-muted-foreground hover:text-foreground whitespace-nowrap">
                 <span className={s.color}>{s.icon}</span> {s.label}
               </button>
-            ))}            
+            ))}
           </div>
         )}
       </div>
@@ -557,7 +628,7 @@ function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources
   );
 }
 
-/* 6. Empty State */
+/* 7. Empty State */
 function EmptyState({ isVault = false }: { isVault?: boolean }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 px-6 text-center animate-in fade-in duration-500">
@@ -574,7 +645,7 @@ function EmptyState({ isVault = false }: { isVault?: boolean }) {
       </h3>
       <p className="text-muted-foreground mb-8 max-w-sm mx-auto leading-relaxed">
         {isVault
-          ? "No hidden stories yet. Mark stories as hidden from their detail page."
+          ? "No hidden stories yet. Add stories to a hidden list to show them here."
           : "Get started by adding your first story. Track your reading progress easily!"}
       </p>
     </div>
@@ -591,14 +662,16 @@ function Library() {
   const SCROLL_START_ZONE = 20;
   const { user } = useAuth();
   void user;
-  
+
   const [showVaultDialog, setShowVaultDialog] = useState(false);
+  const [vaultListOpen, setVaultListOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("recent");
   const [viewMode, setViewMode] = useState<"grid" | "timeline">("grid");
   const [loading, setLoading] = useState(true);
   const isInitialized = useRef(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const location = useLocation();
 
   const [ctaPreference, setCtaPreference] = useState<"floating" | "inside">(() => {
     if (typeof window !== "undefined") {
@@ -611,6 +684,7 @@ function Library() {
     setCtaPreference(val); localStorage.setItem("jejakbaca_cta_pref", val);
   };
 
+  const [listVersion, setListVersion] = useState(0);
   const [vaultOpen, setVaultOpen] = useState(false);
   const [vaultUnlocked, setVaultUnlocked] = useState(() => isVaultUnlocked());
   const [showVaultHint, setShowVaultHint] = useState(() => {
@@ -626,6 +700,13 @@ function Library() {
   const touchStartY = useRef(0);
   const isPulling = useRef(false);
   const pageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (location.state?.openVault) {
+      setVaultUnlocked(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   useEffect(() => { vaultUnlockedRef.current = vaultUnlocked; }, [vaultUnlocked]);
   useEffect(() => {
@@ -655,7 +736,7 @@ function Library() {
     setPullTriggered(false);
     pullTriggeredRef.current = false;
   }, []);
-  
+
   const handleWheel = useCallback((e: WheelEvent) => {
     if (vaultUnlockedRef.current) return;
     if (window.scrollY > SCROLL_START_ZONE) { wheelAccum.current = 0; return; }
@@ -678,23 +759,19 @@ function Library() {
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (vaultUnlockedRef.current) return;
-    if (window.scrollY > SCROLL_START_ZONE) return; 
+    if (window.scrollY > SCROLL_START_ZONE) return;
     touchStartY.current = e.touches[0].clientY;
     isPulling.current = false;
   }, [SCROLL_START_ZONE]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (vaultUnlockedRef.current) return;
-    
     const currentY = e.touches[0].clientY;
     const delta = currentY - touchStartY.current;
-
-    // Hanya aktif kalau di paling atas halaman
     if (window.scrollY > SCROLL_START_ZONE) {
       if (isPulling.current) { isPulling.current = false; resetPull(); }
       return;
     }
-
     if (delta > 10) {
       isPulling.current = true;
       const progress = Math.min(1, (delta - 10) / SCROLL_THRESHOLD);
@@ -739,12 +816,66 @@ function Library() {
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [heroStory, setHeroStory] = useState<any | null>(null);
 
-  const hiddenStories = useMemo(() => stories.filter((s: any) => s.hidden), [stories]);
+  // Compute hiddenListIds once, used in multiple places
+  const hiddenListIds = useMemo(() => {
+  const savedLists: any[] = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
+  return new Set(savedLists.filter(l => l.isHidden).map(l => l.id));
+}, [stories, listVersion]);  
+
+  // Build map: listId -> { list, stories[] }
+  const hiddenStoriesMap = useMemo<VaultListsMap>(() => {
+  const map: VaultListsMap = {};
+  const savedLists: any[] = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
+  
+  savedLists
+    .filter(l => hiddenListIds.has(l.id))
+    .forEach(l => { map[l.id] = { list: l as ReadingList, stories: [] }; });
+  
+  stories.forEach((s: any) => {
+    const lists: string[] = s.lists || [];
+    lists.forEach((lid: string) => {
+      if (!map[lid]) return; 
+      map[lid].stories.push(s);
+    });
+  });
+
+  return map;
+}, [stories, hiddenListIds]);
+
+  const hiddenStoriesCount = useMemo(() => {
+    return stories.filter((s: any) => {
+      const lists: string[] = s.lists || [];
+
+      return (
+        s.hidden === true ||
+        lists.some((lid: string) => hiddenListIds.has(lid))
+      );
+    }).length;
+  }, [stories, hiddenListIds]);
+
+  const hiddenStoriesArray = useMemo(() => {
+    const map = new Map();
+
+    Object.values(hiddenStoriesMap)
+      .flatMap(v => v.stories)
+      .forEach((s: any) => map.set(s.id, s));
+
+    stories
+      .filter((s: any) => s.hidden)
+      .forEach((s: any) => map.set(s.id, s));
+
+    return Array.from(map.values());
+  }, [hiddenStoriesMap, stories]);
 
   useEffect(() => {
-    const pool = vaultUnlocked ? hiddenStories : stories.filter((s: any) => !s.hidden);
+    const pool = vaultUnlocked
+      ? hiddenStoriesArray
+      : stories.filter((s: any) => {
+          const lists: string[] = s.lists || [];
+          return !lists.some((lid: string) => hiddenListIds.has(lid));
+        });
     setHeroStory(pool.length > 0 ? pickHeroStory(pool) : null);
-  }, [stories, vaultUnlocked, hiddenStories]);
+  }, [stories, vaultUnlocked, hiddenStoriesArray, hiddenListIds]);
 
   useEffect(() => {
     const tagsParam = searchParams.get("tags");
@@ -776,8 +907,8 @@ function Library() {
   const globalTags = getGlobalTags();
   const allTags = useMemo(() => {
     const tags = new Set<string>();
-    stories.forEach(s => s.tags?.forEach(t => tags.add(t)));
-    globalTags.forEach(t => tags.add(t));
+    stories.forEach(s => s.tags?.forEach((t: string) => tags.add(t)));
+    globalTags.forEach((t: string) => tags.add(t));
     return Array.from(tags).sort();
   }, [stories, globalTags]);
 
@@ -806,18 +937,31 @@ function Library() {
       const matchRating = advFilters.rating === 0 || s.rating === advFilters.rating;
       return matchSearch && matchStatus && matchTag && matchRating;
     });
+
     if (Object.keys(advFilters.country).length) result = result.filter((s: any) => applyAdvFilter(advFilters.country, (s.originCountry || "").toUpperCase()));
     if (Object.keys(advFilters.demographic).length) result = result.filter((s: any) => applyAdvFilter(advFilters.demographic, s.demographic ?? ""));
     if (Object.keys(advFilters.genres).length) result = result.filter((s: any) => applyAdvFilter(advFilters.genres, s.genres ?? []));
-    if (vaultUnlocked) result = result.filter((s: any) => s.hidden === true);
-    else result = result.filter((s: any) => !s.hidden);
+    
+    if (vaultUnlocked) {
+      result = result.filter((s: any) => {
+        const lists: string[] = s.lists || [];
+        return s.hidden === true || lists.some((lid: string) => hiddenListIds.has(lid));
+      });
+    } else {
+      result = result.filter((s: any) => {
+        const lists: string[] = s.lists || [];
+        return !s.hidden && !lists.some((lid: string) => hiddenListIds.has(lid));
+      });
+    }
+
     if (sortBy === "recent") result.sort((a: any, b: any) => new Date(b.chapterUpdatedAt).getTime() - new Date(a.chapterUpdatedAt).getTime());
     else if (sortBy === "added") result.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
     else if (sortBy === "rating") result.sort((a: any, b: any) => b.rating - a.rating);
     else if (sortBy === "title") result.sort((a: any, b: any) => a.title.localeCompare(b.title));
     else if (sortBy === "unread") result.sort((a: any, b: any) => new Date(a.chapterUpdatedAt || 0).getTime() - new Date(b.chapterUpdatedAt || 0).getTime());
+
     return result;
-  }, [stories, search, sortBy, advFilters, vaultUnlocked]);
+  }, [stories, search, sortBy, advFilters, vaultUnlocked, hiddenListIds]);
 
   const advFilterCount =
     Object.keys(advFilters.status).length + Object.keys(advFilters.country).length +
@@ -866,9 +1010,9 @@ function Library() {
   const currentSortOption = SORT_OPTIONS.find(opt => opt.value === sortBy) || SORT_OPTIONS[0];
 
   const handlePlusOne = (id: string) => {
-  const story = stories.find(s => s.id === id);
+    const story = stories.find(s => s.id === id);
     if (!story) return;
-    updateStory(id, { 
+    updateStory(id, {
       currentChapter: (story.currentChapter || 0) + 1,
       chapterUpdatedAt: new Date().toISOString(),
     });
@@ -907,19 +1051,20 @@ function Library() {
         />
       ) : (
         <VaultNavbar
-          hiddenCount={hiddenStories.length}
+          hiddenCount={hiddenStoriesCount}
           search={search}
           onSearchChange={handleSearchChange}
           onBack={() => { lockVault(); setVaultUnlocked(false); setSearch(""); }}
           filterCount={advFilterCount}
           onOpenFilter={() => setVaultFilterOpen(true)}
-          stories={hiddenStories} 
+          onOpenLists={() => setVaultListOpen(true)}
+          stories={filtered}
         />
       )}
 
       <main className={`relative z-10 flex-1 px-4 sm:px-6 py-6 space-y-6 max-w-7xl w-full mx-auto ${isMobile ? "pb-32" : "pb-16"}`}>
 
-        {heroStory && !loading && <HeroSection story={heroStory} onPlusOne={handlePlusOne} />}          
+        {heroStory && !loading && <HeroSection story={heroStory} onPlusOne={handlePlusOne} />}
 
         {!loading && (
           <div className="flex items-center justify-between gap-4 pb-2 group">
@@ -1003,8 +1148,8 @@ function Library() {
               return (
                 <div key={story.id}
                   className="group relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-secondary border border-border transition-all duration-300 hover:-translate-y-2 hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/10 hover:border-primary/50 cursor-pointer animate-fade-in-up"
-                  style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'both' }}>
-                  {!bulkMode && <Link to={`/story/${story.id}`} className="absolute inset-0 z-0" />}
+                  style={{ animationDelay: `${index * 50}ms`, animationFillMode: "both" }}>
+                  {!bulkMode && <Link to={`/story/${story.id}`} className="absolute inset-0 z-0" state={{ fromVault: vaultUnlocked }} />}
                   {story.coverUrl
                     ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     : <div className="w-full h-full flex items-center justify-center bg-card"><BookOpen className="w-10 h-10 text-muted-foreground/20" /></div>}
@@ -1015,7 +1160,7 @@ function Library() {
                       <span className="text-[9px] font-bold text-white/80 truncate">{FORMAT_MAP[(story.originCountry || "").toUpperCase()]}</span>
                     </div>
                     <div className="flex items-center gap-1 bg-black/50 px-1.5 py-0.5 rounded-full border border-white/10">
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${story.status === 'reading' ? 'animate-pulse' : ''}`} style={{ backgroundColor: STATUS_COLORS[story.status] }} />
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 animate-pulse`} style={{ backgroundColor: STATUS_COLORS[story.status] }} />
                       <span className="text-[9px] text-white/80 whitespace-nowrap">{statusInfo.label}</span>
                     </div>
                   </div>
@@ -1037,7 +1182,7 @@ function Library() {
                     </button>
                   )}
                   <div className="absolute inset-x-0 bottom-0 pt-10 pb-2 px-2 bg-gradient-to-t from-black/90 via-black/65 to-transparent z-10">
-                    <Link to={`/story/${story.id}`} className="block">
+                    <Link to={`/story/${story.id}`} state={{ fromVault: vaultUnlocked }} className="block">
                       <h3 className="text-[11px] font-bold text-white leading-tight line-clamp-2 drop-shadow-md mb-1 hover:text-primary transition-colors">
                         {highlightText(story.title, search)}
                       </h3>
@@ -1065,7 +1210,7 @@ function Library() {
               const prevDate = i > 0 ? new Date(filtered[i - 1].chapterUpdatedAt) : null;
               const showDate = !prevDate || date.toDateString() !== prevDate.toDateString();
               return (
-                <div key={story.id} className="relative animate-fade-in-up" style={{ animationDelay: `${i * 50}ms`, animationFillMode: 'both' }}>
+                <div key={story.id} className="relative animate-fade-in-up" style={{ animationDelay: `${i * 50}ms`, animationFillMode: "both" }}>
                   {showDate && (
                     <div className="flex items-center gap-3 py-3 sticky top-0 bg-background/95 backdrop-blur z-10">
                       <div className="h-px flex-1 bg-border" />
@@ -1085,7 +1230,7 @@ function Library() {
                         {selectedIds.has(story.id) ? <CheckSquare size={18} className="text-primary" /> : <Square size={18} className="text-muted-foreground" />}
                       </button>
                     )}
-                    <Link to={`/story/${story.id}`} className="flex items-center gap-4 flex-1 min-w-0">
+                    <Link to={`/story/${story.id}`} state={{ fromVault: vaultUnlocked }} className="flex items-center gap-4 flex-1 min-w-0">
                       <div className="w-10 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-secondary group-hover:shadow-md transition-shadow">
                         {story.coverUrl
                           ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover" />
@@ -1182,14 +1327,20 @@ function Library() {
         <QuickViewModal
           story={quickView}
           onClose={() => setQuickView(null)}
-          onNavigate={(id) => { navigate(`/story/${id}`); setQuickView(null); }}
-        />
+          onNavigate={(id: string) => { navigate(`/story/${id}`, { state: { fromVault: vaultUnlocked } }); setQuickView(null); }}        />
       )}
 
       <VaultDialog
         open={vaultOpen}
         onClose={() => setVaultOpen(false)}
         onUnlocked={() => { setVaultUnlocked(true); setVaultOpen(false); }}
+      />
+
+      <VaultListPanel
+        open={vaultListOpen}
+        onClose={() => setVaultListOpen(false)}
+        listsMap={hiddenStoriesMap}
+        onCreated={() => setListVersion(v => v + 1)}  
       />
 
       {vaultUnlocked && (

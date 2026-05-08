@@ -195,7 +195,7 @@ const ListsIndex = () => {
     localStorage.setItem("my_reading_lists", JSON.stringify(newLists));
   };
 
-  const handleCreate = async (name: string, color: string, _visibility: string) => {
+  const handleCreate = async (name: string, color: string, _visibility: string, isHidden?: boolean) => {
   const newList: ReadingList = {
     id: Date.now().toString(),
     name,
@@ -207,6 +207,7 @@ const ListsIndex = () => {
     visibility: "private" as const,
     userId: "",
     color,
+    isHidden: isHidden ?? false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -256,7 +257,9 @@ const ListsIndex = () => {
     });
   }, [lists, stories]);
 
-  const filteredLists = listsWithRealStories.filter((l) =>
+ const filteredLists = listsWithRealStories
+  .filter((l) => !l.isHidden)
+  .filter((l) =>
     l.name.toLowerCase().includes(searchList.toLowerCase())
   );
 

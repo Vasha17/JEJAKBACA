@@ -14,6 +14,7 @@ import { Navbar } from "@/component/Navbar";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { useStories } from "@/lib/StoryContext";
 import { useAuth } from "@/component/Auth";
+import { useNavigate, useLocation } from "react-router-dom";
 
 function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources }: {
   count: number; onClose: () => void; onDelete: () => void;
@@ -132,7 +133,7 @@ function CustomSelect({ value, onChange, options }: { value: string; onChange: (
         <svg width="10" height="10" viewBox="0 0 10 10" className={`text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M2 4l3 3 3-3" /></svg>
       </button>
       {open && (
-        <div className="absolute top-full left-0 mt-1.5 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 min-w-full origin-top scale-in-95">
+        <div className="absolute top-full left-0 mt-1.5 bg-card border border-border rounded-xl shadow-xl z-[100]overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200 min-w-full origin-top scale-in-95">
           {options.map((opt) => (
             <button key={opt.value} onClick={() => { onChange(opt.value); setOpen(false); }} className={`w-full text-left px-3 py-2.5 text-xs hover:bg-secondary transition-colors flex items-center gap-2 ${opt.value === value ? "text-primary font-bold bg-primary/5" : "text-foreground"}`}>
               {opt.value === value && <Check size={11} className="text-primary shrink-0" />}
@@ -240,6 +241,10 @@ export default function ListDetail() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const fromVault = location.state?.fromVault === true;
 
   useEffect(() => {
     const savedLists = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
@@ -407,9 +412,18 @@ export default function ListDetail() {
         avgRating={globalAvgRating}
       />
       <div className="px-4 md:px-8 py-6 max-w-screen-xl mx-auto space-y-6 pb-24 md:pb-32">
-        <Link to="/lists" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft size={12} /> Back to Lists
-        </Link>
+        <button
+          onClick={() => {
+            if (fromVault) {
+              navigate("/", { state: { openVault: true } });
+            } else {
+              navigate("/lists");
+            }
+          }}
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft size={12} /> {fromVault ? "Back to Vault" : "Back to Lists"}
+        </button>
 
         <div className="relative">
           <div className="flex items-start justify-between gap-4">
@@ -433,7 +447,7 @@ export default function ListDetail() {
           {updatedAgo && <p className="mt-2 text-xs text-muted-foreground">Updated {updatedAgo}</p>}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sticky top-0 z-10 bg-background/80 backdrop-blur-md py-2 -mx-4 px-4 border-b border-border/30">
+        <div className="flex flex-wrap items-center gap-2 sticky top-0 z-20 bg-background/80 backdrop-blur-md py-2 -mx-4 px-4 border-b border-border/30">
           <CustomSelect value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} />
           <CustomSelect value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} />
           <div className="relative flex-1 min-w-[140px]">
