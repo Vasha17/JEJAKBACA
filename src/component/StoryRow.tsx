@@ -109,7 +109,7 @@ export function StoryRow({ story, index, listId, onLogChapter, onRemove, bulkMod
 
       {/* Actions */}
       {!bulkMode && (
-        <div className="shrink-0 flex items-center gap-1 ml-1 z-30" onClick={e => e.stopPropagation()}>
+        <div className="shrink-0 flex items-center gap-1 ml-1 z-25" onClick={e => e.stopPropagation()}>
           <button
             onClick={(e) => { e.stopPropagation(); onLogChapter(story.id); }}
             className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"

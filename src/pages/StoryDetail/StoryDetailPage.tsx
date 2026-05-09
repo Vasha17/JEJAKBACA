@@ -166,6 +166,7 @@ export default function StoryDetail() {
   const [suggestedTags, setSuggestedTags]       = useState<string[]>([]);
   const [suggestedLoading, setSuggestedLoading] = useState(false);
   const [tagRefresh, setTagRefresh]             = useState(0);  
+  const [deleteTagConfirm, setDeleteTagConfirm] = useState<string | null>(null);
 
   // ── Source edit states ──────────────────────────────────────────────────────
   const [editSrcId, setEditSrcId]                 = useState<string | null>(null);
@@ -309,7 +310,10 @@ export default function StoryDetail() {
       oldValue: String(story.currentChapter), newValue: String(ch),
     });
     pushCHLog(story.id, ch);
-    updateStory(story.id, { currentChapter: ch, chapterUpdatedAt: new Date().toISOString() });
+    const updatedSources = (story.sources || []).map((src: any) =>
+      (src.currentChapter || 0) < ch ? { ...src, currentChapter: ch } : src
+    );
+    updateStory(story.id, { currentChapter: ch, chapterUpdatedAt: new Date().toISOString(), sources: updatedSources });
   }, [story, updateStory]);
 
   // ── Keyboard shortcuts ──────────────────────────────────────────────────────
@@ -408,9 +412,15 @@ export default function StoryDetail() {
   };
 
   const handleDeleteExistingTag = (tag: string) => {
-    const existing: string[] = lsGet("global_tags", []);
-    lsSet("global_tags", existing.filter((t: string) => t !== tag));
+    setDeleteTagConfirm(tag);
+  };
+
+  const confirmDeleteExistingTag = () => {
+    if (!deleteTagConfirm) return;
+    const existing: string[] = lsGet("jejakbaca_global_tags", []);
+    lsSet("jejakbaca_global_tags", existing.filter((t: string) => t !== deleteTagConfirm));
     setTagRefresh(r => r + 1);
+    setDeleteTagConfirm(null);
   };
 
   const handleToggleGenre = (g: string) => {
@@ -460,10 +470,17 @@ export default function StoryDetail() {
   const handleSaveSourceEdit = () => {
     if (!editSrcId) return;
     if (editSrcName.trim() && editSrcUrl.trim()) {
+      const newCh = parseInt(editSrcChapter) || 0;
+      const oldSrc = story.sources.find((s: any) => s.id === editSrcId);
       const upd = (story.sources || []).map((s: any) => s.id === editSrcId
-        ? { ...s, name: editSrcName.trim(), url: editSrcUrl.trim(), language: editSrcLang.trim().toUpperCase(), currentChapter: parseInt(editSrcChapter) || 0 }
+        ? { ...s, name: editSrcName.trim(), url: editSrcUrl.trim(), language: editSrcLang.trim().toUpperCase(), currentChapter: newCh }
         : s);
-      updateStory(story.id, { sources: upd });
+      const updates: any = { sources: upd };      
+      if (oldSrc && (oldSrc.currentChapter || 0) === (story.currentChapter || 0) && newCh !== (story.currentChapter || 0)) {
+        updates.currentChapter = newCh;
+        updates.chapterUpdatedAt = new Date().toISOString();
+      }
+      updateStory(story.id, updates);
     }
     setEditSrcId(null); setSourcesKey(k => k + 1);
   };
@@ -1183,7 +1200,7 @@ export default function StoryDetail() {
 
       {/* Rating */}
       <Dialog open={ratingDialog} onOpenChange={setRatingDialog}>
-        <DialogContent className="sm:max-w-sm p-6">
+        <DialogContent className="sm:max-w-sm p-6 rounded-2xl">
           <DialogHeader className="mb-2 text-center">
             <DialogTitle className="text-2xl font-bold">Rate This Story</DialogTitle>
             <p className="text-sm text-muted-foreground mt-1">How much did you enjoy it?</p>
@@ -1205,7 +1222,7 @@ export default function StoryDetail() {
 
       {/* Status */}
       <Dialog open={statusDialog} onOpenChange={setStatusDialog}>
-        <DialogContent className="sm:max-w-md p-6">
+        <DialogContent className="sm:max-w-md p-6 rounded-2xl">
           <DialogHeader className="mb-4"><DialogTitle className="text-xl">Select Status</DialogTitle></DialogHeader>
           <div className="grid grid-cols-2 gap-3">
             {STATUS_OPTIONS.map(s => (
@@ -1223,7 +1240,7 @@ export default function StoryDetail() {
 
       {/* Bookmark */}
       <Dialog open={bookmarkDialog} onOpenChange={setBookmarkDialog}>
-        <DialogContent className="w-[92vw] max-w-sm mx-auto">
+        <DialogContent className="w-[92vw] max-w-sm mx-auto rounded-2xl">
           <DialogHeader><DialogTitle>Add Bookmark</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <Input value={bmChapter} onChange={e => setBmChapter(e.target.value)} placeholder="Chapter number" type="number" step="0.5"/>
@@ -1242,7 +1259,7 @@ export default function StoryDetail() {
 
       {/* Notes */}
       <Dialog open={notesDialog} onOpenChange={open => { if (!open) { setNotesDialog(false); setEditingNote(null); } }}>
-        <DialogContent className="w-[92vw] max-w-2xl max-h-[85vh] flex flex-col overflow-hidden mx-auto">
+        <DialogContent className="w-[92vw] max-w-2xl max-h-[85vh] flex flex-col overflow-hidden mx-auto rounded-2xl">
           <DialogHeader className="shrink-0">
             <DialogTitle>{editingNote ? "Edit Note" : "Write a Note"}</DialogTitle>
           </DialogHeader>
@@ -1258,7 +1275,7 @@ export default function StoryDetail() {
 
       {/* Lists */}
       <Dialog open={listsDialog} onOpenChange={setListsDialog}>
-        <DialogContent className="w-[92vw] max-w-sm p-0 overflow-hidden gap-0 mx-auto">
+        <DialogContent className="w-[92vw] max-w-sm p-0 overflow-hidden gap-0 mx-auto rounded-2xl">
           {/* Header */}
           <div className="px-5 pt-5 pb-4 border-b border-border">
             <DialogTitle className="text-base font-bold text-foreground">Add to List</DialogTitle>
@@ -1411,7 +1428,7 @@ export default function StoryDetail() {
 
       {/* History */}
       <Dialog open={historyDialog} onOpenChange={setHistoryDialog}>
-        <DialogContent className="w-[92vw] max-w-md mx-auto">
+        <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
           <DialogHeader><DialogTitle>Version History</DialogTitle></DialogHeader>
           {historyEntries.length > 0
             ? <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
@@ -1439,7 +1456,7 @@ export default function StoryDetail() {
 
       {/* Related Stories */}
       <Dialog open={relatedDialog} onOpenChange={setRelatedDialog}>
-        <DialogContent className="w-[92vw] max-w-md mx-auto">
+        <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
           <DialogHeader><DialogTitle>Related Stories</DialogTitle></DialogHeader>
           {relations.length > 0
             ? <div className="space-y-2 mb-4 max-h-56 overflow-y-auto pr-1">
@@ -1505,39 +1522,134 @@ export default function StoryDetail() {
       </Dialog>
 
       {/* Delete Note confirm */}
-      <Dialog open={!!deleteNoteId} onOpenChange={open => { if (!open) setDeleteNoteId(null); }}>
-        <DialogContent className="w-[92vw] max-w-sm mx-auto">
-          <DialogHeader><DialogTitle>Delete notes?</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">This notes will be deleted permanently.</p>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDeleteNoteId(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => { if (deleteNoteId) { removeNote(story.id, deleteNoteId); setDeleteNoteId(null); } }}>Delete</Button>
-          </DialogFooter>
+      <Dialog
+        open={!!deleteNoteId}
+        onOpenChange={(open) => {
+          if (!open) setDeleteNoteId(null);
+        }}
+      >
+        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out">          
+          <div className="p-6 flex flex-col items-center text-center">                        
+            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+              <Trash2 className="w-7 h-7 text-red-500" />
+            </div>            
+            <DialogTitle className="text-xl font-bold text-foreground">
+              Delete note?
+            </DialogTitle>            
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+              This note will be permanently deleted.
+            </p>            
+            <div className="flex w-full gap-3 mt-6">
+              <Button
+                variant="secondary"
+                className="flex-1 rounded-xl h-11"
+                onClick={() => setDeleteNoteId(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 text-white"
+                onClick={() => {
+                  if (deleteNoteId) {
+                    removeNote(story.id, deleteNoteId);
+                    setDeleteNoteId(null);
+                  }
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Tag confirm */}      
+      <Dialog
+        open={!!deleteTagConfirm}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTagConfirm(null);
+        }}
+      >
+        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out">
+          <div className="p-6 flex flex-col items-center text-center">            
+            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+              <Trash2 className="w-7 h-7 text-red-500" />
+            </div>
+            <DialogTitle className="text-xl font-bold text-foreground">
+              Delete tag?
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+              Tag{" "}
+              <span className="font-semibold text-foreground">
+                "{deleteTagConfirm}"
+              </span>{" "}
+              will be removed from global tags.
+              <br />
+              Stories using this tag will not be affected.
+            </p>            
+            <div className="flex w-full gap-3 mt-6">
+              <Button
+                variant="secondary"
+                className="flex-1 rounded-xl h-11"
+                onClick={() => setDeleteTagConfirm(null)}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 text-white"
+                onClick={confirmDeleteExistingTag}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Delete Story confirm */}
       <Dialog open={deleteStoryDialog} onOpenChange={setDeleteStoryDialog}>
-        <DialogContent className="sm:max-w-sm overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-red-950/40 to-background pointer-events-none"/>
-          <div className="relative z-10">
-            <div className="flex flex-col items-center text-center pt-4 pb-2">
-              <div className="w-16 h-16 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center mb-4 shadow-lg shadow-destructive/10">
-                <Trash2 className="w-7 h-7 text-destructive"/>
-              </div>
-              <h2 className="text-xl font-bold text-foreground">Delete Story?</h2>
-              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">You will delete</p>
-              <p className="text-sm font-semibold text-foreground px-4 line-clamp-2 mt-0.5">"{story.title}"</p>
-              <div className="mt-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20">
-                <AlertCircle className="w-3.5 h-3.5 text-destructive shrink-0"/>
-                <span className="text-[11px] text-destructive font-medium">You can't undo this action</span>
-              </div>
+        <DialogContent className="sm:max-w-[380px] rounded-3xl border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out [&>button]:z-30">
+          <div className="absolute inset-0 bg-gradient-to-br from-destructive/10 via-background to-background pointer-events-none" />          
+          <div className="relative z-10 px-6 pt-8 pb-6 flex flex-col items-center text-center">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center mb-5 shadow-lg shadow-destructive/10 animate-in zoom-in-50 fade-in duration-500 delay-100">
+              <Trash2 className="w-7 h-7 text-destructive" />
             </div>
-            <DialogFooter className="flex-col gap-2 mt-4 sm:flex-col">
-              <Button variant="destructive" className="w-full h-11 font-bold text-sm shadow-lg shadow-destructive/20 hover:shadow-destructive/40 transition-all" onClick={() => { deleteStory(story.id); navigate("/"); }}>
-                <Trash2 className="w-4 h-4 mr-2"/>Yes, delete it now
+            <DialogTitle className="text-2xl font-bold tracking-tight">
+              Delete Story?
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground mt-3 leading-relaxed max-w-[260px]">
+              This will permanently remove
+            </p>
+            <p className="mt-1 text-sm font-semibold text-foreground line-clamp-2 max-w-[260px]">
+              "{story.title}"
+            </p>
+            <div className="mt-5 flex items-center gap-2 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20">
+              <AlertCircle className="w-3.5 h-3.5 text-destructive shrink-0" />
+              <span className="text-[11px] font-medium text-destructive">
+                This action cannot be undone
+              </span>
+            </div>
+            <DialogFooter className="grid grid-cols-2 gap-3 mt-7 w-full">
+              <Button
+                variant="secondary"
+                className="h-11 rounded-xl text-sm font-medium"
+                onClick={() => setDeleteStoryDialog(false)}
+              >
+                Cancel
               </Button>
-              <Button variant="ghost" className="w-full h-11 text-sm" onClick={() => setDeleteStoryDialog(false)}>No, keep it</Button>
+
+              <Button
+                variant="destructive"
+                className="h-11 rounded-xl text-sm font-semibold shadow-lg shadow-destructive/20 hover:shadow-destructive/40 transition-all"
+                onClick={() => {
+                  deleteStory(story.id);
+                  navigate("/");
+                }}
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete
+              </Button>
             </DialogFooter>
           </div>
         </DialogContent>
@@ -1590,7 +1702,7 @@ export default function StoryDetail() {
                         <Pencil className="w-3.5 h-3.5 text-muted-foreground"/>
                       </button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-lg">
+                    <DialogContent className="sm:max-w-lg rounded-2xl">
                       <DialogHeader><DialogTitle>Edit Synopsis</DialogTitle></DialogHeader>
                       <Textarea value={synopsisValue} onChange={e => setSynopsisValue(e.target.value)} placeholder="Write the synopsis..." className="min-h-[200px] bg-card resize-none" style={{ textAlign: "justify" }}/>
                       <DialogFooter>
@@ -1786,7 +1898,7 @@ export default function StoryDetail() {
                     <DialogTrigger asChild>
                       <button className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border">Edit</button>
                     </DialogTrigger>
-                    <DialogContent className="w-[92vw] max-w-md mx-auto">
+                    <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
                       <DialogHeader><DialogTitle>Edit Sources</DialogTitle></DialogHeader>
                       {story.sources && story.sources.length > 0 ? (
                         <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
@@ -1831,7 +1943,16 @@ export default function StoryDetail() {
                                         onClick={() => {
                                           const newSources = [...story.sources];
                                           const idx = newSources.findIndex((s: any) => s.id === src.id);
-                                          if (idx !== -1) { newSources[idx] = { ...newSources[idx], currentChapter: (parseInt(src.currentChapter) || 0) + 1 }; updateStory(story.id, { sources: newSources }); }
+                                          if (idx !== -1) {
+                                            const newCh = (parseInt(src.currentChapter) || 0) + 1;
+                                            newSources[idx] = { ...newSources[idx], currentChapter: newCh };                                            
+                                            const updates: any = { sources: newSources };
+                                            if ((story.currentChapter || 0) === (parseInt(src.currentChapter) || 0)) {
+                                              updates.currentChapter = newCh;
+                                              updates.chapterUpdatedAt = new Date().toISOString();
+                                            }
+                                            updateStory(story.id, updates);
+                                          }
                                         }}
                                         className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
                                       >+1</button>
@@ -1852,7 +1973,7 @@ export default function StoryDetail() {
                     <DialogTrigger asChild>
                       <button className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border">Add</button>
                     </DialogTrigger>
-                    <DialogContent className="w-[92vw] max-w-md mx-auto">
+                    <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
                       <DialogHeader><DialogTitle>Add Reading Link</DialogTitle></DialogHeader>
                       <div className="space-y-2">
                         <div className="relative">
@@ -1972,7 +2093,7 @@ export default function StoryDetail() {
                       <DialogTrigger asChild>
                         <button className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border">Link</button>
                       </DialogTrigger>
-                      <DialogContent className="w-[92vw] max-w-sm mx-auto">
+                      <DialogContent className="w-[92vw] max-w-sm mx-auto rounded-2xl">
                         <DialogHeader><DialogTitle>Add Media Link</DialogTitle></DialogHeader>
                         <Input value={mediaLabel} onChange={e => setMediaLabel(e.target.value)} placeholder="Label / Alt text" className="bg-card"/>
                         <Input value={mediaUrl}   onChange={e => setMediaUrl(e.target.value)}   placeholder="URL or link" className="bg-card"/>
@@ -2222,7 +2343,7 @@ export default function StoryDetail() {
 
       {/* Country dialog */}
       <Dialog open={countryDialog} onOpenChange={setCountryDialog}>
-        <DialogContent className="w-[92vw] max-w-md mx-auto">
+        <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
           <DialogHeader><DialogTitle>Origin Country</DialogTitle></DialogHeader>
           <div className="relative mb-4">
             <Input placeholder="Search country (e.g. Japan, ID, USA)..." value={countrySearch} onChange={e => setCountrySearch(e.target.value)} className="pl-9"/>
@@ -2273,7 +2394,7 @@ export default function StoryDetail() {
 
       {/* Arc add/edit dialog */}
       <Dialog open={arcDialog} onOpenChange={open => { if (!open) { setArcDialog(false); setEditingArc(null); } }}>
-        <DialogContent className="w-[92vw] max-w-md mx-auto">
+        <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
           <DialogHeader><DialogTitle>{editingArc ? "Edit Arc" : "Add Arc"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <Input value={arcName} onChange={e => setArcName(e.target.value)} placeholder="Arc name (e.g. East Blue Arc)" className="bg-card" autoFocus/>
@@ -2379,14 +2500,42 @@ export default function StoryDetail() {
       </Dialog>
 
       {/* Arc delete confirm */}
-      <Dialog open={!!deleteArcId} onOpenChange={open => { if (!open) setDeleteArcId(null); }}>
-        <DialogContent className="w-[92vw] max-w-sm mx-auto">
-          <DialogHeader><DialogTitle>Delete arc?</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground">This arc will be deleted permanently.</p>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDeleteArcId(null)}>Cancel</Button>
-            <Button variant="destructive" onClick={() => { if (deleteArcId) handleDeleteArc(deleteArcId); }}>Delete</Button>
-          </DialogFooter>
+      <Dialog
+        open={!!deleteArcId}
+        onOpenChange={(open) => {
+          if (!open) setDeleteArcId(null);
+        }}
+      >
+        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out">
+          <div className="p-6 flex flex-col items-center text-center">            
+            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
+              <Trash2 className="w-7 h-7 text-red-500" />
+            </div>
+            <DialogTitle className="text-xl font-bold text-foreground">
+              Delete arc?
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+              This arc will be permanently deleted.
+            </p>
+            <div className="flex w-full gap-3 mt-6">
+              <Button
+                variant="secondary"
+                className="flex-1 rounded-xl h-11"
+                onClick={() => setDeleteArcId(null)}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 text-white"
+                onClick={() => {
+                  if (deleteArcId) handleDeleteArc(deleteArcId);
+                }}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
