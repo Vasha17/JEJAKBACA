@@ -2,9 +2,9 @@ import { Toaster } from "@/component/ui/toaster";
 import { Toaster as Sonner } from "@/component/ui/sonner";
 import { TooltipProvider } from "@/component/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
 import { StoryProvider } from "@/lib/StoryContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth, LoginPage } from "@/component/Auth";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSync } from "@/lib/SupabaseSync";
@@ -37,11 +37,22 @@ function useOAuthRedirectHandler() {
   }, []);
 }
 
-// ─── KOMPONEN OFFLINE INDICATOR ───
+// ─── KOMPONEN OFFLINE INDICATOR (DOT STYLE) ───
 function OfflineIndicator() {
+  const location = useLocation();
+  const isStoryPage = location.pathname.startsWith("/story/");
+  
+  // Posisi dinamis: Di atas Continue Reading jika di StoryPage, default bawah kanan
+  const positionClass = isStoryPage ? "bottom-20 right-4" : "bottom-4 right-4";
+
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingCount, setPendingCount] = useState(0);
+  const [collapsed, setCollapsed] = useState(false);
+  const [initialPending, setInitialPending] = useState<number | null>(null);
+  const collapseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [visible, setVisible] = useState(false);
 
+  // Monitor Network Status
   useEffect(() => {
     const on = () => setIsOnline(true);
     const off = () => setIsOnline(false);
@@ -53,59 +64,163 @@ function OfflineIndicator() {
     };
   }, []);
 
+  // Monitor Pending Items  
   useEffect(() => {
-    const updatePendingCount = async () => {
+    const update = async () => {
       const count = await dexieAPI.getPendingCount();
-      setPendingCount(count);
+      setPendingCount((prev) => {
+        if (prev === 0 && count > 0) {          
+          setInitialPending(count);
+        } else if (prev !== null && count > prev) {          
+          setInitialPending(count);
+        }
+        return count;
+      });
     };
-    
-    updatePendingCount();
-    const interval = setInterval(updatePendingCount, 2000);
+    update();
+    const interval = setInterval(update, 2000);
     return () => clearInterval(interval);
   }, []);
 
-  if (isOnline && pendingCount === 0) return null; 
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), 50);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Handle Auto-collapse logic
+  useEffect(() => {    
+    if (isOnline && pendingCount === 0) return; 
+    
+    setCollapsed(false);
+    if (collapseTimer.current) clearTimeout(collapseTimer.current);
+        
+    collapseTimer.current = setTimeout(() => setCollapsed(true), 30000);
+    
+    return () => {
+      if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    };
+  }, [pendingCount, isOnline]);
+  
+  if (isOnline && pendingCount === 0) return null;
+
+  const progress = initialPending && initialPending > 0
+    ? Math.round(((initialPending - pendingCount) / initialPending) * 100)
+    : 0;
+      
+  const isError = !isOnline;
+
+  // 1. COLLAPSED STATE (DOT KECIL)
+  if (collapsed) {
+    return (
+      <button
+        onClick={() => {
+          setVisible(false);
+          setCollapsed(false);
+          requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)));
+          if (collapseTimer.current) clearTimeout(collapseTimer.current);
+          collapseTimer.current = setTimeout(() => setCollapsed(true), 30000);
+        }}
+        className={`fixed z-[100] w-3 h-3 rounded-full shadow-lg ${positionClass}`}
+        style={{
+          background: isError ? "#ef4444" : "hsl(var(--primary))",
+          boxShadow: `0 0 8px 2px ${isError ? "rgba(239,68,68,0.5)" : "rgba(246,168,35,0.5)"}`,
+          transform: visible ? "scale(1)" : "scale(0)",
+          opacity: visible ? 1 : 0,
+          transition: "transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.6), opacity 0.25s ease",
+        }}
+        aria-label="Show sync status"
+      />
+    );
+  }
+  
+  // 2. EXPANDED STATE (DETAIL BAR)        
+  const synced = initialPending ? initialPending - pendingCount : 0;
+  const label = !isOnline
+    ? `Offline${pendingCount > 0 ? ` · ${pendingCount} unsaved` : ""}`
+    : pendingCount > 0 && synced === 0
+    ? `${pendingCount} queued`
+    : pendingCount > 0
+    ? `Syncing ${synced}/${initialPending}`
+    : "All synced ✓";
+  const dotCls = !isOnline ? "bg-red-500" : "bg-amber-400";
+
   return (
-    <>
-      {/* ── MOBILE ── */}
-      <div className="sm:hidden fixed bottom-20 left-0 right-0 z-[60] flex justify-center px-4 pointer-events-none">
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded-full
-          bg-slate-900/90 backdrop-blur-md border border-white/10 shadow-2xl">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-          </span>
-          <span className="text-[11px] font-medium text-white/90 tracking-wide">
-            {isOnline && pendingCount > 0
-              ? `${pendingCount} Pending`
-              : !isOnline && pendingCount > 0
-              ? `Offline | ${pendingCount} Pending`
-              : "Offline Mode"}
-          </span>
-        </div>
+    <button
+      onClick={() => {
+        setVisible(false);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setCollapsed(true);
+          });
+        });
+        if (collapseTimer.current) {
+          clearTimeout(collapseTimer.current);
+        }
+      }}
+      className={`
+        fixed z-[100] overflow-hidden flex flex-col gap-1.5 rounded-2xl
+        backdrop-blur-sm border border-white/[0.07] shadow-[0_8px_30px_rgba(0,0,0,0.35)] text-left
+        ${positionClass}
+      `}
+      style={{
+        background: "rgba(246, 168, 35, 0.15)",
+        width: visible ? "170px" : "44px",
+        paddingLeft: visible ? "16px" : "0px",
+        paddingRight: visible ? "16px" : "0px",
+        paddingTop: visible ? "10px" : "0px",
+        paddingBottom: visible ? "10px" : "0px",
+        opacity: visible ? 1 : 0,
+        transform: visible
+          ? "translateY(0) scale(1)"
+          : "translateY(6px) scale(0.92)",
+        transition: `
+          width 420ms cubic-bezier(0.22, 1, 0.36, 1),
+          padding 420ms cubic-bezier(0.22, 1, 0.36, 1),
+          transform 320ms cubic-bezier(0.34,1.56,0.64,1),
+          opacity 220ms ease
+        `,
+      }}
+    >
+      {/* Row: dot + label */}
+      <div
+        className="flex items-center gap-2 min-w-0"
+        style={{
+          opacity: visible ? 1 : 0,
+          transform: visible
+            ? "translateX(0)"
+            : "translateX(6px)",
+          transition:
+            "all 280ms cubic-bezier(0.22, 1, 0.36, 1) 120ms",
+        }}
+      >
+        <span className="relative flex h-2 w-2 shrink-0">
+          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${dotCls} opacity-60`} />
+          <span className={`relative inline-flex rounded-full h-2 w-2 ${dotCls}`} />
+        </span>
+        <span className="text-[11px] font-medium text-white/80 whitespace-nowrap">{label}</span>
       </div>
 
-      {/* ── DESKTOP ── */}
-      <div className="hidden sm:flex fixed top-2 left-1/2 -translate-x-1/2 z-[100] items-center gap-3 px-5 py-2.5 rounded-full
-      bg-slate-950/90 backdrop-blur-md border-b border-white/10 shadow-xl">
-        <span className="relative flex h-2.5 w-2.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
-        </span>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-100">
-            {isOnline && pendingCount > 0 ? "Pending Sync" : "Offline Mode"}
-          </span>
-          <span className="text-[10px] text-slate-400">
-            {isOnline && pendingCount > 0
-              ? `${pendingCount} pending`
-              : !isOnline && pendingCount > 0
-              ? `${pendingCount} pending`
-              : "Changes saved locally"}
-          </span>
+      {/* Progress bar (hanya kalau online & ada initial) */}
+      {isOnline && initialPending && initialPending > 0 && (
+        <div
+          className="w-full h-1 rounded-full bg-white/10 overflow-hidden"
+          style={{
+            opacity: visible ? 1 : 0,
+            transform: visible
+              ? "scaleX(1)"
+              : "scaleX(0.7)",
+            transformOrigin: "left",
+            transition:
+              "all 350ms cubic-bezier(0.22,1,0.36,1) 180ms",
+          }}
+        >
+          <div
+            className="h-full rounded-full bg-emerald-400 transition-all duration-700"
+            style={{ width: `${progress}%` }}
+          />
         </div>
-      </div>
-    </>
+      )}
+    </button>
   );
 }
 
@@ -163,6 +278,8 @@ function AppContent() {
   return (
     <StoryProvider>
       <HashRouter>
+        {/* OfflineIndicator dipindah ke sini agar bisa pakai useLocation */}
+        <OfflineIndicator />
         <Routes>
           <Route path="/" element={<Library />} />
           <Route path="/lists" element={<ListsIndex />} />
@@ -181,7 +298,6 @@ const App = () => (
       <Toaster />
       <Sonner />
       <ErrorBoundary>
-        <OfflineIndicator />
         <AppContent />
       </ErrorBoundary>
     </TooltipProvider>

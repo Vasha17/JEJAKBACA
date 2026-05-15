@@ -1,37 +1,35 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useStories } from "@/lib/StoryContext";
 import { StoryStatus, getGlobalTags } from "@/lib/types";
 import { Button } from "@/component/ui/button";
 import { Input } from "@/component/ui/input";
-import { Textarea } from "@/component/ui/textarea";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
-  DialogTrigger, DialogFooter, DialogClose,
+  DialogFooter, DialogClose,
 } from "@/component/ui/dialog";
 import {
-  ArrowLeft, BookOpen, Bookmark, FileText, Plus, Trash2, Pencil,
-  Star, List, X, ExternalLink, Upload, Eye, Sparkles, Loader2,
-  CheckCircle2, XCircle, AlertCircle, History, GitBranch, Bell,
-  Database, Globe, Image, RefreshCw, Zap, ChevronLeft, ChevronRight,
-  MoreHorizontal, Search, HelpCircle,
-  EyeOff,
+  BookOpen, X, Plus, Trash2, AlertCircle,
+  CheckCircle2, Globe, Database, ChevronLeft,
+  ChevronRight, Search, Bookmark,
 } from "lucide-react";
 import { format } from "date-fns";
-import { RichTextEditor, RichTextDisplay } from "@/component/RichTextEditor";
+import { RichTextEditor } from "@/component/RichTextEditor";
 import { ImageCropper } from "@/component/ImageCropper";
 import "flag-icons/css/flag-icons.min.css";
-import { useLocation } from "react-router-dom";
 
 // ── Local imports ─────────────────────────────────────────────────────────────
-import { StoryDetailSkeleton }             from "./components/StoryDetailSkeleton";
-import { GenrePickerModal }                from "./components/GenrePickerModal";
+import { StoryDetailSkeleton }            from "./components/StoryDetailSkeleton";
+import { GenrePickerModal }               from "./components/GenrePickerModal";
+import { HeroSection }                   from "./components/HeroSection";
+import { StoryContent }                  from "./components/StoryContent";
+import { RightPanel }                    from "./components/RightPanel";
+import { NotesTimeline }                 from "./components/NotesTimeline";
 import {
   STATUS_OPTIONS, statusColor,
   REL_LABELS, REL_COLORS,
   ARC_COLOR_PALETTES, ARC_COLORS,
-  DEMOGRAPHIC_INFO, DEMOGRAPHIC_ICONS,
   type ArcColorPalette,
 } from "./constants/status";
 import { ALL_COUNTRIES, POPULAR_COUNTRIES } from "./constants/countries";
@@ -41,11 +39,11 @@ import {
   loadArcs, saveArcs,
   type Arc,
 } from "./utils/helpers";
-import { computePrediction, pushCHLog }      from "./hooks/useChapterPrediction";
-import { useStoryHistory, pushHistory }      from "./hooks/useStoryHistory";
-import { useStoryRelations, loadRelations }  from "./hooks/useStoryRelations";
-import { usePullToRefresh }                  from "./hooks/usePullToRefresh";
-import { useKeyboardShortcuts }              from "./hooks/useKeyboardShortcuts";
+import { computePrediction, pushCHLog }     from "./hooks/useChapterPrediction";
+import { useStoryHistory, pushHistory }     from "./hooks/useStoryHistory";
+import { useStoryRelations, loadRelations } from "./hooks/useStoryRelations";
+import { usePullToRefresh }                 from "./hooks/usePullToRefresh";
+import { useKeyboardShortcuts }             from "./hooks/useKeyboardShortcuts";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -60,10 +58,11 @@ const safeGet = <T,>(key: string, defaultValue: T): T => {
   }
 };
 
-export default function StoryDetail() {
+export default function StoryDetailPage() {
   const { id }   = useParams<{ id: string }>();
-  const location = useLocation();
   const navigate = useNavigate();
+  const location = useLocation(); // Dipertahankan untuk kebutuhan state navigasi lain (misal: fromVault)  
+
   const fromListId = location.state?.fromListId;
   const {
     getStory, stories, updateStory, deleteStory,
@@ -76,16 +75,16 @@ export default function StoryDetail() {
   } = useStories();
   const story = getStory(id || "");
 
-  // ── Mobile Detection ────────────────────────────────────────────────────────
+  // ── Mobile Detection ──────────────────────────────────────────────────────
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 640);
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
-  // ── CTA preference ──────────────────────────────────────────────────────────
+  // ── CTA preference ────────────────────────────────────────────────────────
   const [ctaPreference, setCtaPreference] = useState<"floating" | "inside">(() => {
     const val = localStorage.getItem("jejakbaca_cta_pref");
     return val === "floating" || val === "inside" ? val : "floating";
@@ -100,41 +99,41 @@ export default function StoryDetail() {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  // ── Dialog states ───────────────────────────────────────────────────────────
-  const [coverDialog, setCoverDialog]               = useState(false);
-  const [headerDialog, setHeaderDialog]             = useState(false);
-  const [headerDialogTouchStart, setHeaderDialogTouchStart] = useState(0);
-  const [coverDialogTouchStart, setCoverDialogTouchStart]   = useState(0);
-  const [ratingDialog, setRatingDialog]             = useState(false);
-  const [notesDialog, setNotesDialog]               = useState(false);
-  const [listsDialog, setListsDialog]               = useState(false);
-  const [bookmarkDialog, setBookmarkDialog]         = useState(false);
-  const [sourceDialog, setSourceDialog]             = useState(false);
-  const [addSourceDialog, setAddSourceDialog]       = useState(false);
-  const [synopsisEditDialog, setSynopsisEditDialog] = useState(false);
-  const [mediaDialog, setMediaDialog]               = useState(false);
-  const [headerCropOpen, setHeaderCropOpen]         = useState(false);
-  const [coverCropOpen, setCoverCropOpen]           = useState(false);
-  const [historyDialog, setHistoryDialog]           = useState(false);
-  const [relatedDialog, setRelatedDialog]           = useState(false);
-  const [statusDialog, setStatusDialog]             = useState(false);
-  const [deleteNoteId, setDeleteNoteId]             = useState<string | null>(null);
-  const [mediaLightbox, setMediaLightbox]           = useState<{ url: string; label: string; id: string } | null>(null);
-  const [editingMediaLabel, setEditingMediaLabel]   = useState("");
-  const [updateBellDialog, setUpdateBellDialog]     = useState(false);
-  const [chapterTooltip, setChapterTooltip]         = useState(false);
-  const [moreDialog, setMoreDialog]                 = useState(false);
-  const [editingNote, setEditingNote]               = useState<any | null>(null);
-  const [countryDialog, setCountryDialog]           = useState(false);
-  const [countrySearch, setCountrySearch]           = useState("");
-  const [deleteStoryDialog, setDeleteStoryDialog]   = useState(false);
-  const [arcDialog, setArcDialog]                   = useState(false);
-  const [editingArc, setEditingArc]                 = useState<Arc | null>(null);
-  const [deleteArcId, setDeleteArcId]               = useState<string | null>(null);
-  const [coverLightbox, setCoverLightbox]           = useState(false);
-  const [headerLightbox, setHeaderLightbox]         = useState(false);
+  // ── Dialog states ─────────────────────────────────────────────────────────
+  const [coverDialog, setCoverDialog]                           = useState(false);
+  const [headerDialog, setHeaderDialog]                         = useState(false);
+  const [headerDialogTouchStart, setHeaderDialogTouchStart]     = useState(0);
+  const [coverDialogTouchStart, setCoverDialogTouchStart]       = useState(0);
+  const [ratingDialog, setRatingDialog]                         = useState(false);
+  const [notesDialog, setNotesDialog]                           = useState(false);
+  const [listsDialog, setListsDialog]                           = useState(false);
+  const [bookmarkDialog, setBookmarkDialog]                     = useState(false);
+  const [sourceDialog, setSourceDialog]                         = useState(false);
+  const [addSourceDialog, setAddSourceDialog]                   = useState(false);
+  const [synopsisEditDialog, setSynopsisEditDialog]             = useState(false);
+  const [mediaDialog, setMediaDialog]                           = useState(false);
+  const [headerCropOpen, setHeaderCropOpen]                     = useState(false);
+  const [coverCropOpen, setCoverCropOpen]                       = useState(false);
+  const [historyDialog, setHistoryDialog]                       = useState(false);
+  const [relatedDialog, setRelatedDialog]                       = useState(false);
+  const [statusDialog, setStatusDialog]                         = useState(false);
+  const [deleteNoteId, setDeleteNoteId]                         = useState<string | null>(null);
+  const [mediaLightbox, setMediaLightbox]                       = useState<{ url: string; label: string; id: string } | null>(null);
+  const [editingMediaLabel, setEditingMediaLabel]               = useState("");
+  const [updateBellDialog, setUpdateBellDialog]                 = useState(false);
+  const [chapterTooltip, setChapterTooltip]                     = useState(false);
+  const [moreDialog, setMoreDialog]                             = useState(false);
+  const [editingNote, setEditingNote]                           = useState<any | null>(null);
+  const [countryDialog, setCountryDialog]                       = useState(false);
+  const [countrySearch, setCountrySearch]                       = useState("");
+  const [deleteStoryDialog, setDeleteStoryDialog]               = useState(false);
+  const [arcDialog, setArcDialog]                               = useState(false);
+  const [editingArc, setEditingArc]                             = useState<Arc | null>(null);
+  const [deleteArcId, setDeleteArcId]                           = useState<string | null>(null);
+  const [coverLightbox, setCoverLightbox]                       = useState(false);
+  const [headerLightbox, setHeaderLightbox]                     = useState(false);
 
-  // ── Form states ─────────────────────────────────────────────────────────────
+  // ── Form states ───────────────────────────────────────────────────────────
   const [coverUrlValue, setCoverUrlValue]   = useState("");
   const [headerUrlValue, setHeaderUrlValue] = useState("");
   const [noteContent, setNoteContent]       = useState("");
@@ -149,7 +148,7 @@ export default function StoryDetail() {
   const [mediaUrl, setMediaUrl]             = useState("");
   const [mediaLabel, setMediaLabel]         = useState("");
 
-  // ── Inline edit states ──────────────────────────────────────────────────────
+  // ── Inline edit states ────────────────────────────────────────────────────
   const [editingTitle, setEditingTitle]         = useState(false);
   const [editingAltTitle, setEditingAltTitle]   = useState(false);
   const [editingAuthor, setEditingAuthor]       = useState(false);
@@ -160,17 +159,17 @@ export default function StoryDetail() {
   const [chapterValue, setChapterValue]         = useState("");
   const [synopsisExpanded, setSynopsisExpanded] = useState(false);
 
-  // ── Tag states ──────────────────────────────────────────────────────────────
-  const [newTag, setNewTag]                       = useState("");
-  const [tagMode, setTagMode]                     = useState<"manual" | "existing" | "suggested">("manual");
-  const [suggestedTags, setSuggestedTags]         = useState<string[]>([]);
-  const [suggestedLoading, setSuggestedLoading]   = useState(false);
-  const [tagRefresh, setTagRefresh]               = useState(0);  
-  const [deleteTagConfirm, setDeleteTagConfirm]   = useState<string | null>(null);
-  const [existingTagSearch, setExistingTagSearch] = useState("");
+  // ── Tag states ────────────────────────────────────────────────────────────
+  const [newTag, setNewTag]                           = useState("");
+  const [tagMode, setTagMode]                         = useState<"manual" | "existing" | "suggested">("manual");
+  const [suggestedTags, setSuggestedTags]             = useState<string[]>([]);
+  const [suggestedLoading, setSuggestedLoading]       = useState(false);
+  const [tagRefresh, setTagRefresh]                   = useState(0);
+  const [deleteTagConfirm, setDeleteTagConfirm]       = useState<string | null>(null);
+  const [existingTagSearch, setExistingTagSearch]     = useState("");
   const [duplicateTagWarning, setDuplicateTagWarning] = useState(false);
 
-  // ── Source edit states ──────────────────────────────────────────────────────
+  // ── Source edit states ────────────────────────────────────────────────────
   const [editSrcId, setEditSrcId]                 = useState<string | null>(null);
   const [editSrcChapter, setEditSrcChapter]       = useState("");
   const [editSrcUrl, setEditSrcUrl]               = useState("");
@@ -179,12 +178,13 @@ export default function StoryDetail() {
   const [sourcesKey, setSourcesKey]               = useState(0);
   const [srcNameSuggestion, setSrcNameSuggestion] = useState("");
   const [deleteBookmarkId, setDeleteBookmarkId]   = useState<string | null>(null);
+  const [noSourceDialog, setNoSourceDialog]       = useState(false);
 
-  // ── Genre states ────────────────────────────────────────────────────────────
+  // ── Genre states ──────────────────────────────────────────────────────────
   const [genrePickerOpen, setGenrePickerOpen] = useState(false);
   const [genreExpanded, setGenreExpanded]     = useState(false);
 
-  // ── Arc states ──────────────────────────────────────────────────────────────
+  // ── Arc states ────────────────────────────────────────────────────────────
   const [arcs, setArcs]                       = useState<Arc[]>([]);
   const [arcName, setArcName]                 = useState("");
   const [arcStart, setArcStart]               = useState("");
@@ -194,7 +194,7 @@ export default function StoryDetail() {
   const [arcColorPalette, setArcColorPalette] = useState<ArcColorPalette>("colorful");
   const [arcColorMode, setArcColorMode]       = useState<"auto" | "manual">("auto");
 
-  // ── Tab state ───────────────────────────────────────────────────────────────
+  // ── Tab state ─────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"notes" | "timeline">(() =>
     lsGet<"notes" | "timeline">(`tab_pref_${id}`, "notes")
   );
@@ -202,71 +202,46 @@ export default function StoryDetail() {
     setActiveTab(tab); lsSet(`tab_pref_${id}`, tab);
   };
 
-  // ── Link checker ────────────────────────────────────────────────────────────
+  // ── Link checker ──────────────────────────────────────────────────────────
   const [linkStatuses, setLinkStatuses] = useState<Record<string, { ok: boolean; checking: boolean; statusText: string }>>({});
 
-  // ── Notification tracking ───────────────────────────────────────────────────
+  // ── Notification tracking ─────────────────────────────────────────────────
   const [trackedSourceIds, setTrackedSourceIds] = useState<string[]>([]);
 
-  // ── Lists state ─────────────────────────────────────────────────────────────
-  const [customLists, setCustomLists] = useState<any[]>(() => {
-    return safeGet<any[]>("my_reading_lists", []);
-  });
+  // ── Lists state ───────────────────────────────────────────────────────────
+  const [customLists, setCustomLists] = useState<any[]>(() => safeGet<any[]>("my_reading_lists", []));
 
-  // ── Loading state ───────────────────────────────────────────────────────────
+  // ── Loading state ─────────────────────────────────────────────────────────
   const [isLoading, setIsLoading] = useState(true);
 
-  // ── Refs ────────────────────────────────────────────────────────────────────
-  const mediaFileRef  = useRef<HTMLInputElement>(null);
-  const coverFileRef  = useRef<HTMLInputElement>(null);
-  const headerFileRef = useRef<HTMLInputElement>(null);
+  // ── Refs ──────────────────────────────────────────────────────────────────
+  const mediaFileRef   = useRef<HTMLInputElement>(null);
+  const coverFileRef   = useRef<HTMLInputElement>(null);
+  const headerFileRef  = useRef<HTMLInputElement>(null);
   const noteContentRef = useRef("");
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // ALL useEffect HOOKS 
+  // useEffect HOOKS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Loading timer
   useEffect(() => {
     const t = setTimeout(() => setIsLoading(false), 150);
     return () => clearTimeout(t);
   }, [id]);
 
-  // CTA preference storage listener
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === "jejakbaca_cta_pref" && (e.newValue === "floating" || e.newValue === "inside"))
-        setCtaPreference(e.newValue);
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
-
-  // Load tracked sources
   useEffect(() => {
     if (!id) return;
-    try {
-      const loaded = safeGet<string[]>(`tracked_sources_${id}`, []);
-      setTrackedSourceIds(loaded);
-    } catch (e) {
-      console.warn("Gagal load tracked sources", e);
-    }
+    try { setTrackedSourceIds(safeGet<string[]>(`tracked_sources_${id}`, [])); }
+    catch (e) { console.warn("Gagal load tracked sources", e); }
   }, [id]);
 
-  // Load arcs
   useEffect(() => {
     if (!id) return;
-    try {
-      const loaded = loadArcs(id);
-      setArcs(loaded);
-    } catch (e) {
-      console.warn("Gagal load arcs (storage blocked?)", e);
-      setArcs([]);
-    }
+    try { setArcs(loadArcs(id)); }
+    catch (e) { console.warn("Gagal load arcs (storage blocked?)", e); setArcs([]); }
   }, [id]);
 
-  // ── Hooks (custom) ───────────────────────────────────────────────────────────
+  // ── Custom hooks ──────────────────────────────────────────────────────────
   const { isRefreshing, pullDelta, PULL_THRESHOLD, handleTouchStart, handleTouchMove, handleTouchEnd } =
     usePullToRefresh();
 
@@ -278,39 +253,33 @@ export default function StoryDetail() {
     setNewRelType, setNewRelMode, setNewRelStoryId, setNewRelUrl,
     handleOpenRelated, handleRelTitleInput, handleAddRelation, handleRemoveRelation,
   } = useStoryRelations(story?.id || "", stories);
-  
 
-   // ── Navigation ──────────────────────────────────────────────────────────────
+  // ── Navigation ────────────────────────────────────────────────────────────
   const fromVault = location.state?.fromVault === true;
-    const allStories = useMemo(() => {    
+  const allStories = useMemo(() => {
     const savedLists = JSON.parse(localStorage.getItem("my_reading_lists") || "[]");
     const hiddenListIds = new Set(savedLists.filter((l: any) => l.isHidden).map((l: any) => l.id));
-    
-    let filtered = (stories || []).filter((s: any) => {     
+    let filtered = (stories || []).filter((s: any) => {
       const inHiddenList = (s.lists || []).some((lid: string) => hiddenListIds.has(lid));
       const isHidden = s.hidden === true || inHiddenList;
       return fromVault ? isHidden : !isHidden;
     });
-
-    if (fromListId) {
-      filtered = filtered.filter((s: any) => (s.lists || []).includes(fromListId));
-    }
-
-    return filtered.sort((a: any, b: any) => 
+    if (fromListId) filtered = filtered.filter((s: any) => (s.lists || []).includes(fromListId));
+    return filtered.sort((a: any, b: any) =>
       new Date(b.chapterUpdatedAt).getTime() - new Date(a.chapterUpdatedAt).getTime()
-    ); 
+    );
   }, [stories, fromVault, fromListId]);
 
-    const currentIndex = allStories.findIndex((s: any) => s.id === story?.id);
-    const prevStory    = currentIndex > 0 ? allStories[currentIndex - 1] : null;
-    const nextStory    = currentIndex < allStories.length - 1 ? allStories[currentIndex + 1] : null;
+  const currentIndex = allStories.findIndex((s: any) => s.id === story?.id);
+  const prevStory    = currentIndex > 0 ? allStories[currentIndex - 1] : null;
+  const nextStory    = currentIndex < allStories.length - 1 ? allStories[currentIndex + 1] : null;
 
   const handleNavigateStory = (targetId: string) => {
     navigate(`/story/${targetId}`, { state: { fromVault } });
     window.scrollTo(0, 0);
   };
-  
-  // ── Chapter update ──────────────────────────────────────────────────────────
+
+  // ── Chapter update ────────────────────────────────────────────────────────
   const handleChapterUpdate = useCallback((ch: number) => {
     if (!story) return;
     pushHistory(story.id, {
@@ -324,7 +293,7 @@ export default function StoryDetail() {
     updateStory(story.id, { currentChapter: ch, chapterUpdatedAt: new Date().toISOString(), sources: updatedSources });
   }, [story, updateStory]);
 
-  // ── Keyboard shortcuts ──────────────────────────────────────────────────────
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useKeyboardShortcuts({
     story,
     onChapterUpdate: handleChapterUpdate,
@@ -342,14 +311,13 @@ export default function StoryDetail() {
       const next = prev.includes(srcId)
         ? prev.filter(x => x !== srcId)
         : prev.length >= 2 ? prev : [...prev, srcId];
-      try {
-        lsSet(`tracked_sources_${story.id}`, next);
-      } catch (e) { console.warn("Storage blocked"); }
+      try { lsSet(`tracked_sources_${story.id}`, next); }
+      catch (e) { console.warn("Storage blocked"); }
       return next;
     });
   };
-  
-  // EARLY RETURNS  
+
+  // ── Early returns ─────────────────────────────────────────────────────────
   if (isLoading) return <StoryDetailSkeleton />;
   if (!story) {
     return (
@@ -362,7 +330,7 @@ export default function StoryDetail() {
     );
   }
 
-  // ── Derived values ──────────────────────────────────────────────────────────
+  // ── Derived values ────────────────────────────────────────────────────────
   const currentStatus       = STATUS_OPTIONS.find(s => s.value === story.status);
   const dotColor            = statusColor(story.status);
   const globalTags          = getGlobalTags();
@@ -389,7 +357,14 @@ export default function StoryDetail() {
     return "bg-blue-500/60 shadow-blue-500/30 text-white";
   };
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  const anyDialogOpen = coverDialog || headerDialog || ratingDialog || notesDialog ||
+    listsDialog || bookmarkDialog || sourceDialog || addSourceDialog ||
+    synopsisEditDialog || moreDialog || arcDialog || statusDialog;
+
+  const isTouchDevice = typeof window !== "undefined" &&
+    ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const uploadToStorage = async (file: File, path: string): Promise<string> => {
     const fileName = `${Date.now()}_${file.name}`;
     const filePath = `${path}/${fileName}`;
@@ -424,9 +399,7 @@ export default function StoryDetail() {
     addTagToStory(story.id, tag); setNewTag("");
   };
 
-  const handleDeleteExistingTag = (tag: string) => {
-    setDeleteTagConfirm(tag);
-  };
+  const handleDeleteExistingTag = (tag: string) => setDeleteTagConfirm(tag);
 
   const confirmDeleteExistingTag = () => {
     if (!deleteTagConfirm) return;
@@ -490,7 +463,7 @@ export default function StoryDetail() {
       const upd = (story.sources || []).map((s: any) => s.id === editSrcId
         ? { ...s, name: editSrcName.trim(), url: editSrcUrl.trim(), language: editSrcLang.trim().toUpperCase(), currentChapter: newCh }
         : s);
-      const updates: any = { sources: upd };      
+      const updates: any = { sources: upd };
       if (oldSrc && (oldSrc.currentChapter || 0) === (story.currentChapter || 0) && newCh !== (story.currentChapter || 0)) {
         updates.currentChapter = newCh;
         updates.chapterUpdatedAt = new Date().toISOString();
@@ -531,17 +504,19 @@ export default function StoryDetail() {
 
   const handleReadNow = () => {
     if (!story.sources || story.sources.length === 0) {
-      alert("There is no source link for this story yet."); return;
+      setNoSourceDialog(true); return;
     }
     const best = [...story.sources].sort((a: any, b: any) => (b.currentChapter || 0) - (a.currentChapter || 0))[0];
     window.open(best.url, "_blank");
   };
 
-  const handleTagClick = (tag: string) => {
-    navigate(`/?tags=${encodeURIComponent(normalizeTag(tag))}`);
+  const handleOpenListsDialog = () => {
+    const lists = safeGet<any[]>("my_reading_lists", []);
+    setCustomLists(lists.filter(l => story.hidden ? l.isHidden : !l.isHidden));
+    setListsDialog(true);
   };
 
-  // ── Arc handlers ────────────────────────────────────────────────────────────
+  // ── Arc handlers ──────────────────────────────────────────────────────────
   const handleOpenArcDialog = (arc?: Arc) => {
     if (arc) {
       setEditingArc(arc); setArcName(arc.name);
@@ -549,7 +524,6 @@ export default function StoryDetail() {
       setArcColor(arc.color); setArcDesc(arc.description);
     } else {
       setEditingArc(null); setArcName(""); setArcStart(""); setArcEnd(""); setArcDesc("");
-      // Auto color logic uses current palette length
       if (arcColorMode === "auto") {
         const palette = ARC_COLOR_PALETTES[arcColorPalette];
         setArcColor(palette[arcs.length % palette.length]);
@@ -559,27 +533,25 @@ export default function StoryDetail() {
   };
 
   const handleMoveArc = (arcId: string, direction: "up" | "down") => {
-  const sorted = [...arcs]
-    .map((a, i) => ({ ...a, order: a.order ?? i })) // fix arc lama yang order-nya undefined
-    .sort((a, b) => a.order - b.order);
-  const idx = sorted.findIndex(a => a.id === arcId);
-  if (direction === "up" && idx === 0) return;
-  if (direction === "down" && idx === sorted.length - 1) return;
-  const swapIdx = direction === "up" ? idx - 1 : idx + 1;
-  const updated = [...sorted];
-  [updated[idx].order, updated[swapIdx].order] = [updated[swapIdx].order, updated[idx].order];
-  saveArcs(story.id, updated);
-  setArcs(updated);
-};
+    const sorted = [...arcs]
+      .map((a, i) => ({ ...a, order: a.order ?? i }))
+      .sort((a, b) => a.order - b.order);
+    const idx = sorted.findIndex(a => a.id === arcId);
+    if (direction === "up" && idx === 0) return;
+    if (direction === "down" && idx === sorted.length - 1) return;
+    const swapIdx = direction === "up" ? idx - 1 : idx + 1;
+    const updated = [...sorted];
+    [updated[idx].order, updated[swapIdx].order] = [updated[swapIdx].order, updated[idx].order];
+    saveArcs(story.id, updated); setArcs(updated);
+  };
 
   const handleSaveArc = () => {
-    if (!arcName.trim() || !arcStart) return;        
+    if (!arcName.trim() || !arcStart) return;
     let finalColor = arcColor;
     if (arcColorMode === "auto" && !editingArc) {
       const palette = ARC_COLOR_PALETTES[arcColorPalette];
       finalColor = palette[arcs.length % palette.length];
-    } 
-
+    }
     const arc: Arc = {
       id: editingArc?.id || crypto.randomUUID(),
       name: arcName.trim(),
@@ -601,629 +573,236 @@ export default function StoryDetail() {
     saveArcs(story.id, updated); setArcs(updated); setDeleteArcId(null);
   };
 
-  const handleOpenListsDialog = () => {
-    const lists = safeGet<any[]>("my_reading_lists", []);    
-    setCustomLists(lists.filter(l => story.hidden ? l.isHidden : !l.isHidden));
-    setListsDialog(true);
-  };
+  function checkLink(sourceId: string, url: string) {
+    setLinkStatuses(prev => ({ ...prev, [sourceId]: { ok: false, checking: true, statusText: "Checking..." } }));
+    supabase.functions.invoke("check-link", { body: { url } }).then(({ data, error }) => {
+      if (error) { setLinkStatuses(prev => ({ ...prev, [sourceId]: { ok: false, checking: false, statusText: "Error" } })); return; }
+      setLinkStatuses(prev => ({ ...prev, [sourceId]: { ok: data.ok, checking: false, statusText: data.ok ? "Active" : `${data.status}` } }));
+    });
+  }
 
-  const isTouchDevice = typeof window !== "undefined" &&
-    ("ontouchstart" in window || navigator.maxTouchPoints > 0);
-
-  const anyDialogOpen = coverDialog || headerDialog || ratingDialog || notesDialog || 
-  listsDialog || bookmarkDialog || sourceDialog || addSourceDialog || 
-  synopsisEditDialog || moreDialog || arcDialog || statusDialog;
-
-  // ── JSX ──────────────────────────────────────────────────────────────────────
+  // ── JSX ───────────────────────────────────────────────────────────────────
   return (
     <div
       className="min-h-screen bg-background relative animate-in fade-in slide-in-from-bottom-1 duration-200"
       key={story.id}
       {...(isTouchDevice ? { onTouchStart: handleTouchStart, onTouchMove: handleTouchMove, onTouchEnd: handleTouchEnd } : {})}
     >
-      {/* Pull to refresh indicator */}
-      <div
-        className="fixed top-0 left-0 right-0 z-50 flex justify-center items-center transition-all duration-200 pointer-events-none"
-        style={{ height: pullDelta > 0 ? `${pullDelta}px` : 0, overflow: "hidden" }}
-      >
-        <div className={`flex items-center gap-2 text-xs text-muted-foreground bg-card/90 px-3 py-1.5 rounded-full border border-border shadow-sm ${isRefreshing ? "opacity-100" : pullDelta >= PULL_THRESHOLD ? "opacity-100" : "opacity-70"}`}>
-          <RefreshCw
-            className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-primary" : ""}`}
-            style={!isRefreshing ? { transform: `rotate(${Math.round((pullDelta / PULL_THRESHOLD) * 180)}deg)` } : {}}
-          />
-          <span>{isRefreshing ? "Refreshing..." : pullDelta >= PULL_THRESHOLD ? "Release to refresh" : "Pull to refresh"}</span>
-        </div>
-      </div>
+      {/* ═══ HERO ════════════════════════════════════════════════════════════ */}
+      <HeroSection
+        story={story}
+        isMobile={isMobile}
+        fromListId={fromListId}
+        fromVault={fromVault}
+        prevStory={prevStory}
+        nextStory={nextStory}
+        currentIndex={currentIndex}
+        allStoriesLength={allStories.length}
+        isRefreshing={isRefreshing}
+        pullDelta={pullDelta}
+        PULL_THRESHOLD={PULL_THRESHOLD}
+        handleTouchStart={handleTouchStart}
+        handleTouchMove={handleTouchMove}
+        handleTouchEnd={handleTouchEnd}
+        ctaPreference={ctaPreference}
+        trackedSourceIds={trackedSourceIds}
+        trackedSourcesWithUpdates={trackedSourcesWithUpdates}
+        maxChaptersAhead={maxChaptersAhead}
+        hasUpdates={hasUpdates}
+        prediction={prediction}
+        editingTitle={editingTitle}
+        editingAltTitle={editingAltTitle}
+        editingAuthor={editingAuthor}
+        editingChapter={editingChapter}
+        titleValue={titleValue}
+        altTitleValue={altTitleValue}
+        authorValue={authorValue}
+        chapterValue={chapterValue}
+        chapterTooltip={chapterTooltip}
+        genreExpanded={genreExpanded}
+        coverDialog={coverDialog}
+        headerDialog={headerDialog}
+        ratingDialog={ratingDialog}
+        statusDialog={statusDialog}
+        moreDialog={moreDialog}
+        updateBellDialog={updateBellDialog}
+        headerLightbox={headerLightbox}
+        coverLightbox={coverLightbox}
+        coverUrlValue={coverUrlValue}
+        headerUrlValue={headerUrlValue}
+        headerDialogTouchStart={headerDialogTouchStart}
+        coverDialogTouchStart={coverDialogTouchStart}
+        coverFileRef={coverFileRef}
+        headerFileRef={headerFileRef}
+        setEditingTitle={setEditingTitle}
+        setEditingAltTitle={setEditingAltTitle}
+        setEditingAuthor={setEditingAuthor}
+        setEditingChapter={setEditingChapter}
+        setTitleValue={setTitleValue}
+        setAltTitleValue={setAltTitleValue}
+        setAuthorValue={setAuthorValue}
+        setChapterValue={setChapterValue}
+        setChapterTooltip={setChapterTooltip}
+        setGenreExpanded={setGenreExpanded}
+        setCoverDialog={setCoverDialog}
+        setHeaderDialog={setHeaderDialog}
+        setRatingDialog={setRatingDialog}
+        setStatusDialog={setStatusDialog}
+        setMoreDialog={setMoreDialog}
+        setUpdateBellDialog={setUpdateBellDialog}
+        setHeaderLightbox={setHeaderLightbox}
+        setCoverLightbox={setCoverLightbox}
+        setCoverUrlValue={setCoverUrlValue}
+        setHeaderUrlValue={setHeaderUrlValue}
+        setHeaderDialogTouchStart={setHeaderDialogTouchStart}
+        setCoverDialogTouchStart={setCoverDialogTouchStart}
+        setHeaderCropOpen={setHeaderCropOpen}
+        setCoverCropOpen={setCoverCropOpen}
+        setCountryDialog={setCountryDialog}
+        setBookmarkDialog={setBookmarkDialog}
+        setNotesDialog={setNotesDialog}
+        setGenrePickerOpen={setGenrePickerOpen}
+        setHistoryDialog={setHistoryDialog}
+        setRelatedDialog={setRelatedDialog}
+        setDeleteStoryDialog={setDeleteStoryDialog}
+        updateStory={updateStory}
+        deleteStory={deleteStory}
+        handleChapterUpdate={handleChapterUpdate}
+        handleOpenHistory={handleOpenHistory}
+        handleOpenRelated={handleOpenRelated}
+        handleOpenListsDialog={handleOpenListsDialog}
+        handleRatingChange={handleRatingChange}
+        handleStatusChange={handleStatusChange}
+        handleCoverFileUpload={handleCoverFileUpload}
+        handleHeaderFileUpload={handleHeaderFileUpload}
+        navigate={navigate}
+      />
 
-      {/* ═══ HERO ══════════════════════════════════════════════════════════════ */}
-      <div className="relative">
-        <div className="h-48 sm:h-64 relative overflow-hidden bg-secondary group cursor-zoom-in" onClick={() => story.headerUrl && setHeaderLightbox(true)}>
-          {story.headerUrl ? (
-            <img src={`${story.headerUrl}?width=1920&quality=100`} alt="" className="w-full h-full object-cover"/>
-          ) : story.coverUrl ? (
-            <img src={story.coverUrl} alt="" className="w-full h-full object-cover opacity-30 blur-xl scale-110"/>
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-secondary to-card"/>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"/>
-          <div className="absolute top-3 left-3 right-3 flex items-center justify-between">            
-             {fromListId ? (
-                <Link 
-                  to={`/lists/${fromListId}`} 
-                  className="p-2 rounded-md bg-card/80 hover:bg-card border border-border transition-colors"
-                  title="Back to List"
-                >
-                  <ArrowLeft className="w-4 h-4 text-foreground"/>
-                </Link>
-              ) : (
-                <button 
-                  onClick={() => navigate("/")} 
-                  className="p-2 rounded-md bg-card/80 hover:bg-card border border-border transition-colors"
-                  title="Back to Library"
-                >
-                  <ArrowLeft className="w-4 h-4 text-foreground"/>
-                </button>
-              )}
-          <div className="flex gap-2">
-            {!isMobile ? (
-              <Dialog open={headerDialog} onOpenChange={setHeaderDialog}>
-                <DialogTrigger asChild>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setHeaderUrlValue(story.headerUrl || ""); }}
-                    className="px-3 py-1 text-xs rounded bg-card/80 text-foreground hover:bg-card border border-border"
-                  >
-                    Edit Header
-                  </button>
-                </DialogTrigger>
-                <DialogContent className="w-[92vw] max-w-md mx-auto" onClick={(e) => e.stopPropagation()}>
-                  <DialogHeader>
-                    <DialogTitle>Edit Header Image</DialogTitle>
-                  </DialogHeader>
-                  <Input value={headerUrlValue} onChange={e => setHeaderUrlValue(e.target.value)} placeholder="Paste image URL..."/>
-                  <Button variant="outline" onClick={() => headerFileRef.current?.click()}>
-                    <Upload className="w-3.5 h-3.5 mr-1"/>Upload
-                  </Button>
-                  <input ref={headerFileRef} type="file" accept="image/*" className="hidden" onChange={handleHeaderFileUpload}/>
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="ghost" onClick={(e) => e.stopPropagation()}>Cancel</Button>
-                    </DialogClose>
-                    <Button onClick={(e) => { e.stopPropagation(); updateStory(story.id, { headerUrl: headerUrlValue }); setHeaderDialog(false); }}>Save</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            ) : (
-              <>
-                {headerDialog && (
-                  <div className="fixed inset-0 z-50 flex flex-col justify-end">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setHeaderDialog(false)} />
-                    <div
-                      className="relative flex flex-col rounded-t-3xl overflow-hidden animate-in slide-in-from-bottom duration-300"
-                      onClick={(e) => e.stopPropagation()}
-                      style={{
-                        maxHeight: "92vh",
-                        background: "hsl(var(--card))",
-                        borderTop: "1px solid hsl(var(--border))",
-                        boxShadow: "0 -24px 60px rgba(0,0,0,0.4)",
-                      }}
-                    >
-                      <div
-                        className="flex justify-center pt-3 shrink-0 cursor-grab active:cursor-grabbing"
-                        onTouchStart={(e) => setHeaderDialogTouchStart(e.touches[0].clientY)}
-                        onTouchEnd={(e) => {
-                          const diff = e.changedTouches[0].clientY - headerDialogTouchStart;
-                          if (diff > 80) setHeaderDialog(false);
-                        }}
-                      >
-                        <div className="w-10 h-1 rounded-full bg-border" />
-                      </div>
-                      <div className="px-4 py-3 border-b border-border/50">
-                        <h2 className="text-lg font-semibold text-foreground">Edit Header Image</h2>
-                      </div>
-                      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                        <Input value={headerUrlValue} onChange={e => setHeaderUrlValue(e.target.value)} placeholder="Paste image URL..."/>
-                        <Button variant="outline" onClick={() => headerFileRef.current?.click()} className="w-full">
-                          <Upload className="w-3.5 h-3.5 mr-1"/>Upload
-                        </Button>
-                        <input ref={headerFileRef} type="file" accept="image/*" className="hidden" onChange={handleHeaderFileUpload}/>
-                        <div className="flex gap-2 pt-2">
-                          <Button variant="ghost" className="flex-1" onClick={(e) => { e.stopPropagation(); setHeaderDialog(false); }}>Cancel</Button>
-                          <Button className="flex-1" onClick={(e) => { e.stopPropagation(); updateStory(story.id, { headerUrl: headerUrlValue }); setHeaderDialog(false); }}>Save</Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <button
-                  onClick={(e) => { e.stopPropagation(); setHeaderUrlValue(story.headerUrl || ""); setHeaderDialog(true); }}
-                  className="px-3 py-1 text-xs rounded bg-card/80 text-foreground hover:bg-card border border-border"
-                >
-                  Edit Header
-                </button>
-              </>
-            )}
-            {story.headerUrl && (
-              <button onClick={(e) => { e.stopPropagation(); setHeaderCropOpen(true); }} className="px-3 py-1 text-xs rounded bg-card/80 text-foreground hover:bg-card border border-border">
-                Reposition
-              </button>
-            )}
-          </div>
+      {/* ═══ MAIN CONTENT ════════════════════════════════════════════════════ */}
+      <main className="container max-w-7xl mx-auto">
+        <div className="px-4 sm:px-6 mt-12 space-y-6 sm:space-y-0">
+          <div className="flex flex-col lg:flex-row gap-6 sm:gap-6 gap-y-8">
 
-            {story.headerUrl && (  
-              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 active:opacity-100 transition-opacity z-10 pointer-events-none">
-                <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>                  
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+            {/* Left column */}
+            <StoryContent
+              story={story}
+              inlineRelations={inlineRelations}
+              synopsisParagraphs={synopsisParagraphs}
+              hasMoreSynopsis={hasMoreSynopsis}
+              synopsisExpanded={synopsisExpanded}
+              setSynopsisExpanded={setSynopsisExpanded}
+              synopsisEditDialog={synopsisEditDialog}
+              setSynopsisEditDialog={setSynopsisEditDialog}
+              synopsisValue={synopsisValue}
+              setSynopsisValue={setSynopsisValue}
+              genreExpanded={genreExpanded}
+              setGenreExpanded={setGenreExpanded}
+              setGenrePickerOpen={setGenrePickerOpen}
+              newTag={newTag}
+              setNewTag={setNewTag}
+              tagMode={tagMode}
+              setTagMode={setTagMode}
+              suggestedTags={suggestedTags}
+              setSuggestedTags={setSuggestedTags}
+              suggestedLoading={suggestedLoading}
+              tagRefresh={tagRefresh}
+              deleteTagConfirm={deleteTagConfirm}
+              setDeleteTagConfirm={setDeleteTagConfirm}
+              existingTagSearch={existingTagSearch}
+              setExistingTagSearch={setExistingTagSearch}
+              duplicateTagWarning={duplicateTagWarning}
+              availableGlobalTags={availableGlobalTags}
+              storyTagsNorm={storyTagsNorm}
+              deleteBookmarkId={deleteBookmarkId}
+              setDeleteBookmarkId={setDeleteBookmarkId}
+              updateStory={updateStory}
+              addTagToStory={addTagToStory}
+              removeTagFromStory={removeTagFromStory}
+              removeBookmark={removeBookmark}
+              handleAddTag={handleAddTag}
+              handleSuggestTags={handleSuggestTags}
+              handleDeleteExistingTag={handleDeleteExistingTag}
+              lsGet={lsGet}
+              lsSet={lsSet}
+              navigate={navigate}
+            />
 
-        {/* Cover + meta */}
-        <div className="relative px-3 sm:px-6 -mt-24 sm:-mt-40 flex flex-row gap-3 sm:gap-6 items-start">
-          <div className="w-[105px] sm:w-44 shrink-0 z-20">
-            <div 
-              className="aspect-[3/4] rounded-xl overflow-hidden bg-card border-2 border-border shadow-xl cursor-zoom-in relative group"
-              onClick={() => story.coverUrl && setCoverLightbox(true)}
-            >
-              {story.coverUrl
-                ? <>
-                    <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover"/>
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 sm:group-active:opacity-100 active:opacity-100 transition-opacity bg-black/20">
-                      <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur flex items-center justify-center">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-                      </div>
-                    </div>
-                  </>
-                : <div className="w-full h-full flex items-center justify-center bg-secondary"><BookOpen className="w-12 h-12 text-muted-foreground/30"/></div>}
-            </div>
-            <div className="flex gap-1 mt-2 justify-center">
-              {!isMobile ? (
-                <Dialog open={coverDialog} onOpenChange={setCoverDialog}>
-                  <DialogTrigger asChild>
-                    <button onClick={() => setCoverUrlValue(story.coverUrl || "")} className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground hover:bg-muted">Edit Cover</button>
-                  </DialogTrigger>
-                  <DialogContent className="w-[92vw] max-w-md mx-auto" onClick={(e) => e.stopPropagation()}>
-                    <DialogHeader><DialogTitle>Edit Cover</DialogTitle></DialogHeader>
-                    <Input value={coverUrlValue} onChange={e => setCoverUrlValue(e.target.value)} placeholder="Paste image URL..."/>
-                    <Button variant="outline" onClick={() => coverFileRef.current?.click()}><Upload className="w-3.5 h-3.5 mr-1"/>Upload</Button>
-                    <input ref={coverFileRef} type="file" accept="image/*" className="hidden" onChange={handleCoverFileUpload}/>
-                    <DialogFooter>
-                      <DialogClose asChild>
-                        <Button variant="ghost">Cancel</Button>
-                      </DialogClose>
-                      <Button onClick={() => { 
-                        const updates: any = { coverUrl: coverUrlValue };
-                        if (!story.headerUrl) updates.headerUrl = coverUrlValue;
-                        updateStory(story.id, updates); setCoverDialog(false); 
-                      }}>Save</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              ) : (
-                <>
-                  {coverDialog && (
-                    <div className="fixed inset-0 z-[9999] flex flex-col justify-end">
-                      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setCoverDialog(false)} />
-                      <div
-                        className="relative flex flex-col rounded-t-3xl overflow-hidden animate-in slide-in-from-bottom duration-300"
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                          maxHeight: "auto",
-                          background: "hsl(var(--card))",
-                          borderTop: "1px solid hsl(var(--border))",
-                          boxShadow: "0 -24px 60px rgba(0,0,0,0.4)",
-                        }}
-                      >
-                        <div
-                          className="flex justify-center pt-3 shrink-0 cursor-grab active:cursor-grabbing"
-                          onTouchStart={(e) => setCoverDialogTouchStart(e.touches[0].clientY)}
-                          onTouchEnd={(e) => {
-                            const diff = e.changedTouches[0].clientY - coverDialogTouchStart;
-                            if (diff > 80) setCoverDialog(false);
-                          }}
-                        >
-                          <div className="w-10 h-1 rounded-full bg-border" />
-                        </div>
-                        <div className="px-4 py-3 border-b border-border/50">
-                          <h2 className="text-lg font-semibold text-foreground">Edit Cover</h2>
-                        </div>
-                        <div className="p-4 space-y-3">
-                          <Input value={coverUrlValue} onChange={e => setCoverUrlValue(e.target.value)} placeholder="Paste image URL..."/>
-                          <Button variant="outline" onClick={() => coverFileRef.current?.click()} className="w-full"><Upload className="w-3.5 h-3.5 mr-1"/>Upload</Button>
-                          <input ref={coverFileRef} type="file" accept="image/*" className="hidden" onChange={handleCoverFileUpload}/>
-                          <div className="flex gap-2 pt-2">
-                            <Button variant="ghost" className="flex-1" onClick={() => setCoverDialog(false)}>Cancel</Button>
-                            <Button className="flex-1" onClick={() => { updateStory(story.id, { coverUrl: coverUrlValue }); setCoverDialog(false); }}>Save</Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => { setCoverUrlValue(story.coverUrl || ""); setCoverDialog(true); }}
-                    className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground hover:bg-muted"
-                  >
-                    Edit Cover
-                  </button>
-                </>
-              )}
-              {story.coverUrl && (
-                <button onClick={() => setCoverCropOpen(true)} className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground hover:bg-muted">Reposition</button>
-              )}
-            </div>           
-          </div>
-
-          <div className="flex-1 z-10 pb-2 sm:pt-8 space-y-2">
-            {/* Title row */}
-            <div className="flex items-start gap-3">
-              <div className="flex-1 min-w-0">
-                {editingTitle ? (
-                  <form onSubmit={e => { e.preventDefault(); updateStory(story.id, { title: titleValue }); setEditingTitle(false); }} className="flex gap-2">
-                    <Input value={titleValue} onChange={e => setTitleValue(e.target.value)} className="text-xl font-bold bg-card h-auto py-1" autoFocus/>
-                    <Button size="sm" type="submit">Save</Button>
-                  </form>
-                ) : (
-                  <h1
-                    className="text-xl sm:text-4xl font-bold text-foreground cursor-pointer hover:text-primary/80 transition-colors line-clamp-2 leading-tight"
-                    onClick={() => { 
-                      updateStory(story.id, { altTitle: altTitleValue }); setEditingAltTitle(false);
-                      updateStory(story.id, { author: authorValue }); setEditingAuthor(false);
-                      setTitleValue(story.title); setEditingTitle(true); 
-                    }}
-                  >
-                    {story.title}
-                  </h1>
-                )}
-                {editingAltTitle ? (
-                  <form onSubmit={e => { e.preventDefault(); updateStory(story.id, { altTitle: altTitleValue }); setEditingAltTitle(false); }} className="flex gap-2 mt-1">
-                    <Input value={altTitleValue} onChange={e => setAltTitleValue(e.target.value)} className="text-xs bg-card h-7" autoFocus/>
-                    <Button size="sm" className="h-7" type="submit">Save</Button>
-                  </form>
-                ) : (
-                  <p
-                    className={`text-xs sm:text-sm mt-1 cursor-pointer transition-colors ${story.altTitle ? "text-muted-foreground opacity-70 hover:opacity-100 hover:text-foreground" : "text-muted-foreground/30 hover:text-muted-foreground/60 italic"}`}
-                    onClick={() => { 
-                      updateStory(story.id, { title: titleValue }); setEditingTitle(false);
-                      updateStory(story.id, { author: authorValue }); setEditingAuthor(false);
-                      setAltTitleValue(story.altTitle || ""); setEditingAltTitle(true); 
-                    }}
-                  >
-                    {story.altTitle || " no alternative title "}
-                  </p>
-                )}
-                {editingAuthor ? (
-                  <form onSubmit={e => { e.preventDefault(); updateStory(story.id, { author: authorValue }); setEditingAuthor(false); }} className="flex gap-2 mt-1">
-                    <Input value={authorValue} onChange={e => setAuthorValue(e.target.value)} className="text-xs bg-card h-7" autoFocus/>
-                    <Button size="sm" className="h-7" type="submit">Save</Button>
-                  </form>
-                ) : (
-                  <p
-                    className={`text-sm mt-1 cursor-pointer transition-colors ${story.author ? "text-foreground/80 hover:text-primary" : "text-muted-foreground/40 hover:text-muted-foreground italic"}`}
-                    onClick={() => { 
-                      updateStory(story.id, { title: titleValue }); setEditingTitle(false);
-                      updateStory(story.id, { altTitle: altTitleValue }); setEditingAltTitle(false);
-                      setAuthorValue(story.author || ""); setEditingAuthor(true); 
-                    }}
-                  >
-                    {story.author || "Unknown Author"}
-                  </p>
-                )}
-              </div>
-
-              {/* Rating + Country */}
-              <div className="flex flex-col items-end gap-1 shrink-0 max-w-[72px]">
-                <button onClick={() => setRatingDialog(true)} className="shrink-0 flex flex-col items-end group transition-transform hover:scale-105">
-                  <div className="flex items-center gap-1.5 text-amber-500">
-                    <Star size={20} className={story.rating > 0 ? "fill-current" : "fill-transparent stroke-current"}/>
-                    <span className="text-2xl font-bold leading-none">{story.rating || "-"}</span>
-                  </div>
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider font-medium mt-0.5">Rating</span>
-                </button>
-                <button onClick={() => setCountryDialog(true)} className="text-2xl hover:scale-110 active:scale-95 transition-all duration-200 opacity-80 hover:opacity-100" title="Set Origin Country">
-                  {story.originCountry
-                    ? <span className={`fi fi-${story.originCountry.toLowerCase()}`} style={{ width: "28px", height: "20px", display: "inline-block", borderRadius: "3px" }}/>
-                    : <Globe className="w-5 h-5 text-muted-foreground"/>}
-                </button>
-              </div>
-            </div>
-
-            {/* Status + Chapter row */}
-            <div className="flex items-center gap-3 flex-wrap pt-2 border-t border-border/50 mt-2">
-              {currentStatus && (
-                <span
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-bold border"
-                  style={{ backgroundColor: `${currentStatus.color}20`, color: currentStatus.color, borderColor: `${currentStatus.color}40` }}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: currentStatus.color }}/>
-                  {currentStatus.label}
-                </span>
-              )}
-
-              <div className="flex items-center gap-2 flex-1 group/chapter relative">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }}/>
-                {editingChapter ? (
-                  <form
-                    onSubmit={e => {
-                      e.preventDefault();
-                      const ch = Math.max(0.1, parseFloat(chapterValue) || 1);
-                      handleChapterUpdate(ch); setEditingChapter(false);
-                    }}
-                    className="flex gap-2 items-center w-full"
-                  >
-                    <span className="font-semibold text-xs sm:text-sm whitespace-nowrap">Ch.</span>
-                    <Input value={chapterValue} onChange={e => setChapterValue(e.target.value)} type="number" step="0.1" className="w-16 h-7 text-xs bg-card" autoFocus/>
-                    <Button size="sm" type="submit" className="h-7">Save</Button>
-                  </form>
-                ) : (
-                  <div className="flex items-center gap-2 w-full justify-between">
-                    <span className="font-semibold text-xs sm:text-sm text-foreground">Chapter {story.currentChapter}</span>
-                    <div className="flex items-center gap-1 ml-auto">
-                      {hasUpdates && (
-                        <Dialog open={updateBellDialog} onOpenChange={setUpdateBellDialog}>
-                          <DialogTrigger asChild>
-                            <button className="relative p-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 transition-colors">
-                              <Bell size={16} className="animate-pulse"/>
-                              <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-card"/>
-                            </button>
-                          </DialogTrigger>
-                          <DialogContent className="w-[92vw] sm:max-w-md border-emerald-500/50 bg-gradient-to-br from-emerald-900 to-slate-900 text-white shadow-2xl shadow-emerald-500/20 overflow-hidden">
-                            <DialogHeader className="relative z-10 pb-2">
-                              <div className="absolute -top-10 -right-10 text-emerald-500/10 opacity-50 pointer-events-none">
-                                <Bell size={120} strokeWidth={1}/>
-                              </div>
-                              <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
-                                <span className="relative flex h-3 w-3">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"/>
-                                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"/>
-                                </span>
-                                Updates Available!
-                              </DialogTitle>
-                              <p className="text-sm text-emerald-100/80 mt-1">
-                                {trackedSourcesWithUpdates.length} source(s) ahead. You are behind by{" "}
-                                <span className="text-emerald-300 font-bold">+{maxChaptersAhead} chapters</span>.
-                              </p>
-                            </DialogHeader>
-                            <div className="space-y-3 relative z-10">
-                              <div className="space-y-2 pt-2">
-                                {trackedSourcesWithUpdates.map((src: any) => {
-                                  const diff = (src.currentChapter || 0) - (story.currentChapter || 0);
-                                  return (
-                                    <div key={src.id} className="flex items-center justify-between p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/20 hover:bg-emerald-950/60 transition-colors group">
-                                      <span className="text-xs font-semibold text-emerald-50">{src.name}</span>
-                                      <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">
-                                        +{diff}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      )}
-                      <button onClick={() => { setChapterValue(String(story.currentChapter)); setEditingChapter(true); }} className="px-2 py-1 text-[10px] rounded bg-secondary text-secondary-foreground hover:bg-muted border border-border">Edit</button>
-                      <button onClick={() => { haptic("medium"); handleChapterUpdate(story.currentChapter + 1); }} className="px-2 py-1 text-[10px] rounded bg-primary text-primary-foreground hover:bg-primary/80 active:scale-90 active:bg-primary/70 font-medium transition-all duration-150">+1</button>
-                    </div>
-                  </div>
-                )}
-                <div
-                  className="absolute bottom-full left-0 mb-2 w-max max-w-[200px] p-2 rounded-lg bg-black/90 border border-border shadow-xl text-[10px] text-muted-foreground opacity-0 group-hover/chapter:opacity-100 transition-opacity pointer-events-none z-50"
-                  onTouchStart={() => { if (!editingChapter) setTimeout(() => setChapterTooltip(true), 500); }}
-                  onTouchEnd={() => setChapterTooltip(false)}
-                >
-                  <p className="font-bold text-foreground mb-0.5">Current Progress</p>
-                  <p>Chapter {story.currentChapter}</p>
-                  <p className="mt-0.5 text-primary">Updated: {format(new Date(story.chapterUpdatedAt), "MMM d, yyyy")}</p>
-                </div>
-                {chapterTooltip && !editingChapter && (
-                  <div className="absolute bottom-full left-0 mb-2 w-max max-w-[200px] p-2 rounded-lg bg-popover border border-border shadow-xl text-[10px] text-muted-foreground z-50 animate-in fade-in slide-in-from-bottom-1">
-                    <p className="font-bold text-foreground mb-0.5">Current Progress</p>
-                    <p>Chapter {story.currentChapter}</p>
-                    <p className="mt-0.5 text-primary">Updated: {format(new Date(story.chapterUpdatedAt), "MMM d, yyyy")}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Prediction bar */}
-            {prediction.confidence !== "insufficient" && (
-              <div className={`mt-2 rounded-lg px-3 py-2.5 border flex items-start gap-2.5 ${
-                prediction.daysUntil !== null && prediction.daysUntil <= 1 ? "bg-emerald-500/10 border-emerald-500/30"
-                : prediction.daysUntil !== null && prediction.daysUntil < 0 ? "bg-orange-500/10 border-orange-500/30"
-                : "bg-secondary/80 border-border"
-              }`}>
-                <Zap className={`w-4 h-4 mt-0.5 shrink-0 ${
-                  prediction.daysUntil !== null && prediction.daysUntil <= 1 ? "text-emerald-400"
-                  : prediction.daysUntil !== null && prediction.daysUntil < 0 ? "text-orange-400"
-                  : "text-primary"
-                }`}/>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-foreground">{prediction.message}</p>
-                  {prediction.avgDays !== null && (
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <div className="flex-1 bg-border rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${prediction.progressPct >= 100 ? "bg-orange-400" : prediction.progressPct >= 75 ? "bg-emerald-400" : "bg-primary"}`}
-                          style={{ width: `${Math.min(prediction.progressPct, 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-[10px] text-muted-foreground shrink-0">{prediction.progressPct}%</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${
-                        prediction.confidence === "high"   ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                        : prediction.confidence === "medium" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
-                        : "bg-gray-500/10 text-gray-400 border-gray-500/20"
-                      }`}>{prediction.confidence}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div className="pt-3 space-y-4">
-              {/* Mobile quick actions */}
-              <div className="grid grid-cols-3 gap-3 sm:hidden">
-                <button onClick={() => setBookmarkDialog(true)} className="flex flex-col items-center p-3 rounded-xl bg-card border border-border hover:bg-muted active:scale-95 transition-all shadow-sm">
-                  <Bookmark size={20} className={`mb-2 ${story.bookmarks.length > 0 ? "fill-primary text-primary" : "text-primary"}`}/>
-                  <span className="text-[11px] font-semibold text-foreground">Bookmark</span>
-                  <span className="text-[9px] text-muted-foreground">{story.bookmarks.length} saved</span>
-                </button>
-                <button onClick={() => setNotesDialog(true)} className="flex flex-col items-center p-3 rounded-xl bg-card border border-border hover:bg-muted active:scale-95 transition-all shadow-sm">
-                  <FileText size={20} className="text-blue-500 mb-2"/>
-                  <span className="text-[11px] font-semibold text-foreground">Notes</span>
-                  <span className="text-[9px] text-muted-foreground">{story.notes?.length || 0} notes</span>
-                </button>
-                <button onClick={handleOpenListsDialog} className="flex flex-col items-center p-3 rounded-xl bg-card border border-border hover:bg-muted active:scale-95 transition-all shadow-sm">
-                  <List size={20} className="text-purple-500 mb-2"/>
-                  <span className="text-[11px] font-semibold text-foreground">Lists</span>
-                  <span className="text-[9px] text-muted-foreground">{story.lists.length} lists</span>
-                </button>
-              </div>
-
-              {/* Desktop actions */}
-              <div className="hidden sm:grid grid-cols-5 gap-3 pb-1">
-                {[
-                  { icon: <Star size={20} className={`mb-2 ${story.rating > 0 ? "fill-amber-500 text-amber-500" : "text-amber-500"}`}/>, label: "Rating", sub: `${story.rating || "—"}/10`, action: () => setRatingDialog(true) },
-                  { icon: <div className="w-5 h-5 rounded-full flex items-center justify-center mb-2" style={{ backgroundColor: dotColor }}><div className="w-1.5 h-1.5 rounded-full bg-white"/></div>, label: "Status", sub: currentStatus?.label || "Set", action: () => setStatusDialog(true) },
-                  { icon: <Bookmark size={20} className={`mb-2 ${story.bookmarks.length > 0 ? "fill-primary text-primary" : "text-primary"}`}/>, label: "Bookmark", sub: `${story.bookmarks.length} saved`, action: () => setBookmarkDialog(true) },
-                  { icon: <FileText size={20} className="text-blue-500 mb-2"/>, label: "Notes", sub: `${story.notes?.length || 0} notes`, action: () => setNotesDialog(true) },
-                  { icon: <List size={20} className="text-purple-500 mb-2"/>, label: "Lists", sub: `${story.lists.length} lists`, action: handleOpenListsDialog },
-                ].map(btn => (
-                  <button key={btn.label} onClick={btn.action} className="flex flex-col items-center p-3 rounded-xl bg-card border border-border hover:bg-muted active:scale-95 transition-all shadow-sm">
-                    {btn.icon}
-                    <span className="text-[11px] font-semibold text-foreground">{btn.label}</span>
-                    <span className="text-[9px] text-muted-foreground">{btn.sub}</span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Genre + Demographic + More */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 mt-2">
-                {/* Genre — desktop */}
-                <div className="hidden sm:flex flex-1 flex-wrap items-center gap-1.5 mr-4 min-w-0">
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-wider mr-1 shrink-0">Genre</span>
-                  {story.genres && story.genres.length > 0 ? (
-                    <>
-                      {(genreExpanded ? story.genres : story.genres.slice(0, 5)).map((g: string) => (
-                        <span key={g} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-secondary/80 text-foreground border border-border/50 whitespace-nowrap">{g}</span>
-                      ))}
-                      {story.genres.length > 5 && (
-                        <button onClick={() => setGenreExpanded(v => !v)} className="text-[10px] text-muted-foreground hover:text-foreground border border-border rounded-full px-2 py-0.5 transition-colors">
-                          {genreExpanded ? "Show less" : `+${story.genres.length - 5} more`}
-                        </button>
-                      )}
-                      <button onClick={() => setGenrePickerOpen(true)} className="text-[10px] text-primary hover:text-primary/80 font-medium flex items-center gap-0.5 ml-1 transition-colors">
-                        <Plus size={10}/> Edit
-                      </button>
-                    </>
-                  ) : (
-                    <button onClick={() => setGenrePickerOpen(true)} className="text-[10px] text-muted-foreground hover:text-foreground italic flex items-center gap-0.5">
-                      <Plus size={10}/> Add Genres
-                    </button>
-                  )}
-                </div>
-
-                {/* Demographic + More */}
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end mr-2.5">
-                  <div className="relative group/demog">
-                    <button
-                      onClick={() => {
-                        const list = ["Josei", "Seinen", "Shoujo", "Shounen", "Unknown"];
-                        const nextIndex = (list.indexOf(story.demographic || "") + 1) % list.length;
-                        updateStory(story.id, { demographic: list[nextIndex] });
-                      }}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-foreground text-xs font-semibold transition-colors border shadow-sm ${story.demographic ? `${DEMOGRAPHIC_INFO[story.demographic]} border-current/50` : "bg-secondary hover:bg-secondary/80 border-border text-muted-foreground"}`}
-                    >
-                      <span className={story.demographic ? "text-current" : "text-muted-foreground"}>
-                        {DEMOGRAPHIC_ICONS[story.demographic || "Unknown"] || <HelpCircle className="w-3.5 h-3.5"/>}
-                      </span>
-                      <span className="whitespace-nowrap">{story.demographic || "Unknown"}</span>
-                    </button>
-                    <div className="absolute top-full right-0 mt-2 w-max px-2 py-1 bg-popover border border-border rounded shadow-xl text-[10px] text-muted-foreground opacity-0 group-hover/demog:opacity-100 pointer-events-none transition-opacity z-50">
-                      Click to cycle audience
-                    </div>
-                  </div>
-
-                  <Dialog open={moreDialog} onOpenChange={setMoreDialog}>
-                    <DialogTrigger asChild>
-                      <button className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary hover:bg-secondary/80 text-foreground text-xs font-semibold transition-colors border border-border">
-                        <MoreHorizontal size={14}/>
-                        <span className="hidden sm:inline">More Options</span>
-                        <span className="sm:hidden text-[12px]">More Options</span>
-                      </button>
-                    </DialogTrigger>
-                    <DialogContent className="w-[92vw] max-w-sm sm:max-w-lg p-6">
-                      <DialogHeader><DialogTitle>More Options</DialogTitle></DialogHeader>
-                      <div className="grid gap-2 pb-4 border-b border-border">
-                        <button onClick={() => { setMoreDialog(false); setRatingDialog(true); }} className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary text-left transition-colors md:hidden">
-                          <div className="p-1.5 rounded bg-secondary/50"><Star className="w-4 h-4 text-amber-500"/></div>
-                          <div className="flex-1"><p className="text-sm font-medium text-foreground">Change Rating</p><p className="text-[10px] text-muted-foreground">Current: {story.rating || "—"}/10</p></div>
-                        </button>
-                        <button onClick={() => { setMoreDialog(false); setStatusDialog(true); }} className="flex sm:hidden items-center gap-3 p-3 rounded-lg hover:bg-secondary text-left transition-colors">
-                          <div className="p-1.5 rounded bg-secondary/50"><div className="w-4 h-4 rounded-full" style={{ backgroundColor: dotColor }}/></div>
-                          <div className="flex-1"><p className="text-sm font-medium text-foreground">Change Status</p><p className="text-[10px] text-muted-foreground">{currentStatus?.label || "Not set"}</p></div>
-                        </button>
-                        <button onClick={() => { setMoreDialog(false); handleOpenHistory(); setHistoryDialog(true); }} className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary text-left transition-colors">
-                          <div className="p-1.5 rounded bg-secondary/50"><History className="w-4 h-4 text-foreground"/></div>
-                          <div className="flex-1"><p className="text-sm font-medium text-foreground">Version History</p><p className="text-[10px] text-muted-foreground">View history change</p></div>
-                        </button>
-                        <button onClick={() => { setMoreDialog(false); handleOpenRelated(); setRelatedDialog(true); }} className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary text-left transition-colors">
-                          <div className="p-1.5 rounded bg-secondary/50"><GitBranch className="w-4 h-4 text-foreground"/></div>
-                          <div className="flex-1"><p className="text-sm font-medium text-foreground">Related Stories</p><p className="text-[10px] text-muted-foreground">Prequel, Sequel, dll.</p></div>
-                        </button>
-                      {/* Tombol Hidden Vault */}
-                        <button 
-                          onClick={() => { 
-                            setMoreDialog(false); 
-                            
-                            if (story.hidden) {                              
-                              updateStory(story.id, { 
-                                hidden: false,
-                                lists: [] 
-                              });
-                            } else {                              
-                              updateStory(story.id, { 
-                                hidden: true,
-                                lists: ["Uncategorized"] 
-                              });
-                            }
-                          }} 
-                          className="flex items-center gap-3 p-3 rounded-lg hover:bg-secondary text-left transition-colors"
-                        >
-                          <div className="p-1.5 rounded bg-secondary/50">
-                            {story.hidden 
-                              ? <Eye className="w-4 h-4 text-foreground"/>
-                              : <EyeOff className="w-4 h-4 text-foreground"/>
-                            }
-                          </div>
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-foreground">
-                              {story.hidden ? "Show in Library" : "Hide from Library"}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground">
-                              {story.hidden ? "Story will reappear in library" : "Move to Hidden Vault"}
-                            </p>
-                          </div>
-                        </button>
-                        <button onClick={() => { setMoreDialog(false); setDeleteStoryDialog(true); }} className="flex items-center gap-3 p-3 rounded-lg hover:bg-destructive/10 text-left transition-colors">
-                          <div className="p-1.5 rounded bg-destructive/10"><Trash2 className="w-4 h-4 text-destructive"/></div>
-                          <div className="flex-1"><p className="text-sm font-medium text-destructive">Delete Story</p><p className="text-[10px] text-muted-foreground">Delete permanently, cannot be undone</p></div>
-                        </button>
-                      </div>
-                      <div className="pt-4 flex flex-col items-end">
-                        <span className="text-xs italic text-muted-foreground text-right">Story #{currentIndex + 1} of {allStories.length}</span>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </div>
-            </div>
+            {/* Right column */}
+            <RightPanel
+              story={story}
+              ctaPreference={ctaPreference}
+              trackedSourceIds={trackedSourceIds}
+              linkStatuses={linkStatuses}
+              sourcesKey={sourcesKey}
+              editSrcId={editSrcId}
+              editSrcName={editSrcName}
+              editSrcUrl={editSrcUrl}
+              editSrcChapter={editSrcChapter}
+              editSrcLang={editSrcLang}
+              srcName={srcName}
+              srcUrl={srcUrl}
+              srcChapter={srcChapter}
+              srcLang={srcLang}
+              srcNameSuggestion={srcNameSuggestion}
+              mediaUrl={mediaUrl}
+              mediaLabel={mediaLabel}
+              mediaLightbox={mediaLightbox}
+              editingMediaLabel={editingMediaLabel}
+              sourceDialog={sourceDialog}
+              addSourceDialog={addSourceDialog}
+              mediaDialog={mediaDialog}
+              mediaFileRef={mediaFileRef}
+              stories={stories}
+              setEditSrcId={setEditSrcId}
+              setEditSrcName={setEditSrcName}
+              setEditSrcUrl={setEditSrcUrl}
+              setEditSrcChapter={setEditSrcChapter}
+              setEditSrcLang={setEditSrcLang}
+              setSrcName={setSrcName}
+              setSrcUrl={setSrcUrl}
+              setSrcChapter={setSrcChapter}
+              setSrcLang={setSrcLang}
+              setSrcNameSuggestion={setSrcNameSuggestion}
+              setMediaUrl={setMediaUrl}
+              setMediaLabel={setMediaLabel}
+              setMediaLightbox={setMediaLightbox}
+              setEditingMediaLabel={setEditingMediaLabel}
+              setSourceDialog={setSourceDialog}
+              setAddSourceDialog={setAddSourceDialog}
+              setMediaDialog={setMediaDialog}
+              setSourcesKey={setSourcesKey}
+              updateStory={updateStory}
+              addSource={addSource}
+              removeSource={removeSource}
+              addMedia={addMedia}
+              removeMedia={removeMedia}
+              toggleTracked={toggleTracked}
+              handleSaveSourceEdit={handleSaveSourceEdit}
+              handleSaveMediaLabel={handleSaveMediaLabel}
+              handleMediaFileUpload={handleMediaFileUpload}
+              checkLink={checkLink}
+              getBadgeStyles={getBadgeStyles}
+            />
           </div>
         </div>
-      </div>
 
-      {/* ═══ DIALOGS ═══════════════════════════════════════════════════════════ */}
+        {/* Notes / Timeline */}
+        <NotesTimeline
+          story={story}
+          activeTab={activeTab}
+          handleTabChange={handleTabChange}
+          arcs={arcs}
+          setNotesDialog={setNotesDialog}
+          setEditingNote={setEditingNote}
+          setNoteContent={setNoteContent}
+          setDeleteNoteId={setDeleteNoteId}
+          handleOpenArcDialog={handleOpenArcDialog}
+          handleMoveArc={handleMoveArc}
+          setDeleteArcId={setDeleteArcId}
+        />
+      </main>
+
+      {/* ═══ SHARED DIALOGS ══════════════════════════════════════════════════ */}
 
       {/* Rating */}
       <Dialog open={ratingDialog} onOpenChange={setRatingDialog}>
@@ -1240,10 +819,10 @@ export default function StoryDetail() {
               </button>
             ))}
           </div>
-          <DialogFooter className="flex-col sm:flex-col gap-2">
+          <div className="flex-col sm:flex-col gap-2">
             {story.rating > 0 && <p className="text-xs text-center text-muted-foreground">Your rating: <span className="font-bold text-amber-500">{story.rating}/10</span></p>}
             <Button variant="ghost" size="sm" onClick={() => { updateStory(story.id, { rating: 0 }); setRatingDialog(false); }} className="w-full text-destructive hover:text-destructive hover:bg-destructive/10">Clear Rating</Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -1255,10 +834,10 @@ export default function StoryDetail() {
             {STATUS_OPTIONS.map(s => (
               <button key={s.value} onClick={() => { haptic("light"); handleStatusChange(s.value); }}
                 className={`relative overflow-hidden group flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200 ${story.status === s.value ? "border-primary bg-primary/5 scale-105 shadow-lg" : "border-border bg-card hover:border-primary/50 hover:bg-secondary"}`}>
-                {story.status === s.value && <div className="absolute inset-0 bg-primary/5 blur-xl -z-10"/>}
-                <span className="w-8 h-8 rounded-full shadow-inner mb-2 ring-2 ring-background transition-transform group-hover:scale-110" style={{ backgroundColor: s.color }}/>
+                {story.status === s.value && <div className="absolute inset-0 bg-primary/5 blur-xl -z-10" />}
+                <span className="w-8 h-8 rounded-full shadow-inner mb-2 ring-2 ring-background transition-transform group-hover:scale-110" style={{ backgroundColor: s.color }} />
                 <span className={`font-bold text-sm tracking-wide ${story.status === s.value ? "text-primary" : "text-foreground"}`}>{s.label}</span>
-                {story.status === s.value && <div className="absolute top-2 right-2 text-primary"><CheckCircle2 size={16} className="fill-current"/></div>}
+                {story.status === s.value && <div className="absolute top-2 right-2 text-primary"><CheckCircle2 size={16} className="fill-current" /></div>}
               </button>
             ))}
           </div>
@@ -1270,8 +849,8 @@ export default function StoryDetail() {
         <DialogContent className="w-[92vw] max-w-sm mx-auto rounded-2xl">
           <DialogHeader><DialogTitle>Add Bookmark</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <Input value={bmChapter} onChange={e => setBmChapter(e.target.value)} placeholder="Chapter number" type="number" step="0.1"/>
-            <Input value={bmNote}    onChange={e => setBmNote(e.target.value)}    placeholder="Short note (optional)"/>
+            <Input value={bmChapter} onChange={e => setBmChapter(e.target.value)} placeholder="Chapter number" type="number" step="0.1" />
+            <Input value={bmNote}    onChange={e => setBmNote(e.target.value)}    placeholder="Short note (optional)" />
           </div>
           <DialogFooter>
             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
@@ -1291,7 +870,7 @@ export default function StoryDetail() {
             <DialogTitle>{editingNote ? "Edit Note" : "Write a Note"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto min-h-0">
-            <RichTextEditor content={noteContent} onChange={(val) => { setNoteContent(val); noteContentRef.current = val; }} placeholder="Write your notes here..."/>
+            <RichTextEditor content={noteContent} onChange={(val) => { setNoteContent(val); noteContentRef.current = val; }} placeholder="Write your notes here..." />
           </div>
           <DialogFooter className="shrink-0 pt-2">
             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
@@ -1303,80 +882,51 @@ export default function StoryDetail() {
       {/* Lists */}
       <Dialog open={listsDialog} onOpenChange={setListsDialog}>
         <DialogContent className="w-[92vw] max-w-sm p-0 overflow-hidden gap-0 mx-auto rounded-2xl">
-          {/* Header */}
           <div className="px-5 pt-5 pb-4 border-b border-border">
             <DialogTitle className="text-base font-bold text-foreground">Add to List</DialogTitle>
             <p className="text-xs text-muted-foreground mt-0.5">Organise this story into your collections</p>
           </div>
-
-          {/* List items */}
           <div className="px-3 py-3 space-y-0.5 max-h-60 overflow-y-auto">
             {customLists.length > 0 ? (
               customLists.map((list: any) => {
                 const isIn = story.lists?.includes(list.id) || false;
                 return (
-                  <label
-                    key={list.id}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all border ${isIn ? "bg-primary/8 border-primary/25" : "border-transparent hover:bg-secondary/60 hover:border-border/60"}`}
-                  >
-                    {/* Custom checkbox */}
+                  <label key={list.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all border ${isIn ? "bg-primary/8 border-primary/25" : "border-transparent hover:bg-secondary/60 hover:border-border/60"}`}>
                     <div className="relative shrink-0">
-                      <input
-                        type="checkbox"
-                        checked={isIn}
-                        onChange={() => {
-                          if (isIn) {
-                            removeListFromStory(story.id, list.id);
-                          } else {
-                            addListToStory(story.id, list.id);
-                          }
-                          setTimeout(() => {
-                            const lists = safeGet<any[]>("my_reading_lists", []);
-                            setCustomLists(lists.filter(l => story.hidden ? l.isHidden : !l.isHidden));
-                          }, 50);
-                        }}
-                        className="sr-only"
-                      />
+                      <input type="checkbox" checked={isIn} onChange={() => {
+                        if (isIn) { removeListFromStory(story.id, list.id); }
+                        else { addListToStory(story.id, list.id); }
+                        setTimeout(() => {
+                          const lists = safeGet<any[]>("my_reading_lists", []);
+                          setCustomLists(lists.filter(l => story.hidden ? l.isHidden : !l.isHidden));
+                        }, 50);
+                      }} className="sr-only" />
                       <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isIn ? "border-primary bg-primary shadow-sm shadow-primary/30" : "border-border bg-secondary"}`}>
                         {isIn && (
                           <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
-                            <path d="M1 4L4 7L10 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M1 4L4 7L10 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         )}
                       </div>
                     </div>
-
-                    {/* Color dot + name */}
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div
-                        className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/10"
-                        style={{ backgroundColor: list.color || "#6b7280" }}
-                      />
-                      <span className={`text-sm font-medium truncate ${isIn ? "text-foreground" : "text-foreground/80"}`}>
-                        {list.name}
-                      </span>
+                      <div className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/10" style={{ backgroundColor: list.color || "#6b7280" }} />
+                      <span className={`text-sm font-medium truncate ${isIn ? "text-foreground" : "text-foreground/80"}`}>{list.name}</span>
                     </div>
-
-                    {isIn && (
-                      <span className="text-[10px] font-bold text-primary shrink-0 bg-primary/10 px-1.5 py-0.5 rounded-full">
-                        Added
-                      </span>
-                    )}
+                    {isIn && <span className="text-[10px] font-bold text-primary shrink-0 bg-primary/10 px-1.5 py-0.5 rounded-full">Added</span>}
                   </label>
                 );
               })
             ) : (
               <div className="py-8 text-center">
                 <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center mx-auto mb-2">
-                  <List className="w-5 h-5 text-muted-foreground/40"/>
+                  <X className="w-5 h-5 text-muted-foreground/40" />
                 </div>
                 <p className="text-sm text-muted-foreground font-medium">No lists yet</p>
                 <p className="text-xs text-muted-foreground/60 mt-0.5">Create one below</p>
               </div>
             )}
           </div>
-
-          {/* Create new list */}
           <div className="px-4 py-3.5 border-t border-border bg-secondary/30">
             <p className="text-[10px] text-muted-foreground mb-2 font-semibold uppercase tracking-wider">Quick Create</p>
             <div className="flex gap-2">
@@ -1387,29 +937,15 @@ export default function StoryDetail() {
                 className="bg-card text-sm h-9 flex-1"
                 onKeyDown={e => {
                   if (e.key === "Enter" && newListName.trim()) {
-                  const newId = Date.now().toString();
-
-                  const isInHiddenList = story.hidden === true;
-
-                  const newList = {
-                    id: newId,
-                    name: newListName.trim(),
-                    description: "",
-                    status: "Custom",
-                    stories: [],
-                    color: "#3b82f6",
-                    isHidden: isInHiddenList,
-                  };
+                    const newId = Date.now().toString();
+                    const newList = { id: newId, name: newListName.trim(), description: "", status: "Custom", stories: [], color: "#3b82f6", isHidden: story.hidden === true };
                     const existing = safeGet<any[]>("my_reading_lists", []);
                     const updated = [...existing, newList];
                     localStorage.setItem("my_reading_lists", JSON.stringify(updated));
                     import("@/integrations/supabase/client").then(({ supabase }) => {
                       supabase.auth.getUser().then(({ data }) => {
                         if (data.user) {
-                          supabase.from("lists").upsert(
-                            { id: newId, user_id: data.user.id, name: newListName.trim(), color: "#3b82f6", status: "Custom", description: "" },
-                            { onConflict: "id" }
-                          );
+                          supabase.from("lists").upsert({ id: newId, user_id: data.user.id, name: newListName.trim(), color: "#3b82f6", status: "Custom", description: "" }, { onConflict: "id" });
                         }
                       });
                     });
@@ -1419,34 +955,18 @@ export default function StoryDetail() {
                   }
                 }}
               />
-              <Button
-                size="sm"
-                className="h-9 px-3 shrink-0"
-                onClick={() => {
-                  if (!newListName.trim()) return;
-
-                  const newId = Date.now().toString();
-
-                  const isInHiddenList = story.hidden === true;
-
-                  const newList = {
-                    id: newId,
-                    name: newListName.trim(),
-                    description: "",
-                    status: "Custom",
-                    stories: [],
-                    color: "#3b82f6",
-                    isHidden: isInHiddenList,
-                  };
-                  const existing = safeGet<any[]>("my_reading_lists", []);
-                  const updated = [...existing, newList];
-                  localStorage.setItem("my_reading_lists", JSON.stringify(updated));
-                  setCustomLists(updated);
-                  addListToStory(story.id, newId);
-                  setNewListName("");
-                }}
-              >
-                <Plus className="w-3.5 h-3.5"/>
+              <Button size="sm" className="h-9 px-3 shrink-0" onClick={() => {
+                if (!newListName.trim()) return;
+                const newId = Date.now().toString();
+                const newList = { id: newId, name: newListName.trim(), description: "", status: "Custom", stories: [], color: "#3b82f6", isHidden: story.hidden === true };
+                const existing = safeGet<any[]>("my_reading_lists", []);
+                const updated = [...existing, newList];
+                localStorage.setItem("my_reading_lists", JSON.stringify(updated));
+                setCustomLists(updated);
+                addListToStory(story.id, newId);
+                setNewListName("");
+              }}>
+                <Plus className="w-3.5 h-3.5" />
               </Button>
             </div>
           </div>
@@ -1457,24 +977,24 @@ export default function StoryDetail() {
       <Dialog open={historyDialog} onOpenChange={setHistoryDialog}>
         <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
           <DialogHeader><DialogTitle>Version History</DialogTitle></DialogHeader>
-          {historyEntries.length > 0
-            ? <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-                {historyEntries.map(entry => (
-                  <div key={entry.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-foreground">{entry.label}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        <span className="line-through opacity-60">{entry.oldValue || "—"}</span>
-                        <span className="mx-1">→</span>
-                        <span className="text-primary">{entry.newValue}</span>
-                      </p>
-                      <p className="text-[10px] text-muted-foreground/60 mt-0.5">{format(new Date(entry.createdAt), "MMM d, yyyy HH:mm")}</p>
-                    </div>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10" onClick={() => handleUndoHistory(entry, story)}>Undo</Button>
+          {historyEntries.length > 0 ? (
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+              {historyEntries.map(entry => (
+                <div key={entry.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-foreground">{entry.label}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      <span className="line-through opacity-60">{entry.oldValue || "—"}</span>
+                      <span className="mx-1">→</span>
+                      <span className="text-primary">{entry.newValue}</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">{format(new Date(entry.createdAt), "MMM d, yyyy HH:mm")}</p>
                   </div>
-                ))}
-              </div>
-            : <p className="text-sm text-muted-foreground italic py-4 text-center">No history yet.</p>}
+                  <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10" onClick={() => handleUndoHistory(entry, story)}>Undo</Button>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground italic py-4 text-center">No history yet.</p>}
           {historyEntries.length > 0 && (
             <DialogFooter><Button variant="ghost" size="sm" onClick={clearHistory}>Clear History</Button></DialogFooter>
           )}
@@ -1485,1031 +1005,261 @@ export default function StoryDetail() {
       <Dialog open={relatedDialog} onOpenChange={setRelatedDialog}>
         <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
           <DialogHeader><DialogTitle>Related Stories</DialogTitle></DialogHeader>
-          {relations.length > 0
-            ? <div className="space-y-2 mb-4 max-h-56 overflow-y-auto pr-1">
-                {relations.map(rel => (
-                  <div key={rel.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${REL_COLORS[rel.type]}`}>{REL_LABELS[rel.type]}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${rel.mode === "local" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-orange-500/10 text-orange-400 border-orange-500/20"}`}>
-                          {rel.mode === "local" ? <><Database className="w-3 h-3 inline mr-0.5"/>Local</> : <><Globe className="w-3 h-3 inline mr-0.5"/>Mention</>}
-                        </span>
-                      </div>
-                      {rel.mode === "local" && rel.relatedStoryId
-                        ? <Link to={`/story/${rel.relatedStoryId}`} className="text-sm font-medium text-primary hover:underline truncate block">{rel.relatedTitle}</Link>
-                        : rel.mode === "mention" && rel.relatedUrl
-                        ? <a href={rel.relatedUrl} target="_blank" rel="noopener" className="text-sm font-medium text-primary hover:underline truncate block">{rel.relatedTitle}</a>
-                        : <p className="text-sm font-medium text-foreground truncate">{rel.relatedTitle}</p>}
+          {relations.length > 0 ? (
+            <div className="space-y-2 mb-4 max-h-56 overflow-y-auto pr-1">
+              {relations.map(rel => (
+                <div key={rel.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                     <span
+                      className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${(REL_COLORS as any)[rel.type]}`}
+                    >
+                      {(REL_LABELS as any)[rel.type]}
+                    </span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${rel.mode === "local" ? "bg-blue-500/10 text-blue-400 border-blue-500/20" : "bg-orange-500/10 text-orange-400 border-orange-500/20"}`}>
+                        {rel.mode === "local" ? <><Database className="w-3 h-3 inline mr-0.5" />Local</> : <><Globe className="w-3 h-3 inline mr-0.5" />Mention</>}
+                      </span>
                     </div>
-                    <button onClick={() => handleRemoveRelation(rel.id)} className="text-destructive hover:text-destructive/80 shrink-0"><X className="w-3.5 h-3.5"/></button>
+                    {rel.mode === "local" && rel.relatedStoryId
+                      ? <Link to={`/story/${rel.relatedStoryId}`} className="text-sm font-medium text-primary hover:underline truncate block">{rel.relatedTitle}</Link>
+                      : rel.mode === "mention" && rel.relatedUrl
+                      ? <a href={rel.relatedUrl} target="_blank" rel="noopener" className="text-sm font-medium text-primary hover:underline truncate block">{rel.relatedTitle}</a>
+                      : <p className="text-sm font-medium text-foreground truncate">{rel.relatedTitle}</p>}
                   </div>
-                ))}
-              </div>
-            : <p className="text-sm text-muted-foreground italic mb-4">No related stories yet.</p>}
+                  <button onClick={() => handleRemoveRelation(rel.id)} className="text-destructive hover:text-destructive/80 shrink-0"><X className="w-3.5 h-3.5" /></button>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-sm text-muted-foreground italic mb-4">No related stories yet.</p>}
           <div className="border-t border-border pt-5 mt-4 space-y-3">
             <span className="text-xs text-muted-foreground font-semibold block">Add Related Story</span>
             <div className="flex gap-1">
               {(["local", "mention"] as const).map(m => (
                 <button key={m} onClick={() => setNewRelMode(m)}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs rounded-lg border transition-colors ${newRelMode === m ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-secondary-foreground border-border"}`}>
-                  {m === "local" ? <><Database className="w-3.5 h-3.5"/>Local DB</> : <><Globe className="w-3.5 h-3.5"/>Mention + Link</>}
+                  {m === "local" ? <><Database className="w-3.5 h-3.5" />Local DB</> : <><Globe className="w-3.5 h-3.5" />Mention + Link</>}
                 </button>
               ))}
             </div>
             <div className="relative">
-              <Input value={newRelTitle} onChange={e => handleRelTitleInput(e.target.value)} placeholder={newRelMode === "local" ? "Search title in library..." : "Story title"} className="bg-card text-sm"/>
+              <Input value={newRelTitle} onChange={e => handleRelTitleInput(e.target.value)} placeholder={newRelMode === "local" ? "Search title in library..." : "Story title"} className="bg-card text-sm" />
               {newRelMode === "local" && relSuggestions.length > 0 && (
                 <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">
                   {relSuggestions.map(s => (
                     <button key={s.id} onClick={() => { setNewRelStoryId(s.id); handleRelTitleInput(s.title); }} className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors flex items-center gap-2">
-                      <BookOpen className="w-3.5 h-3.5 text-primary shrink-0"/>
+                      <BookOpen className="w-3.5 h-3.5 text-primary shrink-0" />
                       <span className="truncate">{s.title}</span>
                     </button>
                   ))}
                 </div>
               )}
             </div>
-            {newRelMode === "mention" && <Input value={newRelUrl} onChange={e => setNewRelUrl(e.target.value)} placeholder="URL / hyperlink (optional)" className="bg-card text-sm"/>}
+            {newRelMode === "mention" && <Input value={newRelUrl} onChange={e => setNewRelUrl(e.target.value)} placeholder="URL / hyperlink (optional)" className="bg-card text-sm" />}
             <div className="flex gap-2">
-              <select 
-                value={newRelType}   
-                onChange={e => setNewRelType(e.target.value as any)} 
-                className="flex-1 h-9 rounded-md border border-border bg-card text-sm px-3 text-foreground"
-              >
+              <select value={newRelType} onChange={e => setNewRelType(e.target.value as any)} className="flex-1 h-9 rounded-md border border-border bg-card text-sm px-3 text-foreground">
                 <option value="prequel">Prequel</option>
                 <option value="sequel">Sequel</option>
                 <option value="spin-off">Spin-off</option>
                 <option value="related">Related</option>
               </select>
-              <Button size="sm" onClick={handleAddRelation} disabled={!newRelTitle.trim()}><Plus className="w-3.5 h-3.5 mr-1"/>Add</Button>
+              <Button size="sm" onClick={handleAddRelation} disabled={!newRelTitle.trim()}><Plus className="w-3.5 h-3.5 mr-1" />Add</Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Bookmark confirm */}
-      <Dialog open={!!deleteBookmarkId} onOpenChange={(open) => { if (!open) setDeleteBookmarkId(null); }}>
-        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out">    
-          <div className="p-6 flex flex-col items-center text-center">      
+      {/* Delete Bookmark */}
+      <Dialog open={!!deleteBookmarkId} onOpenChange={open => { if (!open) setDeleteBookmarkId(null); }}>
+        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl">
+          <div className="p-6 flex flex-col items-center text-center">
             <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
               <Bookmark className="w-7 h-7 text-primary" />
-            </div>      
-            <DialogTitle className="text-xl font-bold text-foreground">
-              Delete bookmark?
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-              This bookmark will be permanently deleted.
-            </p>
+            </div>
+            <DialogTitle className="text-xl font-bold text-foreground">Delete bookmark?</DialogTitle>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">This bookmark will be permanently deleted.</p>
             <div className="flex w-full gap-3 mt-6">
-              <Button
-                variant="secondary"
-                className="flex-1 rounded-xl h-11"
-                onClick={() => setDeleteBookmarkId(null)}
-              >
-                Cancel
-              </Button>
-
-              <Button
-                className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 text-white"
-                onClick={() => {
-                  if (deleteBookmarkId) {
-                    removeBookmark(story.id, deleteBookmarkId);
-                    setDeleteBookmarkId(null);
-                  }
-                }}
-              >
-                Delete
-              </Button>
+              <Button variant="secondary" className="flex-1 rounded-xl h-11" onClick={() => setDeleteBookmarkId(null)}>Cancel</Button>
+              <Button className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 text-white" onClick={() => {
+                if (deleteBookmarkId) { removeBookmark(story.id, deleteBookmarkId); setDeleteBookmarkId(null); }
+              }}>Delete</Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Story confirm */}
+      {/* Delete Story */}
       <Dialog open={deleteStoryDialog} onOpenChange={setDeleteStoryDialog}>
-        <DialogContent className="sm:max-w-[380px] rounded-3xl border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out [&>button]:z-30">
-          <div className="absolute inset-0 bg-gradient-to-br from-destructive/10 via-background to-background pointer-events-none" />          
+        <DialogContent className="sm:max-w-[380px] rounded-3xl border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl [&>button]:z-30">
+          <div className="absolute inset-0 bg-gradient-to-br from-destructive/10 via-background to-background pointer-events-none" />
           <div className="relative z-10 px-6 pt-8 pb-6 flex flex-col items-center text-center">
-            <div className="w-16 h-16 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center mb-5 shadow-lg shadow-destructive/10 animate-in zoom-in-50 fade-in duration-500 delay-100">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center mb-5 shadow-lg shadow-destructive/10">
               <Trash2 className="w-7 h-7 text-destructive" />
             </div>
-            <DialogTitle className="text-2xl font-bold tracking-tight">
-              Delete Story?
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground mt-3 leading-relaxed max-w-[260px]">
-              This will permanently remove
-            </p>
-            <p className="mt-1 text-sm font-semibold text-foreground line-clamp-2 max-w-[260px]">
-              "{story.title}"
-            </p>
+            <DialogTitle className="text-2xl font-bold tracking-tight">Delete Story?</DialogTitle>
+            <p className="text-sm text-muted-foreground mt-3 leading-relaxed max-w-[260px]">This will permanently remove</p>
+            <p className="mt-1 text-sm font-semibold text-foreground line-clamp-2 max-w-[260px]">"{story.title}"</p>
             <div className="mt-5 flex items-center gap-2 px-3 py-1.5 rounded-full bg-destructive/10 border border-destructive/20">
               <AlertCircle className="w-3.5 h-3.5 text-destructive shrink-0" />
-              <span className="text-[11px] font-medium text-destructive">
-                This action cannot be undone
-              </span>
+              <span className="text-[11px] font-medium text-destructive">This action cannot be undone</span>
             </div>
             <DialogFooter className="grid grid-cols-2 gap-3 mt-7 w-full">
-              <Button
-                variant="secondary"
-                className="h-11 rounded-xl text-sm font-medium"
-                onClick={() => setDeleteStoryDialog(false)}
-              >
-                Cancel
-              </Button>
-
-              <Button
-                variant="destructive"
-                className="h-11 rounded-xl text-sm font-semibold shadow-lg shadow-destructive/20 hover:shadow-destructive/40 transition-all"
-                onClick={() => {
-                  deleteStory(story.id);
-                  navigate("/");
-                }}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
+              <Button variant="secondary" className="h-11 rounded-xl text-sm font-medium" onClick={() => setDeleteStoryDialog(false)}>Cancel</Button>
+              <Button variant="destructive" className="h-11 rounded-xl text-sm font-semibold shadow-lg shadow-destructive/20" onClick={() => { deleteStory(story.id); navigate("/"); }}>
+                <Trash2 className="w-4 h-4 mr-2" />Delete
               </Button>
             </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Media lightbox */}
-      <Dialog open={!!mediaLightbox} onOpenChange={open => { if (!open) setMediaLightbox(null); }}>
-        <DialogContent className="max-w-3xl p-0 bg-black/95 border-border overflow-hidden rounded-xl">
-          {mediaLightbox && (
-            <>
-              <img src={mediaLightbox.url} alt={mediaLightbox.label} className="w-full h-auto max-h-[75vh] object-contain"/>
-              <div className="px-4 py-3 bg-black/80 border-t border-white/10 flex items-center gap-2">
-                {editingMediaLabel ? (
-                  <>
-                    <Input value={editingMediaLabel} onChange={e => setEditingMediaLabel(e.target.value)} className="h-7 text-xs bg-card/20 border-white/20 text-white flex-1" onKeyDown={e => { if (e.key === "Enter") handleSaveMediaLabel(); }} autoFocus/>
-                    <Button size="sm" className="h-7 text-xs" onClick={handleSaveMediaLabel}>Save</Button>
-                    <Button size="sm" variant="ghost" className="h-7 text-xs text-white" onClick={() => setEditingMediaLabel("")}>✕</Button>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-sm text-gray-300 flex-1 text-center">{mediaLightbox.label || "—"}</p>
-                    <button onClick={() => setEditingMediaLabel(mediaLightbox.label || "")} className="text-gray-400 hover:text-white transition-colors p-1 rounded">
-                      <Pencil className="w-3.5 h-3.5"/>
-                    </button>
-                  </>
-                )}
-              </div>
-            </>
-          )}
+      {/* Delete Note */}
+      <Dialog open={!!deleteNoteId} onOpenChange={open => { if (!open) setDeleteNoteId(null); }}>
+        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl">
+          <div className="p-6 flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4"><Trash2 className="w-7 h-7 text-red-500" /></div>
+            <DialogTitle className="text-xl font-bold text-foreground">Delete note?</DialogTitle>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">This note will be permanently deleted.</p>
+            <div className="flex w-full gap-3 mt-6">
+              <Button variant="secondary" className="flex-1 rounded-xl h-11" onClick={() => setDeleteNoteId(null)}>Cancel</Button>
+              <Button className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 text-white" onClick={() => {
+                if (deleteNoteId) { removeNote(story.id, deleteNoteId); setDeleteNoteId(null); }
+              }}>Delete</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
-      {/* ═══ MAIN CONTENT ══════════════════════════════════════════════════════ */}
-      <main className="container max-w-7xl mx-auto">
-        <div className="px-4 sm:px-6 mt-12 space-y-6 sm:space-y-0">
-          <div className="flex flex-col lg:flex-row gap-6 sm:gap-6 gap-y-8">
-
-           
-
-            {/* ── Left Column ── */}
-            <div className="flex-1 min-w-0 space-y-8">
-
-              {/* Synopsis */}
-              <div className="rounded-xl bg-card/80 border border-border/60 p-4 space-y-2 border-l-2 border-l-primary/40">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-foreground tracking-wide">Synopsis</span>
-                  <Dialog open={synopsisEditDialog} onOpenChange={setSynopsisEditDialog}>
-                    <DialogTrigger asChild>
-                      <button onClick={() => setSynopsisValue(story.synopsis || "")} className="p-1.5 rounded hover:bg-secondary transition-colors">
-                        <Pencil className="w-3.5 h-3.5 text-muted-foreground"/>
-                      </button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-lg rounded-2xl">
-                      <DialogHeader><DialogTitle>Edit Synopsis</DialogTitle></DialogHeader>
-                      <Textarea value={synopsisValue} onChange={e => setSynopsisValue(e.target.value)} placeholder="Write the synopsis..." className="min-h-[200px] bg-card resize-none" style={{ textAlign: "justify" }}/>
-                      <DialogFooter>
-                        <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                        <Button onClick={() => { updateStory(story.id, { synopsis: synopsisValue }); setSynopsisEditDialog(false); }}>Save</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-                {story.synopsis ? (
-                  <>
-                    {synopsisExpanded
-                      ? <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap" style={{ textAlign: "justify" }}>{story.synopsis}</p>
-                      : <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap" style={{ textAlign: "justify" }}>{synopsisParagraphs[0]?.slice(0, 200)}{hasMoreSynopsis ? "..." : ""}</p>}
-                    {hasMoreSynopsis && (
-                      <div className="flex justify-center pt-1">
-                        <button onClick={() => setSynopsisExpanded(!synopsisExpanded)} className="text-xs text-primary hover:text-primary/80">
-                          {synopsisExpanded ? "See Less" : "See More"}
-                        </button>
-                      </div>
-                    )}
-                  </>
-                ) : <p className="text-sm text-muted-foreground italic">No synopsis yet.</p>}
-              </div>
-
-            {/* Genre — mobile only */}
-            <div className="sm:hidden flex flex-wrap gap-1.5 items-center">
-              <span className="text-[9px] text-muted-foreground uppercase tracking-wider shrink-0">Genre</span>
-              {story.genres && story.genres.length > 0 ? (
-                <>
-                  {(genreExpanded ? story.genres : story.genres.slice(0, 5)).map((g: string) => (
-                    <span key={g} className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-secondary/80 text-foreground border border-border/50 whitespace-nowrap">{g}</span>
-                  ))}
-                  {story.genres.length > 5 && (
-                    <button onClick={() => setGenreExpanded(v => !v)} className="text-[10px] text-muted-foreground hover:text-foreground border border-border rounded-full px-2 py-0.5 transition-colors">
-                      {genreExpanded ? "Show less" : `+${story.genres.length - 5} more`}
-                    </button>
-                  )}
-                  <button onClick={() => setGenrePickerOpen(true)} className="text-[10px] text-primary hover:text-primary/80 font-medium flex items-center gap-0.5 ml-1 transition-colors">
-                    <Plus size={10}/> Edit
-                  </button>
-                </>
-              ) : (
-                <button onClick={() => setGenrePickerOpen(true)} className="text-[10px] text-muted-foreground hover:text-foreground italic flex items-center gap-0.5">
-                  <Plus size={10}/> Add Genres
-                </button>
-              )}
+      {/* Delete Tag */}
+      <Dialog open={!!deleteTagConfirm} onOpenChange={open => { if (!open) setDeleteTagConfirm(null); }}>
+        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl">
+          <div className="p-6 flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4"><Trash2 className="w-7 h-7 text-red-500" /></div>
+            <DialogTitle className="text-xl font-bold text-foreground">Delete tag?</DialogTitle>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">This tag will be permanently deleted.</p>
+            <div className="flex w-full gap-3 mt-6">
+              <Button variant="secondary" className="flex-1 rounded-xl h-11" onClick={() => setDeleteTagConfirm(null)}>Cancel</Button>
+              <Button className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 text-white" onClick={confirmDeleteExistingTag}>Delete</Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-              {/* Inline relations */}
-              {inlineRelations.length > 0 && (
-                <div className="rounded-lg bg-card border border-border p-4 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <GitBranch className="w-4 h-4 text-primary"/>
-                    <span className="text-sm font-semibold text-foreground">Related Stories</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {inlineRelations.map(rel => (
-                      <div key={rel.id} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${REL_COLORS[rel.type]}`}>{REL_LABELS[rel.type]}</span>
-                        {rel.mode === "local" && rel.relatedStoryId
-                          ? <Link to={`/story/${rel.relatedStoryId}`} className="text-sm text-primary hover:underline font-medium">{rel.relatedTitle}</Link>
-                          : rel.mode === "mention" && rel.relatedUrl
-                          ? <a href={rel.relatedUrl} target="_blank" rel="noopener" className="text-sm text-primary hover:underline font-medium">{rel.relatedTitle}</a>
-                          : <span className="text-sm text-foreground font-medium">{rel.relatedTitle}</span>}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+      {/* Delete Arc */}
+      <Dialog open={!!deleteArcId} onOpenChange={open => { if (!open) setDeleteArcId(null); }}>
+        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl">
+          <div className="p-6 flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4"><Trash2 className="w-7 h-7 text-red-500" /></div>
+            <DialogTitle className="text-xl font-bold text-foreground">Delete arc?</DialogTitle>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">This arc will be permanently deleted.</p>
+            <div className="flex w-full gap-3 mt-6">
+              <Button variant="secondary" className="flex-1 rounded-xl h-11" onClick={() => setDeleteArcId(null)}>Cancel</Button>
+              <Button className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 text-white" onClick={() => { if (deleteArcId) handleDeleteArc(deleteArcId); }}>Delete</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-              {/* Tags */}
-              <div className="space-y-2">
+      {/* No Source Alert */}
+      <Dialog open={noSourceDialog} onOpenChange={setNoSourceDialog}>
+        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl">
+          <div className="p-6 flex flex-col items-center text-center">
+            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+              <BookOpen className="w-7 h-7 text-primary" />
+            </div>
+            <DialogTitle className="text-xl font-bold text-foreground">No source yet</DialogTitle>
+            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+              Add a source link first so JejakBaca knows where to send you.
+            </p>
+            <div className="flex w-full gap-3 mt-6">
+              <Button variant="secondary" className="flex-1 rounded-xl h-11" onClick={() => setNoSourceDialog(false)}>
+                Cancel
+              </Button>
+              <Button className="flex-1 rounded-xl h-11" onClick={() => { setNoSourceDialog(false); setAddSourceDialog(true); }}>
+                Add Source
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-                {/* HEADER */}
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-foreground">
-                      Tags
-                    </span>
-
-                    <span className="text-[10px] text-muted-foreground italic">
-                      Personal
-                    </span>
-                  </div>
-
-                  {/* MODES */}
-                  <div className="flex gap-1 ml-auto">
-                    {(["manual", "existing", "suggested"] as const).map(m => (
-                      <button
-                        key={m}
-                        onClick={() => {
-                          setTagMode(m);
-                          setExistingTagSearch("");
-
-                          if (
-                            m === "suggested" &&
-                            suggestedTags.length === 0 &&
-                            !suggestedLoading
-                          ) {
-                            handleSuggestTags();
-                          }
-                        }}
-                        className={`px-2 py-0.5 text-[10px] rounded-full flex items-center gap-1 transition-colors ${
-                          tagMode === m
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-secondary text-secondary-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {m === "suggested" && (
-                          <Sparkles className="w-3 h-3" />
-                        )}
-
-                        {m === "manual"
-                          ? "Manual"
-                          : m === "existing"
-                          ? "Existing"
-                          : "Suggested"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* CURRENT TAGS */}
-                <div className="flex flex-wrap gap-1.5">
-                  {(story.tags || []).map((tag: string) => (
-                    <button
-                      key={tag}
-                      onClick={() => handleTagClick(tag)}
-                      title="Click to filter in Library"
-                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full
-                      bg-primary/10 text-primary border border-primary/20
-                      hover:bg-primary/20 transition-colors
-                      text-xs active:scale-95"
-                    >
-                      {tag}
-
-                      <span
-                        className="opacity-60 hover:opacity-100"
-                        onClick={e => {
-                          e.stopPropagation();
-                          removeTagFromStory(story.id, tag);
-                        }}
-                      >
-                        ×
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* CONTENT */}
-                <div className="w-full" key={tagRefresh}>
-
-                  {/* MANUAL */}
-                  {tagMode === "manual" && (
-                    <form
-                      onSubmit={e => {
-                        e.preventDefault();
-                        handleAddTag();
-                      }}
-                      className="inline-flex"
-                    >
-                      <Input
-                        value={newTag}
-                        onChange={e => setNewTag(e.target.value)}
-                        placeholder="+ add tag"
-                        className="h-8 w-32 text-xs bg-secondary rounded-full px-3 border-border"
-                      />
-                      {duplicateTagWarning && (
-                        <p className="text-[10px] text-amber-400 mt-1">Tag already added.</p>
-                      )}
-                    </form>
-                  )}
-
-                  {/* EXISTING */}
-                  {tagMode === "existing" && (
-                    <div className="space-y-3 w-full">
-                      <div className="rounded-2xl border border-border bg-card/50 p-3 space-y-3">
-                        <Input
-                          value={existingTagSearch}
-                          onChange={e => setExistingTagSearch(e.target.value)}
-                          placeholder="Search tags..."
-                          className="h-8 text-xs bg-secondary rounded-full px-3 border-border"
-                        />
-                        <div className="flex flex-wrap gap-1.5">
-                          {availableGlobalTags
-                            .filter((t: string) =>
-                              t.toLowerCase().includes(
-                                existingTagSearch.toLowerCase()
-                              )
-                            )
-                            .map((t: string) => {
-                              const alreadyAdded =
-                                storyTagsNorm.includes(normalizeTag(t));
-                              return (
-                                <span
-                                  key={t}
-                                  className={`inline-flex items-center gap-1 px-3 py-1 rounded-full border text-xs transition-colors ${
-                                    alreadyAdded
-                                      ? "bg-primary/10 text-primary border-primary/20 opacity-60"
-                                      : "bg-secondary text-secondary-foreground border-border"
-                                  }`}
-                                >
-                                  {/* ADD */}
-                                  <button
-                                    disabled={alreadyAdded}
-                                    onClick={() =>
-                                      addTagToStory(
-                                        story.id,
-                                        normalizeTag(t)
-                                      )
-                                    }
-                                    className={`${
-                                      alreadyAdded
-                                        ? "cursor-default"
-                                        : "hover:text-primary"
-                                    }`}
-                                  >
-                                    {alreadyAdded ? "✓" : "+"} {t}
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handleDeleteExistingTag(t)
-                                    }
-                                    className="opacity-50 hover:opacity-100 hover:text-destructive transition-colors"
-                                  >
-                                    ×
-                                  </button>
-
-                                </span>
-                              );
-                            })}
-                        </div>
-                        {/* EMPTY */}
-                        {availableGlobalTags.filter((t: string) =>
-                          t.toLowerCase().includes(
-                            existingTagSearch.toLowerCase()
-                          )
-                        ).length === 0 && (
-                          <div className="text-xs text-muted-foreground italic text-center py-2">
-                            No matching tags found.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* SUGGESTED */}
-                  {tagMode === "suggested" && (
-                    suggestedLoading ? (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Generating suggestions...
-                      </div>
-                    ) : suggestedTags.length > 0 ? (
-                      <div className="space-y-3">
-                        <div className="flex flex-wrap gap-1.5">
-                          {suggestedTags.map(t => (
-                            <span
-                              key={t}
-                              className="inline-flex items-center gap-1 px-3 py-1 rounded-full
-                              bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs"
-                            >
-                              <Sparkles className="w-3 h-3 shrink-0" />
-                              {t}
-                              <button
-                                onClick={() =>
-                                  setSuggestedTags(p =>
-                                    p.filter(x => x !== t)
-                                  )
-                                }
-                                className="opacity-60 hover:opacity-100"
-                              >
-                                ×
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => {
-                              const normTags = suggestedTags.map(t =>
-                                normalizeTag(t)
-                              );
-                              const updatedTags = Array.from(
-                                new Set([
-                                  ...(story.tags || []),
-                                  ...normTags,
-                                ])
-                              );
-                              updateStory(story.id, {
-                                tags: updatedTags,
-                              });
-                              normTags.forEach(t => {
-                                const existing: string[] = lsGet(
-                                  "jejakbaca_global_tags",
-                                  []
-                                );
-                                if (!existing.includes(t)) {
-                                  lsSet("jejakbaca_global_tags", [
-                                    ...existing,
-                                    t,
-                                  ]);
-                                }
-                              });
-                              setSuggestedTags([]);
-                              setTagMode("manual");
-                            }}
-                            className="px-3 py-1 text-xs rounded-full bg-blue-500 text-white hover:bg-blue-600"
-                          >
-                            Apply All
-                          </button>
-                          <button
-                            onClick={handleSuggestTags}
-                            className="px-3 py-1 text-xs rounded-full bg-secondary border border-border text-muted-foreground hover:text-foreground"
-                          >
-                            ↻ Refresh
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-muted-foreground italic">
-                          No suggestions. Add a synopsis first.
-                        </span>
-                        <button
-                          onClick={handleSuggestTags}
-                          className="text-xs text-primary hover:underline"
-                        >
-                          Retry
-                        </button>
-                      </div>
-                    )
-                  )}
-                </div>
+      {/* Arc add/edit */}
+      <Dialog open={arcDialog} onOpenChange={open => { if (!open) { setArcDialog(false); setEditingArc(null); } }}>
+        <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
+          <DialogHeader><DialogTitle>{editingArc ? "Edit Arc" : "Add Arc"}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <Input value={arcName} onChange={e => setArcName(e.target.value)} placeholder="Arc name (e.g. East Blue Arc)" className="bg-card" autoFocus />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <label className="text-[10px] text-muted-foreground mb-1 block">Chapter Start</label>
+                <Input value={arcStart} onChange={e => setArcStart(e.target.value)} type="number" step="0.1" placeholder="1" className="bg-card" />
               </div>
-
-              {/* Bookmarks */}
-              <div className="space-y-3">
-                <h3 className="font-bold text-foreground px-4 py-2 bg-secondary rounded-md text-base border border-border inline-block">Bookmarks</h3>
-                <div className="space-y-2">
-                  {story.bookmarks.map((bm: any) => (
-                    <div key={bm.id} className="relative group">
-                      <div className="peer flex items-center gap-3 py-3 px-3 border border-border/50 rounded-lg bg-card/50 hover:bg-secondary hover:border-border transition-colors duration-200 cursor-default select-none group">
-                        <Bookmark className="w-4 h-4 text-primary shrink-0"/>
-                        <span className="font-semibold text-sm text-foreground whitespace-nowrap shrink-0">Ch. {bm.chapter}</span>
-                        {bm.note && <p className="text-sm text-muted-foreground flex-1 min-w-0 truncate">{bm.note}</p>}
-                        <span className="text-[10px] text-muted-foreground shrink-0 opacity-60">{format(new Date(bm.createdAt), "MM/dd/yy")}</span>
-                        <button onClick={e => { e.stopPropagation(); setDeleteBookmarkId(bm.id); }} className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><X className="w-4 h-4"/></button>
-                      </div>
-                      <div className="absolute z-20 bottom-full left-0 mb-2 w-64 p-3 rounded-xl bg-background border border-border shadow-xl opacity-0 pointer-events-none peer-hover:opacity-100 peer-hover:pointer-events-auto transition-all duration-150 space-y-2 backdrop-blur-md">
-                        <div className="flex items-center gap-2 text-primary">
-                          <Bookmark className="w-4 h-4 fill-primary"/>
-                          <span className="font-bold text-sm">Chapter {bm.chapter}</span>
-                        </div>
-                        {bm.note && <p className="text-xs text-foreground leading-relaxed" style={{ textAlign: "justify" }}>{bm.note}</p>}
-                        <p className="text-[10px] text-muted-foreground">{format(new Date(bm.createdAt), "MMMM d, yyyy · HH:mm")}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {story.bookmarks.length === 0 && <p className="text-sm text-muted-foreground italic">No bookmarks yet.</p>}
+              <div className="flex-1">
+                <label className="text-[10px] text-muted-foreground mb-1 block">Chapter End (blank = ongoing)</label>
+                <Input value={arcEnd} onChange={e => setArcEnd(e.target.value)} type="number" step="0.1" placeholder="100" className="bg-card" />
               </div>
             </div>
-
-            {/* ── Right Column ── */}
-            <div className="lg:w-80 space-y-6">
+            <div className="space-y-3 border-t border-border pt-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-primary"/>
-                  <h3 className="font-semibold text-sm text-foreground">Where to Read?</h3>
-                </div>
-                <div className="flex gap-1">
-                  <Dialog open={sourceDialog} onOpenChange={setSourceDialog}>
-                    <DialogTrigger asChild>
-                      <button className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border">Edit</button>
-                    </DialogTrigger>
-                    <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
-                      <DialogHeader><DialogTitle>Edit Sources</DialogTitle></DialogHeader>
-                      {story.sources && story.sources.length > 0 ? (
-                        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-                          <p className="text-[10px] text-muted-foreground text-center">🔔 Select up to 2 sources for notifications. ({trackedSourceIds.length}/2 active)</p>
-                          {story.sources.map((src: any) => {
-                            const isTracked = trackedSourceIds.includes(src.id);
-                            const canTrack  = isTracked || trackedSourceIds.length < 2;
-                            return (
-                              <div key={src.id} className={`p-3 rounded-lg bg-secondary/50 border space-y-2 ${isTracked ? "border-primary/40" : "border-border"}`}>
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className="font-bold text-xs text-foreground uppercase tracking-wide truncate">{src.name}</span>
-                                    <button onClick={() => toggleTracked(src.id)} disabled={!canTrack}
-                                      className={`p-1 rounded-full transition-colors shrink-0 ${isTracked ? "bg-primary/20 text-primary hover:bg-red-500/20 hover:text-red-400" : "text-muted-foreground/40 hover:text-muted-foreground"} ${!canTrack ? "opacity-30 cursor-not-allowed" : ""}`}>
-                                      <Bell className="w-3.5 h-3.5"/>
-                                    </button>
-                                  </div>
-                                  <button onClick={() => removeSource(story.id, src.id)} className="text-destructive hover:text-destructive/80 shrink-0"><X className="w-3.5 h-3.5"/></button>
-                                </div>
-                                {editSrcId === src.id ? (
-                                  <div className="space-y-2">
-                                    <Input value={editSrcName} onChange={e => setEditSrcName(e.target.value)} placeholder="Site name" className="h-7 text-xs bg-card"/>
-                                    <Input value={editSrcUrl}  onChange={e => setEditSrcUrl(e.target.value)}  placeholder="URL"       className="h-7 text-xs bg-card"/>
-                                    <div className="flex gap-2">
-                                      <Input value={editSrcChapter} onChange={e => setEditSrcChapter(e.target.value)} type="number" step="0.1" placeholder="Chapter" className="h-7 text-xs bg-card w-24"/>
-                                      <Input value={editSrcLang}    onChange={e => setEditSrcLang(e.target.value)}    placeholder="Lang"    className="h-7 text-xs bg-card flex-1"/>
-                                    </div>
-                                    <div className="flex gap-2 pt-1">
-                                      <Button size="sm" className="h-7 text-xs flex-1" onClick={handleSaveSourceEdit}>Save</Button>
-                                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditSrcId(null)}>Cancel</Button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center justify-between gap-2">
-                                    <div className="text-[10px] text-muted-foreground min-w-0">
-                                      <span>Ch. {src.currentChapter}</span>
-                                      {src.language && <span className="text-primary ml-1">{src.language}</span>}
-                                      <span className="block truncate opacity-60 max-w-[160px]">{src.url}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      <button
-                                        onClick={() => {
-                                          const newSources = [...story.sources];
-                                          const idx = newSources.findIndex((s: any) => s.id === src.id);
-                                          if (idx !== -1) {
-                                            const newCh = (parseInt(src.currentChapter) || 0) + 1;
-                                            newSources[idx] = { ...newSources[idx], currentChapter: newCh };                                            
-                                            const updates: any = { sources: newSources };
-                                            if ((story.currentChapter || 0) === (parseInt(src.currentChapter) || 0)) {
-                                              updates.currentChapter = newCh;
-                                              updates.chapterUpdatedAt = new Date().toISOString();
-                                            }
-                                            updateStory(story.id, updates);
-                                          }
-                                        }}
-                                        className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
-                                      >+1</button>
-                                      <button onClick={() => { setEditSrcId(src.id); setEditSrcName(src.name); setEditSrcUrl(src.url); setEditSrcChapter(String(src.currentChapter)); setEditSrcLang(src.language || ""); }}
-                                        className="shrink-0 px-2 py-0.5 text-[10px] rounded bg-card text-foreground border border-border hover:bg-muted">Edit</button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : <p className="text-sm text-muted-foreground italic">No sources added yet.</p>}
-                    </DialogContent>
-                  </Dialog>
-
-                  <Dialog open={addSourceDialog} onOpenChange={setAddSourceDialog}>
-                    <DialogTrigger asChild>
-                      <button className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border">Add</button>
-                    </DialogTrigger>
-                    <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
-                      <DialogHeader><DialogTitle>Add Reading Link</DialogTitle></DialogHeader>
-                      <div className="space-y-2">
-                        <div className="relative">
-                          <div className="relative">
-                            <Input 
-                              value={srcName} 
-                              onChange={e => {
-                                const val = e.target.value;
-                                setSrcName(val);
-                                const allSrcNames = stories.flatMap((s: any) => (s.sources || []).map((src: any) => src.name));
-                                const unique = [...new Set(allSrcNames)] as string[];
-                                const match = unique.find(n => n.toLowerCase().startsWith(val.toLowerCase()) && n.toLowerCase() !== val.toLowerCase());
-                                setSrcNameSuggestion(match ? val + match.slice(val.length) : "");
-                              }}
-                              placeholder="Site name (e.g. MyAnimeList, Webtoon, etc.)"
-                              className="bg-card text-sm"
-                              onKeyDown={e => {
-                                if (e.key === "Tab" && srcNameSuggestion) {
-                                  e.preventDefault();
-                                  setSrcName(srcNameSuggestion);
-                                  setSrcNameSuggestion("");
-                                }
-                              }}
-                            />
-                            {srcNameSuggestion && (
-                              <div className="absolute inset-0 flex items-center px-3 pointer-events-none">
-                                <span className="text-transparent">{srcName}</span>
-                                <span className="text-foreground/40 text-sm">{srcNameSuggestion.slice(srcName.length)}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <Input value={srcUrl}  onChange={e => setSrcUrl(e.target.value)}  placeholder="URL"                       className="bg-card text-sm"/>
-                        <div className="flex gap-2">
-                          <Input value={srcChapter} onChange={e => setSrcChapter(e.target.value)} placeholder="Chapter" type="number" step="0.1" className="bg-card text-sm w-24"/>
-                          <Input value={srcLang}    onChange={e => setSrcLang(e.target.value)}    placeholder="Lang (EN, ID, KR)"    className="bg-card text-sm flex-1"/>
-                        </div>
-                      </div>
-                      <DialogFooter>
-                        <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                        <Button onClick={() => {
-                          if (!srcName.trim() || !srcUrl.trim()) return;
-                          addSource(story.id, { name: srcName.trim(), url: srcUrl.trim(), currentChapter: parseInt(srcChapter) || 0, language: srcLang.trim().toUpperCase() || "" });
-                          setSrcName(""); setSrcUrl(""); setSrcChapter(""); setSrcLang(""); setAddSourceDialog(false);
-                        }}><Plus className="w-3.5 h-3.5 mr-1"/>Add Link</Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-
-                  {story.sources && story.sources.length > 0 && (
-                    <button onClick={() => story.sources.forEach((s: any) => checkLink(s.id, s.url))} className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border flex items-center gap-1 hover:bg-muted">
-                      <AlertCircle className="w-3 h-3"/>Check
+                <label className="text-xs font-semibold text-foreground">Arc Color</label>
+                <div className="flex items-center gap-0.5 bg-secondary rounded-lg p-0.5 border border-border">
+                  {(["auto", "manual"] as const).map(m => (
+                    <button key={m} onClick={() => {
+                      setArcColorMode(m);
+                      if (m === "auto") { const palette = ARC_COLOR_PALETTES[arcColorPalette]; setArcColor(palette[arcs.length % palette.length]); }
+                    }}
+                      className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${arcColorMode === m ? "bg-card text-foreground border border-border shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                      {m === "auto" ? "Auto" : "Manual"}
                     </button>
-                  )}
+                  ))}
                 </div>
               </div>
-
-              {/* CTA inside */}
-              {ctaPreference === "inside" && story.sources && story.sources.length > 0 && (() => {
-                const best = [...story.sources].sort((a: any, b: any) => (b.currentChapter || 0) - (a.currentChapter || 0))[0];
-                return (
-                  <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 mb-2 mr-[5px]">
-                    <p className="text-[10px] text-muted-foreground mb-1">Continue where you left off</p>
-                    <p className="text-xs font-semibold text-foreground mb-2">Ch. {best.currentChapter} · {best.name}</p>
-                    <a href={best.url} target="_blank" rel="noopener" className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors">
-                      <BookOpen className="w-3.5 h-3.5"/> Continue Reading
-                    </a>
-                  </div>
-                );
-              })()}
-
-              {/* Source cards */}
-              <div className="grid grid-cols-1 gap-2" key={sourcesKey}>
-                {story.sources && story.sources.map((src: any) => {
-                  const ls             = linkStatuses[src.id];
-                  const isTracked      = trackedSourceIds.includes(src.id);
-                  const currentStoryCh = story.currentChapter || 0;
-                  const srcCh          = src.currentChapter || 0;
-                  const chaptersAhead  = srcCh - currentStoryCh;
-                  const isAhead        = chaptersAhead > 0;
+              <div className="flex gap-1.5">
+                {(["colorful", "mono"] as ArcColorPalette[]).map(p => (
+                  <button key={p} onClick={() => {
+                    setArcColorPalette(p);
+                    if (arcColorMode === "auto") { const palette = ARC_COLOR_PALETTES[p]; setArcColor(palette[arcs.length % palette.length]); }
+                  }}
+                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all border ${arcColorPalette === p ? "bg-primary/15 text-primary border-primary/40" : "bg-secondary text-muted-foreground border-border hover:text-foreground"}`}>
+                    {p === "colorful" ? "Colorful" : "Mono"}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                {ARC_COLOR_PALETTES[arcColorPalette].map((c, i) => {
+                  const currentAutoColor = ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length];
+                  const isSelected = arcColorMode === "manual" ? arcColor === c : currentAutoColor === c;
                   return (
-                    <div key={src.id} className={`rounded-xl border transition-all ${isTracked && isAhead ? "bg-emerald-500/5 border-emerald-500/40 shadow-md shadow-emerald-500/10" : ls && !ls.checking ? (ls.ok ? "bg-card/60 border-green-500/30" : "bg-card/60 border-red-500/30") : "bg-card/60 border-border/50"}`}>
-                      <a href={src.url} target="_blank" rel="noopener" className="block p-3">
-                        <div className="flex items-center gap-1.5 min-w-0 mb-1">
-                          <span className="font-bold text-xs text-foreground uppercase tracking-wide break-words leading-tight min-w-0 flex-1">{src.name}</span>
-                          {isTracked && <div title={isAhead ? "Update Available!" : "Notifikasi aktif"}><Bell className={`w-3 h-3 shrink-0 transition-colors ${isAhead ? "text-emerald-500 fill-emerald-500/20 animate-pulse" : "text-primary"}`}/></div>}
-                          <div className="flex items-center gap-1 shrink-0">
-                            {ls && (ls.checking ? <Loader2 className="w-3 h-3 animate-spin text-blue-400"/> : ls.ok ? <CheckCircle2 className="w-3 h-3 text-green-400"/> : <XCircle className="w-3 h-3 text-red-400"/>)}
-                            {src.language && <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-medium">{src.language}</span>}
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-[10px] ${isTracked && isAhead ? "text-foreground font-semibold" : "text-muted-foreground"}`}>Ch. {srcCh}</span>
-                            {isTracked && isAhead && (
-                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold shadow-sm ${getBadgeStyles(chaptersAhead)}`}>+{chaptersAhead}</span>
-                            )}
-                          </div>
-                          <span className="text-[10px] text-muted-foreground shrink-0 opacity-60">{format(new Date(src.updatedAt), "MMM d, yyyy")}</span>
-                        </div>
-                      </a>
-                    </div>
+                    <button key={i} onClick={() => { setArcColorMode("manual"); setArcColor(c); }}
+                      className={`w-7 h-7 rounded-full transition-all shrink-0 ${isSelected ? "ring-2 ring-offset-2 ring-offset-background ring-white scale-110" : "opacity-80 hover:opacity-100 hover:scale-105"}`}
+                      style={{ backgroundColor: c }} />
                   );
                 })}
               </div>
-              {(!story.sources || story.sources.length === 0) && <p className="text-xs text-muted-foreground italic">No reading sources added yet.</p>}
-
-              {/* Media */}
-              <div className="border-t border-border pt-5 mt-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Image className="w-4 h-4 text-primary"/>
-                    <h3 className="font-semibold text-sm text-foreground">Media</h3>
-                  </div>
-                  <div className="flex gap-1">
-                    <Dialog open={mediaDialog} onOpenChange={setMediaDialog}>
-                      <DialogTrigger asChild>
-                        <button className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border">Link</button>
-                      </DialogTrigger>
-                      <DialogContent className="w-[92vw] max-w-sm mx-auto rounded-2xl">
-                        <DialogHeader><DialogTitle>Add Media Link</DialogTitle></DialogHeader>
-                        <Input value={mediaLabel} onChange={e => setMediaLabel(e.target.value)} placeholder="Label / Alt text" className="bg-card"/>
-                        <Input value={mediaUrl}   onChange={e => setMediaUrl(e.target.value)}   placeholder="URL or link" className="bg-card"/>
-                        <DialogFooter>
-                          <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-                          <Button onClick={() => {
-                            if (mediaUrl.trim()) { addMedia(story.id, { type: "link", url: mediaUrl.trim(), label: mediaLabel.trim() || "Link" }); setMediaUrl(""); setMediaLabel(""); setMediaDialog(false); }
-                          }}>Add</Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                    <button onClick={() => mediaFileRef.current?.click()} className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border flex items-center gap-1">
-                      <Upload className="w-3 h-3"/>Photo
-                    </button>
-                    <input ref={mediaFileRef} type="file" accept="image/*" className="hidden" onChange={handleMediaFileUpload}/>
-                  </div>
-                </div>
-                {(story.media || []).length > 0 ? (
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {story.media.map((m: any) => (
-                      <div key={m.id} className="relative group aspect-square rounded-md overflow-hidden bg-secondary border border-border cursor-pointer" onClick={() => setMediaLightbox({ url: m.url, label: m.label || "", id: m.id })}>
-                        {m.type === "image"
-                          ? <img src={m.url} alt={m.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"/>
-                          : <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-2"><ExternalLink className="w-4 h-4 text-primary"/><span className="text-[9px] text-muted-foreground text-center line-clamp-2">{m.label}</span></div>}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                          <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity"/>
-                        </div>
-                        <button onClick={e => { e.stopPropagation(); removeMedia(story.id, m.id); }} className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-3 h-3"/></button>
-                      </div>
-                    ))}
-                  </div>
-                ) : <p className="text-xs text-muted-foreground italic">No media yet.</p>}
+              <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-border bg-secondary/50">
+                <div className="w-5 h-5 rounded-full shadow-md shrink-0 ring-1 ring-white/20"
+                  style={{ backgroundColor: arcColorMode === "auto" ? ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length] : arcColor }} />
+                <p className="text-[10px] text-muted-foreground flex-1">{arcColorMode === "auto" ? `Auto • ${arcColorPalette} palette` : "Manually picked"}</p>
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* ═══ NOTES / TIMELINE SECTION ══════════════════════════════════════ */}
-        <section className="px-4 sm:px-6 mt-10 sm:mt-8 mb-20 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1 bg-secondary rounded-lg p-1 border border-border">
-              {(["notes", "timeline"] as const).map(tab => (
-                <button key={tab} onClick={() => handleTabChange(tab)}
-                className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition-all whitespace-nowrap ${activeTab === tab ? "bg-card text-foreground shadow-sm border border-border" : "text-muted-foreground hover:text-foreground"}`}>
-                  {tab === "notes" ? "My Notes" : "Arc Timeline"}
-                </button>
-              ))}
+            <div>
+              <label className="text-[10px] text-muted-foreground mb-1 block">Description (optional)</label>
+              <textarea value={arcDesc} onChange={e => setArcDesc(e.target.value)} placeholder="What happens in this arc?" className="w-full bg-card border border-border rounded-md px-3 py-2 text-sm resize-none min-h-[80px] focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
-            {activeTab === "notes" && (
-              <button onClick={() => { setEditingNote(null); setNoteContent(""); setNotesDialog(true); }} className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium whitespace-nowrap">+ Add Note</button>
-            )}
-            {activeTab === "timeline" && (
-              <button onClick={() => handleOpenArcDialog()} className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium whitespace-nowrap">+ Add Arc</button>
-            )}
           </div>
+          <DialogFooter>
+            <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
+            <Button onClick={() => { haptic("medium"); handleSaveArc(); }} disabled={!arcName.trim() || !arcStart}>{editingArc ? "Update" : "Add Arc"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-          {/* Notes tab */}
-          {activeTab === "notes" && (
-            story.notes && story.notes.length > 0
-              ? <div className="space-y-4">
-                  {story.notes.map((note: any) => (
-                    <div key={note.id} className="p-5 rounded-xl bg-card/80 border border-border/50 group hover:border-border transition-colors">
-                      <div className="flex items-center justify-between mb-3">
-                        <p className="text-xs text-muted-foreground">{format(new Date(note.createdAt), "MMM d, yyyy")}</p>
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => { setEditingNote(note); setNoteContent(note.text); setNotesDialog(true); }} className="p-1.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"><Pencil className="w-3.5 h-3.5"/></button>
-                          {/* ADDED: Delete Note Dialog Trigger */}
-                          <button onClick={() => setDeleteNoteId(note.id)} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-3.5 h-3.5"/></button>
-                        </div>
-                      </div>
-                      <RichTextDisplay html={note.text} className="text-sm leading-relaxed [&_*]:text-justify [&_h1]:text-xl [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mb-1.5 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mb-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1 [&_li]:mb-0.5 [&_a]:text-primary [&_a]:underline [&_hr]:border-t [&_hr]:border-border [&_hr]:my-3"/>
-                    </div>
-                  ))}
-                </div>
-              : <div className="p-8 rounded-xl bg-card/50 border border-dashed border-border flex flex-col items-center justify-center gap-3">
-                  <FileText className="w-8 h-8 text-muted-foreground/30"/>
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-muted-foreground">Your notes live here</p>
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">Thoughts, reactions, theories, anything goes here.</p>
-                  </div>
-                  <button onClick={() => { setEditingNote(null); setNoteContent(""); setNotesDialog(true); }} className="text-xs text-primary hover:underline font-medium">Write your first note →</button>
-                </div>
-          )}
-
-          {/* Timeline tab */}
-          {activeTab === "timeline" && (
-            arcs.length > 0
-              ? <div className="relative">
-                  <div className="absolute left-[18px] top-3 bottom-3 w-px bg-border"/>
-                  <div className="space-y-2">
-                    {[...arcs].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((arc, idx) => {
-                      const isOngoing = arc.chapterEnd === null;
-                      const isCurrent = story.currentChapter >= arc.chapterStart && (arc.chapterEnd === null || story.currentChapter <= arc.chapterEnd);
-                      return (
-                        <div key={arc.id} className="relative flex gap-4 group/arc">
-                          <div className="relative z-10 shrink-0 mt-3.5">
-                            <div
-                              className={`w-9 h-9 rounded-full border-2 border-background flex items-center justify-center text-white text-[10px] font-bold shadow-md ${isCurrent ? "ring-2 ring-offset-1 ring-offset-background" : ""}`}
-                              style={{ backgroundColor: arc.color }}
-                            >
-                              {isOngoing ? (
-                                <span className="relative flex h-2.5 w-2.5">
-                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"/>
-                                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"/>
-                                </span>
-                              ) : idx + 1}
-                            </div>
-                          </div>
-                          <div className={`flex-1 mb-2 rounded-xl border p-4 transition-all ${isCurrent ? "bg-card border-primary/40 shadow-sm" : "bg-card/60 border-border/50 hover:border-border"}`}>
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <h4 className="font-bold text-sm text-foreground">{arc.name}</h4>
-                                  {isCurrent && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-primary/10 text-primary border border-primary/20">Reading now</span>}
-                                  {isOngoing && !isCurrent && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Ongoing</span>}
-                                </div>
-                                <div className="flex items-center gap-1.5 mt-1">
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold text-white" style={{ backgroundColor: arc.color }}>Ch. {arc.chapterStart}</span>
-                                  <span className="text-[10px] text-muted-foreground">→</span>
-                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold text-white" style={{ backgroundColor: isOngoing ? "#6b7280" : arc.color }}>{isOngoing ? "?" : `Ch. ${arc.chapterEnd}`}</span>
-                                  {arc.chapterEnd && <span className="text-[10px] text-muted-foreground ml-1">({arc.chapterEnd - arc.chapterStart + 1} ch)</span>}
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1 opacity-0 group-hover/arc:opacity-100 transition-opacity shrink-0">
-                                <button onClick={() => handleMoveArc(arc.id, "up")} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"><ChevronLeft className="w-3.5 h-3.5 rotate-90"/></button>
-                                <button onClick={() => handleMoveArc(arc.id, "down")} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"><ChevronRight className="w-3.5 h-3.5 rotate-90"/></button>
-                                <button onClick={() => handleOpenArcDialog(arc)} className="p-1.5 rounded hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"><Pencil className="w-3.5 h-3.5"/></button>
-                                <button onClick={() => setDeleteArcId(arc.id)} className="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="w-3.5 h-3.5"/></button>
-                              </div>
-                            </div>
-                            {arc.description && <p className="text-xs text-muted-foreground leading-relaxed mt-2 border-t border-border/50 pt-2" style={{ textAlign: "justify" }}>{arc.description}</p>}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              : <div className="p-8 rounded-xl bg-card/50 border border-dashed border-border flex flex-col items-center justify-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center"><span className="text-muted-foreground/50 text-lg font-bold">1</span></div>
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-muted-foreground">No arcs yet</p>
-                    <p className="text-xs text-muted-foreground/60 mt-0.5">Add story arcs to track your reading progress per arc.</p>
-                  </div>
-                  <button onClick={() => handleOpenArcDialog()} className="text-xs text-primary hover:underline font-medium">Add your first arc →</button>
-                </div>
-          )}
-        </section>       
-      </main>
-
-      {/* ═══ FLOATING UI ═══════════════════════════════════════════════════════ */}
-      {prevStory && (
-        <button onClick={() => handleNavigateStory(prevStory.id)} className="fixed left-2 top-1/2 -translate-y-1/2 z-40 p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 opacity-40 sm:opacity-0 hover:opacity-100 transition-all duration-300 group shadow-xl" title={`Previous: ${prevStory.title}`}>
-          <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform"/>
-        </button>
-      )}
-      {nextStory && (
-        <button onClick={() => handleNavigateStory(nextStory.id)} className="fixed right-2 top-1/2 -translate-y-1/2 z-40 p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 opacity-40 sm:opacity-0 hover:opacity-100 transition-all duration-300 group shadow-xl" title={`Next: ${nextStory.title}`}>
-          <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform"/>
-        </button>
-      )}
-
-      {ctaPreference === "floating" && !anyDialogOpen && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
-          <div className="bg-black/80 text-white text-[10px] px-2 py-1 rounded mb-1 opacity-0 animate-in fade-in slide-in-from-bottom-2 duration-300 pointer-events-auto" id="read-tooltip">
-            Press N to continue
-          </div>
-          <button
-            onClick={handleReadNow}
-            onMouseEnter={() => document.getElementById("read-tooltip")?.classList.remove("opacity-0")}
-            onMouseLeave={() => document.getElementById("read-tooltip")?.classList.add("opacity-0")}
-            className="pointer-events-auto flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-b from-primary to-primary/90 text-primary-foreground border border-white/20 shadow-lg shadow-primary/40 hover:shadow-xl hover:shadow-primary/60 hover:-translate-y-0.5 active:scale-95 transition-all duration-300 font-semibold text-sm"
-          >
-            <BookOpen className="w-5 h-5"/>
-            <span>Continue Reading</span>
-          </button>
-        </div>
-      )}
-
-      <div className="fixed bottom-4 left-4 z-40 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-        <div className="bg-card/90 backdrop-blur border border-border p-2 rounded text-[9px] text-muted-foreground space-y-1 shadow-lg">
-          <div><span className="font-bold text-foreground">N</span> : Update Chapter</div>
-          <div><span className="font-bold text-foreground">S</span> : Save Note</div>
-          <div><span className="font-bold text-foreground">R</span> : Rate Story</div>
-          <div><span className="font-bold text-foreground">Esc</span> : Back</div>
-          <div><span className="font-bold text-foreground">←/→</span> : Nav Story</div>
-        </div>
-      </div>
-
-      {/* Genre picker */}
-      <GenrePickerModal
-        open={genrePickerOpen}
-        onClose={() => setGenrePickerOpen(false)}
-        selectedGenres={story.genres || []}
-        onToggleGenre={handleToggleGenre}
-      />
-
-    {/* ═══ IMAGE CROPPERS ═══════════════════════════════════════════ */}
-
-      {/* Header Cropper */}
-      {story.headerUrl && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <ImageCropper
-            open={headerCropOpen}
-            onOpenChange={(open) => {
-              if (!open) setHeaderCropOpen(false);
-            }}            
-            imageSrc={story.headerUrl}
-            aspect={16 / 5}
-            title="Reposition Header"
-            onCropComplete={async (croppedBase64) => {
-              try {
-                const file = base64ToFile(croppedBase64, `header-crop-${Date.now()}.jpg`);
-                const publicUrl = await uploadToStorage(file, "headers");
-                updateStory(story.id, { headerUrl: publicUrl });
-                setHeaderCropOpen(false);
-              } catch (err) {
-                console.error("Header Crop Error:", err);                
-              }              
-            }}
-          />
-        </div>
-      )}
-
-      {/* Cover Cropper */}
-      {story.coverUrl && (
-        <div onClick={(e) => e.stopPropagation()}>
-          <ImageCropper
-            open={coverCropOpen}
-            onOpenChange={(open) => {
-              if (!open) setCoverCropOpen(false);
-            }}            
-            imageSrc={story.coverUrl}
-            aspect={3 / 4}
-            title="Reposition Cover"
-            onCropComplete={async (croppedBase64) => {
-              try {
-                const file = base64ToFile(croppedBase64, `cover-crop-${Date.now()}.jpg`);
-                const publicUrl = await uploadToStorage(file, "covers");
-                updateStory(story.id, { coverUrl: publicUrl });
-                setCoverCropOpen(false);
-              } catch (err) {
-                console.error("Cover Crop Error:", err);                
-              }
-            }}
-          />
-        </div>
-      )}
-
-      {/* Country dialog */}
+      {/* Country */}
       <Dialog open={countryDialog} onOpenChange={setCountryDialog}>
         <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
           <DialogHeader><DialogTitle>Origin Country</DialogTitle></DialogHeader>
           <div className="relative mb-4">
-            <Input placeholder="Search country (e.g. Japan, ID, USA)..." value={countrySearch} onChange={e => setCountrySearch(e.target.value)} className="pl-9"/>
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground"/>
+            <Input placeholder="Search country (e.g. Japan, ID, USA)..." value={countrySearch} onChange={e => setCountrySearch(e.target.value)} className="pl-9" />
+            <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
           </div>
           <div className="max-h-[60vh] overflow-y-auto pr-2 space-y-6">
             {countrySearch === "" && (
@@ -2522,7 +1272,7 @@ export default function StoryDetail() {
                     return (
                       <button key={country.code} onClick={() => { updateStory(story.id, { originCountry: country.code }); setCountryDialog(false); }}
                         className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all hover:bg-secondary h-16 justify-center ${story.originCountry === country.code ? "border-primary bg-primary/5" : "border-border"}`}>
-                        <span className={`fi fi-${country.code.toLowerCase()} w-8 h-6 rounded-sm inline-block`}/>
+                        <span className={`fi fi-${country.code.toLowerCase()} w-8 h-6 rounded-sm inline-block`} />
                         <span className="text-[10px] text-muted-foreground font-medium">{country.name}</span>
                       </button>
                     );
@@ -2537,9 +1287,9 @@ export default function StoryDetail() {
                   {ALL_COUNTRIES.filter(c => c.name.toLowerCase().includes(countrySearch.toLowerCase()) || c.code.toLowerCase().includes(countrySearch.toLowerCase())).map(country => (
                     <button key={country.code} onClick={() => { updateStory(story.id, { originCountry: country.code }); setCountrySearch(""); setCountryDialog(false); }}
                       className={`w-full flex items-center gap-3 p-2 rounded-lg border transition-all hover:bg-secondary text-left ${story.originCountry === country.code ? "border-primary bg-primary/5" : "border-border"}`}>
-                      <span className={`fi fi-${country.code.toLowerCase()} w-8 h-6 rounded-sm inline-block shrink-0`}/>
+                      <span className={`fi fi-${country.code.toLowerCase()} w-8 h-6 rounded-sm inline-block shrink-0`} />
                       <div className="flex-1 min-w-0"><p className="text-sm font-medium text-foreground">{country.name}</p><p className="text-[10px] text-muted-foreground">{country.code}</p></div>
-                      {story.originCountry === country.code && <CheckCircle2 className="w-4 h-4 text-primary shrink-0"/>}
+                      {story.originCountry === country.code && <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />}
                     </button>
                   ))}
                 </div>
@@ -2554,262 +1304,110 @@ export default function StoryDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Arc add/edit dialog */}
-      <Dialog open={arcDialog} onOpenChange={open => { if (!open) { setArcDialog(false); setEditingArc(null); } }}>
-        <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
-          <DialogHeader><DialogTitle>{editingArc ? "Edit Arc" : "Add Arc"}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <Input value={arcName} onChange={e => setArcName(e.target.value)} placeholder="Arc name (e.g. East Blue Arc)" className="bg-card" autoFocus/>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="text-[10px] text-muted-foreground mb-1 block">Chapter Start</label>
-                <Input value={arcStart} onChange={e => setArcStart(e.target.value)} type="number" step="0.1" placeholder="1" className="bg-card"/>
-              </div>
-              <div className="flex-1">
-                <label className="text-[10px] text-muted-foreground mb-1 block">Chapter End (blank = ongoing)</label>
-                <Input value={arcEnd} onChange={e => setArcEnd(e.target.value)} type="number" step="0.1" placeholder="100" className="bg-card"/>
-              </div>
-            </div>
+      {/* ═══ GENRE PICKER ════════════════════════════════════════════════════ */}
+      <GenrePickerModal
+        open={genrePickerOpen}
+        onClose={() => setGenrePickerOpen(false)}
+        selectedGenres={story.genres || []}
+        onToggleGenre={handleToggleGenre}
+      />
 
-            {/* Color Selection Section */}
-            <div className="space-y-3 border-t border-border pt-3">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-foreground">Arc Color</label>
-                <div className="flex items-center gap-0.5 bg-secondary rounded-lg p-0.5 border border-border">
-                  {(["auto","manual"] as const).map(m => (
-                    <button key={m} onClick={() => {
-                      setArcColorMode(m);
-                      if (m === "auto") {
-                        const palette = ARC_COLOR_PALETTES[arcColorPalette];
-                        setArcColor(palette[arcs.length % palette.length]);
-                      }
-                    }}
-                      className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all ${arcColorMode === m ? "bg-card text-foreground border border-border shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-                      {m === "auto" ? "Auto" : "Manual"}
-                    </button>
-                  ))}
-                </div>
-              </div>
+      {/* ═══ IMAGE CROPPERS ══════════════════════════════════════════════════ */}
+      {story.headerUrl && (
+        <div onClick={e => e.stopPropagation()}>
+          <ImageCropper
+            open={headerCropOpen}
+            onOpenChange={open => { if (!open) setHeaderCropOpen(false); }}
+            imageSrc={story.headerUrl}
+            aspect={16 / 5}
+            title="Reposition Header"
+            onCropComplete={async croppedBase64 => {
+              try {
+                const file = base64ToFile(croppedBase64, `header-crop-${Date.now()}.jpg`);
+                const publicUrl = await uploadToStorage(file, "headers");
+                updateStory(story.id, { headerUrl: publicUrl });
+                setHeaderCropOpen(false);
+              } catch (err) { console.error("Header Crop Error:", err); }
+            }}
+          />
+        </div>
+      )}
+      {story.coverUrl && (
+        <div onClick={e => e.stopPropagation()}>
+          <ImageCropper
+            open={coverCropOpen}
+            onOpenChange={open => { if (!open) setCoverCropOpen(false); }}
+            imageSrc={story.coverUrl}
+            aspect={3 / 4}
+            title="Reposition Cover"
+            onCropComplete={async croppedBase64 => {
+              try {
+                const file = base64ToFile(croppedBase64, `cover-crop-${Date.now()}.jpg`);
+                const publicUrl = await uploadToStorage(file, "covers");
+                updateStory(story.id, { coverUrl: publicUrl });
+                setCoverCropOpen(false);
+              } catch (err) { console.error("Cover Crop Error:", err); }
+            }}
+          />
+        </div>
+      )}
 
-              {/* Palette Pills: Colorful & Mono */}  
-              <div className="flex gap-1.5">
-                {(["colorful", "mono"] as ArcColorPalette[]).map(p => (
-                  <button key={p} onClick={() => {
-                    setArcColorPalette(p);
-                    if (arcColorMode === "auto") {
-                      const palette = ARC_COLOR_PALETTES[p];
-                      setArcColor(palette[arcs.length % palette.length]);
-                    }
-                  }}
-                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all border ${arcColorPalette === p ? "bg-primary/15 text-primary border-primary/40" : "bg-secondary text-muted-foreground border-border hover:text-foreground"}`}>
-                    {p === "colorful" ? "Colorful" : "Mono"}
-                  </button>
-                ))}
-              </div>
+      {/* ═══ LIGHTBOXES ══════════════════════════════════════════════════════ */}
+      {coverLightbox && story.coverUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={() => setCoverLightbox(false)}>
+          <button className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors" onClick={e => { e.stopPropagation(); setCoverLightbox(false); }}>
+            <X className="w-5 h-5" />
+          </button>
+          <img src={story.coverUrl} alt={story.title} className="h-[80vh] sm:h-screen w-auto max-w-[92vw] sm:max-w-[95vw] object-contain" onClick={e => e.stopPropagation()} />
+        </div>
+      )}
+      {headerLightbox && story.headerUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={() => setHeaderLightbox(false)}>
+          <button className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors" onClick={e => { e.stopPropagation(); setHeaderLightbox(false); }}>
+            <X className="w-5 h-5" />
+          </button>
+          <img src={story.headerUrl} alt="header" className="h-[80vh] sm:h-screen w-auto max-w-[92vw] sm:max-w-[95vw] object-contain" onClick={e => e.stopPropagation()} />
+        </div>
+      )}
 
-              {/* Color Swatches Grid */}
-              <div className="flex gap-1.5 flex-wrap">
-                {ARC_COLOR_PALETTES[arcColorPalette].map((c, i) => {
-                  const currentAutoColor = ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length];
-                  const isSelected = arcColorMode === "manual"
-                    ? arcColor === c
-                    : currentAutoColor === c;
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => { setArcColorMode("manual"); setArcColor(c); }}
-                      className={`w-7 h-7 rounded-full transition-all shrink-0 ${isSelected ? "ring-2 ring-offset-2 ring-offset-background ring-white scale-110" : "opacity-80 hover:opacity-100 hover:scale-105"}`}
-                      style={{ backgroundColor: c }}
-                    />
-                  );
-                })}
-              </div>
-
-              {/* Preview Strip */}
-              <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-border bg-secondary/50">
-                <div className="w-5 h-5 rounded-full shadow-md shrink-0 ring-1 ring-white/20"
-                     style={{ backgroundColor: arcColorMode === "auto"
-                       ? ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length]
-                       : arcColor }}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] text-muted-foreground">
-                    {arcColorMode === "auto"
-                      ? `Auto • ${arcColorPalette} palette`
-                      : "Manually picked"}
-                  </p>
-                </div>
-                <div className="w-20 h-1.5 rounded-full overflow-hidden"
-                     style={{ background: `linear-gradient(to right, ${(arcColorMode === "auto"
-                       ? ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length]
-                       : arcColor)}33, ${arcColorMode === "auto"
-                       ? ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length]
-                       : arcColor})` }}>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[10px] text-muted-foreground mb-1 block">Description (optional)</label>
-              <Textarea value={arcDesc} onChange={e => setArcDesc(e.target.value)} placeholder="What happens in this arc?" className="bg-card resize-none min-h-[80px] text-sm"/>
-            </div>
-          </div>
-          <DialogFooter>
-            <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-            <Button onClick={() => { haptic("medium"); handleSaveArc(); }} disabled={!arcName.trim() || !arcStart}>{editingArc ? "Update" : "Add Arc"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Arc delete confirm */}
-      <Dialog
-        open={!!deleteArcId}
-        onOpenChange={(open) => {
-          if (!open) setDeleteArcId(null);
-        }}
-      >
-        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out">
-          <div className="p-6 flex flex-col items-center text-center">            
-            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
-              <Trash2 className="w-7 h-7 text-red-500" />
-            </div>
-            <DialogTitle className="text-xl font-bold text-foreground">
-              Delete arc?
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-              This arc will be permanently deleted.
-            </p>
-            <div className="flex w-full gap-3 mt-6">
-              <Button
-                variant="secondary"
-                className="flex-1 rounded-xl h-11"
-                onClick={() => setDeleteArcId(null)}
-              >
-                Cancel
-              </Button>
-
-              <Button
-                className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 text-white"
-                onClick={() => {
-                  if (deleteArcId) handleDeleteArc(deleteArcId);
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Note Confirm Dialog */}
-      <Dialog
-        open={!!deleteNoteId}
-        onOpenChange={(open) => {
-          if (!open) setDeleteNoteId(null);
-        }}
-      >
-        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out">
-          <div className="p-6 flex flex-col items-center text-center">            
-            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
-              <Trash2 className="w-7 h-7 text-red-500" />
-            </div>
-            <DialogTitle className="text-xl font-bold text-foreground">
-              Delete note?
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-              This note will be permanently deleted.
-            </p>
-            <div className="flex w-full gap-3 mt-6">
-              <Button
-                variant="secondary"
-                className="flex-1 rounded-xl h-11"
-                onClick={() => setDeleteNoteId(null)}
-              >
-                Cancel
-              </Button>
-
-              <Button
-                className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 text-white"
-                onClick={() => {
-                  if (deleteNoteId) {
-                    removeNote(story.id, deleteNoteId);
-                    setDeleteNoteId(null);
-                  }
-                }}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Existing Tag Confirm Dialog */}
-      <Dialog
-        open={!!deleteTagConfirm}
-        onOpenChange={(open) => {
-          if (!open) setDeleteTagConfirm(null);
-        }}
-      >
-        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-300 ease-out">
-          <div className="p-6 flex flex-col items-center text-center">            
-            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4">
-              <Trash2 className="w-7 h-7 text-red-500" />
-            </div>
-            <DialogTitle className="text-xl font-bold text-foreground">
-              Delete tag?
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-              This tag will be permanently deleted.
-            </p>
-            <div className="flex w-full gap-3 mt-6">
-              <Button
-                variant="secondary"
-                className="flex-1 rounded-xl h-11"
-                onClick={() => setDeleteTagConfirm(null)}
-              >
-                Cancel
-              </Button>
-
-              <Button
-                className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 text-white"
-                onClick={confirmDeleteExistingTag}
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-    {/* Cover Lightbox */}
-    {coverLightbox && story.coverUrl && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={() => setCoverLightbox(false)}>
-        <button className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors" onClick={(e) => { e.stopPropagation(); setCoverLightbox(false); }}>
-          <X className="w-5 h-5"/>
+      {/* ═══ FLOATING UI ═════════════════════════════════════════════════════ */}
+      {prevStory && (
+        <button onClick={() => handleNavigateStory(prevStory.id)} className="fixed left-2 top-1/2 -translate-y-1/2 z-40 p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 opacity-40 sm:opacity-0 hover:opacity-100 transition-all duration-300 group shadow-xl" title={`Previous: ${prevStory.title}`}>
+          <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
         </button>
-        <img src={story.coverUrl} alt={story.title} className="h-[80vh] sm:h-screen w-auto max-w-[92vw] sm:max-w-[95vw] object-contain" onClick={e => e.stopPropagation()}/>
-      </div>
-    )}
-
-    {/* Header Lightbox */}
-    {headerLightbox && story.headerUrl && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={() => setHeaderLightbox(false)}>
-        <button className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors" onClick={(e) => { e.stopPropagation(); setHeaderLightbox(false); }}>
-          <X className="w-5 h-5"/>
+      )}
+      {nextStory && (
+        <button onClick={() => handleNavigateStory(nextStory.id)} className="fixed right-2 top-1/2 -translate-y-1/2 z-40 p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 opacity-40 sm:opacity-0 hover:opacity-100 transition-all duration-300 group shadow-xl" title={`Next: ${nextStory.title}`}>
+          <ChevronRight className="w-6 h-6 group-hover:translate-x-0.5 transition-transform" />
         </button>
-        <img src={story.headerUrl} alt="header" className="h-[80vh] sm:h-screen w-auto max-w-[92vw] sm:max-w-[95vw] object-contain" onClick={e => e.stopPropagation()}/>
-      </div>
-    )}
+      )}
 
+      {ctaPreference === "floating" && !anyDialogOpen && (
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
+          <div className="bg-black/80 text-white text-[10px] px-2 py-1 rounded mb-1 opacity-0 animate-in fade-in slide-in-from-bottom-2 duration-300 pointer-events-auto" id="read-tooltip">
+            Press N to continue
+          </div>
+          <button
+            onClick={handleReadNow}
+            onMouseEnter={() => document.getElementById("read-tooltip")?.classList.remove("opacity-0")}
+            onMouseLeave={() => document.getElementById("read-tooltip")?.classList.add("opacity-0")}
+            className="pointer-events-auto flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-b from-primary to-primary/90 text-primary-foreground border border-white/20 shadow-lg shadow-primary/40 hover:shadow-xl hover:shadow-primary/60 hover:-translate-y-0.5 active:scale-95 transition-all duration-300 font-semibold text-sm"
+          >
+            <BookOpen className="w-5 h-5" />
+            <span>Continue Reading</span>
+          </button>
+        </div>
+      )}
+
+      <div className="fixed bottom-4 left-4 z-40 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+        <div className="bg-card/90 backdrop-blur border border-border p-2 rounded text-[9px] text-muted-foreground space-y-1 shadow-lg">
+          <div><span className="font-bold text-foreground">N</span> : Update Chapter</div>
+          <div><span className="font-bold text-foreground">S</span> : Save Note</div>
+          <div><span className="font-bold text-foreground">R</span> : Rate Story</div>
+          <div><span className="font-bold text-foreground">Esc</span> : Back</div>
+          <div><span className="font-bold text-foreground">←/→</span> : Nav Story</div>
+        </div>
+      </div>
     </div>
   );
-
-  function checkLink(sourceId: string, url: string) {
-    setLinkStatuses(prev => ({ ...prev, [sourceId]: { ok: false, checking: true, statusText: "Checking..." } }));
-    supabase.functions.invoke("check-link", { body: { url } }).then(({ data, error }) => {
-      if (error) { setLinkStatuses(prev => ({ ...prev, [sourceId]: { ok: false, checking: false, statusText: "Error" } })); return; }
-      setLinkStatuses(prev => ({ ...prev, [sourceId]: { ok: data.ok, checking: false, statusText: data.ok ? "Active" : `${data.status}` } }));
-    });
-  }
 }

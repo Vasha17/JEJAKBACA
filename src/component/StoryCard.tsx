@@ -58,7 +58,7 @@ export function StoryCard({ story, searchQuery = "" }: StoryCardProps) {
     <div className="relative group">
       <Link
         to={`/story/${story.id}`}
-        className="block rounded-xl overflow-hidden bg-card border border-border transition-all duration-300
+        className="block rounded-lg overflow-hidden bg-card border border-border/60 transition-all duration-300
           hover:border-primary/30 hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}

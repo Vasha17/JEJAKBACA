@@ -178,7 +178,7 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
         <div className="space-y-5 mt-5">
           {!autoPreview ? (
             <>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-[13px] text-muted-foreground">
                 Paste a link (MyAnimeList, Webtoon, etc.) and we'll fill Title, Author, Genre, and Cover automatically.
               </p>
               <form onSubmit={handleAutoFetch} className="flex gap-2">
@@ -214,7 +214,7 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
                   </div>
                 )}
                 <div className="flex-1 min-w-0 space-y-1.5">
-                  <p className="font-bold text-sm text-foreground line-clamp-2">{autoPreview.title || "—"}</p>
+                  <p className="font-bold text-[13px] text-foreground line-clamp-2">{autoPreview.title || "—"}</p>
                   {autoPreview.altTitle && <p className="text-[11px] text-muted-foreground/70 italic line-clamp-1">{autoPreview.altTitle}</p>}
                   {autoPreview.author && <p className="text-xs text-muted-foreground">{autoPreview.author}</p>}
                   {(autoPreview.genres || autoPreview.genre) && (
@@ -259,7 +259,7 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
       : (
         <Button className="gap-2" onClick={() => setOpen(true)}>
           <Plus className="w-4 h-4"/>
-          {showLabel && <span className="text-sm font-medium">Add Story</span>}
+          {showLabel && <span className="text-[13px] font-medium">Add Story</span>}
         </Button>
       );
 
@@ -296,7 +296,7 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
               <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-border/60">
                 <div className="flex items-center gap-2">
                   <BookOpen size={16} className="text-primary/90" />
-                  <span className="font-bold text-sm">Add New Story</span>
+                  <span className="font-bold text-[13px]">Add New Story</span>
                 </div>
                 <button
                   onClick={() => handleClose(false)}
@@ -326,7 +326,7 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
           <Button className="gap-2">
             <Plus className="w-4 h-4"/>
             {showLabel && (
-              <span className="text-sm font-medium">
+              <span className="text-[13px] font-medium">
                 Add Story
               </span>
             )}
@@ -347,7 +347,7 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
                 <DialogTitle className="text-xl font-bold tracking-tight">
                   Add New Story
                 </DialogTitle>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-[13px] text-muted-foreground">
                   Import metadata automatically or add manually.
                 </p>
               </div>
@@ -360,10 +360,10 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
           <Tabs defaultValue="auto" className="w-full">
             {/* TABS */}
             <TabsList className="grid w-full grid-cols-2 bg-secondary/40 border border-border/50 backdrop-blur-sm rounded-2xl p-1 h-auto">
-              <TabsTrigger value="manual" className="rounded-xl py-2.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border/60">
+              <TabsTrigger value="manual" className="rounded-xl py-2 text-[13px] data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border/60">
                 Manual Input
               </TabsTrigger>
-              <TabsTrigger value="auto" className="rounded-xl py-2.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border/60">
+              <TabsTrigger value="auto" className="rounded-xl py-2 text-[13px] data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-border/60">
                 Auto-Fill (Link)
               </TabsTrigger>
             </TabsList>
@@ -456,7 +456,7 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
                 {!autoPreview ? (
                   <div className="rounded-2xl border border-border/50 bg-secondary/20 p-4 space-y-4">
                     <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-[13px] text-muted-foreground">
                         Paste a link and we'll automatically fill metadata.
                       </p>
                       <div className="flex flex-wrap gap-1.5">
@@ -538,7 +538,7 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
                             </p>
                           )}
                           {autoPreview.author && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-[13px] text-muted-foreground">
                               {autoPreview.author}
                             </p>
                           )}
@@ -566,7 +566,7 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
                     </div>
                     {(autoPreview.synopsis || autoPreview.description) && (
                       <div className="border-t border-border/50 pt-4">
-                        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-4">
+                        <p className="text-[13px] text-muted-foreground leading-relaxed line-clamp-4">
                           {autoPreview.synopsis || autoPreview.description}
                         </p>
                       </div>

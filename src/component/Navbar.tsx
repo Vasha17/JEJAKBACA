@@ -282,7 +282,7 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
   return (
     <>
       <div className="relative flex items-center" ref={ref}>
-        <div className={`flex items-center bg-secondary border border-border rounded-xl transition-all duration-300 overflow-hidden
+        <div className={`flex items-center border rounded-2xl bg-background/60 backdrop-blur-xl border-border/40 transition-all duration-300 overflow-hidden
           ${open && window.innerWidth >= 640 ? "w-72 px-3 py-1.5" : "w-8 h-8 justify-center px-0"}`}>
 
           <Search
@@ -1543,7 +1543,7 @@ export function Navbar(props: NavbarProps) {
             <div className="flex items-center gap-2 ml-auto">
               <LibrarySearch search={props.search} onSearchChange={props.onSearchChange} stories={stories} />
               <button onClick={() => setFilterOpen(true)}
-                className={`relative flex items-center justify-center w-8 h-8 rounded-lg transition-all ${props.filterCount > 0 ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
+                className={`relative flex items-center justify-center w-8 h-8 rounded-xl backdrop-blur-sm transition-all border border-border/50 ${props.filterCount > 0 ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
                 <FilterIcon size={16} />
                 {props.filterCount > 0 && <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-amber-400 border-2 border-card rounded-full" />}
               </button>

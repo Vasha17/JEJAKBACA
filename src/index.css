@@ -213,3 +213,12 @@ img {
   opacity: 0;
 }
 
+/* Section hierarchy dimming */
+.section-advanced {
+  opacity: 0.65;
+  transition: opacity 0.2s ease;
+}
+.section-advanced:hover,
+.section-advanced:focus-within {
+  opacity: 1;
+}
