@@ -5,13 +5,14 @@ import { STATUS_OPTIONS } from "../constants";
 
 interface BulkActionBarProps {
   count: number;
+  selectedIds: Set<string>;
   onClose: () => void;
   onDelete: () => void;
   onStatusChange: (status: StoryStatus) => void;
   onOpenSources: (ids?: Set<string>) => void;
 }
 
-export function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources }: BulkActionBarProps) {
+export function BulkActionBar({ count, selectedIds, onClose, onDelete, onStatusChange, onOpenSources }: BulkActionBarProps) {
   const [statusOpen, setStatusOpen] = useState(false);
   return (
     <div className="fixed bottom-24 left-3 right-3 sm:bottom-8 sm:left-1/2 sm:right-auto sm:w-auto sm:-translate-x-1/2 z-20 bg-card border border-border rounded-2xl shadow-2xl p-2 flex items-center gap-1 animate-in slide-in-from-bottom-4">
@@ -35,7 +36,7 @@ export function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpen
           </div>
         )}
       </div>
-      <button onClick={() => onOpenSources()}
+      <button onClick={() => onOpenSources(selectedIds)}
         className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium hover:bg-blue-500/10 text-blue-400 transition-colors shrink min-w-0">
         <ExternalLink size={14} className="shrink-0" /><span className="truncate">Open Tabs</span>
       </button>

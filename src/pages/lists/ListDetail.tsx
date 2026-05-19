@@ -16,8 +16,8 @@ import { useStories } from "@/lib/StoryContext";
 import { useAuth } from "@/component/Auth";
 import { useNavigate, useLocation } from "react-router-dom";
 
-function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources }: {
-  count: number; onClose: () => void; onDelete: () => void;
+function BulkActionBar({ count, selectedIds, onClose, onDelete, onStatusChange, onOpenSources }: {
+  count: number; selectedIds: Set<string>; onClose: () => void; onDelete: () => void;
   onStatusChange: (status: string) => void; onOpenSources: (ids?: Set<string>) => void;
 }) {
   const [statusOpen, setStatusOpen] = useState(false);
@@ -51,7 +51,7 @@ function BulkActionBar({ count, onClose, onDelete, onStatusChange, onOpenSources
           </div>
         )}
       </div>
-      <button onClick={() => onOpenSources()}
+      <button onClick={() => onOpenSources(selectedIds)}
         className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium hover:bg-blue-500/10 text-blue-400 transition-colors shrink min-w-0">
         <ExternalLink size={14} className="shrink-0" /><span className="truncate">Open Tabs</span>
       </button>
@@ -325,14 +325,26 @@ export default function ListDetail() {
     setSelectedIds(new Set());
     setBulkMode(false);
   };
-
+  
   const onOpenSources = (ids?: Set<string>) => {
     const storiesToOpen = ids || selectedIds;
-    storiesToOpen.forEach(sid => {
+    const urls: string[] = [];
+    Array.from(storiesToOpen).forEach(sid => {
       const story = baseStories.find(s => s.id === sid);
-      if (story?.url) window.open(story.url, '_blank');
+      if (!story?.sources?.length) return;
+      const best = story.sources.reduce((max: any, src: any) =>
+        (src.currentChapter || 0) > (max.currentChapter || 0) ? src : max);
+      if (best?.url) urls.push(best.url);
     });
-    toast("Opening Sources", `${storiesToOpen.size} tabs opened`, <ExternalLink size={15} />);
+    if (urls.length === 0) return;
+       
+    urls.forEach((url) => {
+      window.open(url, "_blank", "noopener,noreferrer");
+    });
+    
+    toast("Opening Sources", `${urls.length} tabs opened`, <ExternalLink size={15} />);
+    setSelectedIds(new Set());
+    setBulkMode(false);
   };
 
   const handleSaveDesc = async (newDesc: string, newName: string) => {
@@ -543,6 +555,7 @@ export default function ListDetail() {
         {bulkMode && selectedIds.size > 0 && (
           <BulkActionBar
             count={selectedIds.size}
+            selectedIds={selectedIds}
             onClose={() => setSelectedIds(new Set())}
             onDelete={() => {
               if (confirm(`Remove ${selectedIds.size} stories from this list?`)) {
@@ -554,7 +567,7 @@ export default function ListDetail() {
               }
             }}
             onStatusChange={handleBulkStatus}
-            onOpenSources={() => onOpenSources(selectedIds)}
+            onOpenSources={onOpenSources}
           />
         )}
       </div>

@@ -25,6 +25,7 @@ import { VaultListPanel } from "./components/VaultListPanel";
 import { HeroSection } from "./components/HeroSection";
 import { BulkActionBar } from "./components/BulkActionBar";
 import { QuickViewModal } from "./components/QuickViewModal";
+import { PopupPermissionDialog } from "./components/PopupPermissionDialog";
 
 import { Link } from "react-router-dom";
 import { Play, Eye } from "lucide-react";
@@ -271,6 +272,7 @@ function Library() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [quickView, setQuickView] = useState<any | null>(null);
+  const [popupDialog, setPopupDialog] = useState<{ open: boolean; urls: string[] }>({ open: false, urls: [] });
 
   /* --- Filters --- */
   const [advFilters, setAdvFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -407,12 +409,15 @@ function Library() {
     });
     if (urls.length === 0) return;
     if (urls.length > 3 && !window.confirm(`Open ${urls.length} tabs at once?`)) return;
-    urls.forEach((url, i) => {
-      const a = document.createElement("a");
-      a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      setTimeout(() => { a.click(); document.body.removeChild(a); }, i * 300);
-    });
+
+    const seen = localStorage.getItem("jejakbaca_popup_guide_seen");
+    if (!seen) {
+      localStorage.setItem("jejakbaca_popup_guide_seen", "true");
+      setPopupDialog({ open: true, urls });
+      return;
+    }
+    
+    urls.forEach(url => window.open(url, "_blank", "noopener,noreferrer"));
     setSelectedIds(new Set()); setBulkMode(false);
   };
 
@@ -582,10 +587,11 @@ function Library() {
       {bulkMode && selectedIds.size > 0 && (
         <BulkActionBar
           count={selectedIds.size}
+          selectedIds={selectedIds}
           onClose={() => setSelectedIds(new Set())}
           onDelete={() => setBulkDeleteConfirm(true)}
           onStatusChange={handleBulkStatus}
-          onOpenSources={() => onOpenSources(selectedIds)}
+          onOpenSources={onOpenSources}
         />
       )}
 
@@ -618,16 +624,29 @@ function Library() {
       </Dialog>
 
       {/* Quick view */}
-      {quickView && (
-        <QuickViewModal
-          story={quickView}
-          onClose={() => setQuickView(null)}
-          onNavigate={(id: string) => {
-            navigate(`/story/${id}`, { state: { fromVault: vaultUnlocked } });
-            setQuickView(null);
+      <>
+        {quickView && (
+          <QuickViewModal
+            story={quickView}
+            onClose={() => setQuickView(null)}
+            onNavigate={(id: string) => {
+              navigate(`/story/${id}`, { state: { fromVault: vaultUnlocked } });
+              setQuickView(null);
+            }}
+          />
+        )}
+
+        {/* Popup permission dialog */}
+        <PopupPermissionDialog
+          open={popupDialog.open}
+          urls={popupDialog.urls}
+          onClose={() => setPopupDialog({ open: false, urls: [] })}
+          onDone={() => {
+            setSelectedIds(new Set());
+            setBulkMode(false);
           }}
         />
-      )}
+      </>
 
       {/* Vault unlock dialog */}
       <VaultDialog

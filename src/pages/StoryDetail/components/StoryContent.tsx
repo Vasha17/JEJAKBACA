@@ -207,12 +207,17 @@ export function StoryContent({
           {(story.tags || []).map((tag: string) => (
             <button
               key={tag}
-              onClick={() => handleTagClick(tag)}
-              title="Click to filter in Library"
+              onClick={() => tagMode === "existing" ? removeTagFromStory(story.id, tag) : handleTagClick(tag)}
+              title={tagMode === "existing" ? "Remove tag" : "Click to filter in Library"}
               className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary/8 text-primary/80 border border-primary/15 hover:bg-primary/15 transition-colors text-[11px] font-medium active:scale-95"
             >
               {tag}
-              <span className="opacity-60 hover:opacity-100" onClick={e => { e.stopPropagation(); removeTagFromStory(story.id, tag); }}>×</span>
+              {tagMode === "existing" && (
+                <span
+                  className="opacity-60 hover:opacity-100 leading-none"
+                  onClick={e => { e.stopPropagation(); removeTagFromStory(story.id, tag); }}
+                >×</span>
+              )}
             </button>
           ))}
         </div>
@@ -230,7 +235,7 @@ export function StoryContent({
             <div className="space-y-3 w-full">
               <div className="rounded-2xl border border-border bg-card/50 p-3 space-y-3">
                 <Input value={existingTagSearch} onChange={e => setExistingTagSearch(e.target.value)} placeholder="Search tags..." className="h-8 text-xs bg-secondary rounded-full px-3 border-border" />
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 max-h-[128px] sm:max-h-[132px] overflow-y-auto pr-1">
                   {availableGlobalTags
                     .filter((t: string) => t.toLowerCase().includes(existingTagSearch.toLowerCase()))
                     .map((t: string) => {

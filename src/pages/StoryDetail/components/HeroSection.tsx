@@ -376,9 +376,10 @@ export function HeroSection({
                 <h1
                   className="text-xl sm:text-4xl font-bold text-foreground cursor-pointer hover:text-primary/80 transition-colors line-clamp-2 leading-tight"
                   onClick={() => {
-                    updateStory(story.id, { altTitle: altTitleValue }); setEditingAltTitle(false);
-                    updateStory(story.id, { author: authorValue }); setEditingAuthor(false);
-                    setTitleValue(story.title); setEditingTitle(true);
+                    setEditingAltTitle(false);
+                    setEditingAuthor(false);
+                    setTitleValue(story.title);
+                    setEditingTitle(true);
                   }}
                 >{story.title}</h1>
               )}
@@ -392,9 +393,10 @@ export function HeroSection({
                 <p
                   className={`text-xs sm:text-sm mt-1 cursor-pointer transition-colors ${story.altTitle ? "text-muted-foreground opacity-70 hover:opacity-100 hover:text-foreground" : "text-muted-foreground/30 hover:text-muted-foreground/60 italic"}`}
                   onClick={() => {
-                    updateStory(story.id, { title: titleValue }); setEditingTitle(false);
-                    updateStory(story.id, { author: authorValue }); setEditingAuthor(false);
-                    setAltTitleValue(story.altTitle || ""); setEditingAltTitle(true);
+                    setEditingTitle(false);
+                    setEditingAuthor(false);
+                    setAltTitleValue(story.altTitle || "");
+                    setEditingAltTitle(true);
                   }}
                 >{story.altTitle || " no alternative title "}</p>
               )}
@@ -408,9 +410,10 @@ export function HeroSection({
                 <p
                   className={`text-sm mt-1 cursor-pointer transition-colors ${story.author ? "text-foreground/80 hover:text-primary" : "text-muted-foreground/40 hover:text-muted-foreground italic"}`}
                   onClick={() => {
-                    updateStory(story.id, { title: titleValue }); setEditingTitle(false);
-                    updateStory(story.id, { altTitle: altTitleValue }); setEditingAltTitle(false);
-                    setAuthorValue(story.author || ""); setEditingAuthor(true);
+                    setEditingTitle(false);
+                    setEditingAltTitle(false);
+                    setAuthorValue(story.author || "");
+                    setEditingAuthor(true);
                   }}
                 >{story.author || "Unknown Author"}</p>
               )}
