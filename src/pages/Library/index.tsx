@@ -417,7 +417,25 @@ function Library() {
       return;
     }
     
-    urls.forEach(url => window.open(url, "_blank", "noopener,noreferrer"));
+    urls.forEach(rawUrl => {
+    const base = rawUrl.startsWith("http")
+      ? rawUrl
+      : "https://" + rawUrl;
+    const isInfoSite =
+      /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
+    const cleanBase = base.replace(/\/+$/, "");
+    const story = stories.find(s =>
+      s.sources?.some(src => src.url === rawUrl)
+    );
+    const bestSource = story?.sources?.reduce((max: any, src: any) =>
+      (src.currentChapter || 0) > (max.currentChapter || 0) ? src : max
+    );
+    const finalUrl =
+      isInfoSite || cleanBase.includes("?")
+        ? cleanBase
+        : `${cleanBase}/chapter-${bestSource?.currentChapter || 0}/`;
+    window.open(finalUrl, "_blank", "noopener,noreferrer");
+  });
     setSelectedIds(new Set()); setBulkMode(false);
   };
 

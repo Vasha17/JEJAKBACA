@@ -239,7 +239,17 @@ export function RightPanel({
           <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 mb-2 mr-[5px]">
             <p className="text-[10px] text-muted-foreground mb-1">Continue where you left off</p>
             <p className="text-xs font-semibold text-foreground mb-2">Ch. {best.currentChapter} · {best.name}</p>
-            <a href={best.url} target="_blank" rel="noopener" className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors">
+            <a href="#"
+            onClick={e => {
+              e.preventDefault();
+              const rawUrl = best.url.trim();
+              const base = rawUrl.startsWith("http") ? rawUrl : "https://" + rawUrl;
+              const isInfoSite = /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
+              const cleanBase = base.replace(/\/+$/, "");
+              const chapterUrl = cleanBase.includes("?") ? cleanBase : `${cleanBase}/chapter-${best.currentChapter}/`;
+              window.open(isInfoSite ? base : chapterUrl, "_blank");
+            }}
+            rel="noopener" className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors">
               <BookOpen className="w-3.5 h-3.5" /> Continue Reading
             </a>
           </div>
@@ -257,7 +267,18 @@ export function RightPanel({
           const isAhead = chaptersAhead > 0;
           return (
             <div key={src.id} className={`rounded-xl border transition-all ${isTracked && isAhead ? "bg-emerald-500/5 border-emerald-500/40 shadow-md shadow-emerald-500/10" : ls && !ls.checking ? (ls.ok ? "bg-card/60 border-green-500/30" : "bg-card/60 border-red-500/30") : "bg-card/60 border-border/50"}`}>
-              <a href={src.url} target="_blank" rel="noopener" className="block p-3">
+              
+              <a href="#"
+              onClick={e => {
+                e.preventDefault();
+                const rawUrl = src.url.trim();
+                const base = rawUrl.startsWith("http") ? rawUrl : "https://" + rawUrl;
+                const isInfoSite = /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
+                const cleanBase = base.replace(/\/+$/, "");
+                const chapterUrl = cleanBase.includes("?") ? cleanBase : `${cleanBase}/chapter-${src.currentChapter}/`;
+                window.open(isInfoSite ? base : chapterUrl, "_blank");
+              }}
+              rel="noopener" className="block p-3">
                 <div className="flex items-center gap-1.5 min-w-0 mb-1">
                   <span className="font-bold text-xs text-foreground uppercase tracking-wide break-words leading-tight min-w-0 flex-1">{src.name}</span>
                   {isTracked && <div title={isAhead ? "Update Available!" : "Notifikasi aktif"}><Bell className={`w-3 h-3 shrink-0 transition-colors ${isAhead ? "text-emerald-500 fill-emerald-500/20 animate-pulse" : "text-primary"}`} /></div>}

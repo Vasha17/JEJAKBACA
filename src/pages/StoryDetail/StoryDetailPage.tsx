@@ -507,7 +507,14 @@ export default function StoryDetailPage() {
       setNoSourceDialog(true); return;
     }
     const best = [...story.sources].sort((a: any, b: any) => (b.currentChapter || 0) - (a.currentChapter || 0))[0];
-    window.open(best.url, "_blank");
+    const rawUrl = best.url.trim();
+    const base = rawUrl.startsWith("http") ? rawUrl : "https://" + rawUrl;
+    const isInfoSite = /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
+    const cleanBase = base.replace(/\/+$/, "");
+    const chapterUrl = cleanBase.includes("?")
+      ? cleanBase  
+      : `${cleanBase}/chapter-${best.currentChapter}/`;
+    window.open(isInfoSite ? base : chapterUrl, "_blank");
   };
 
   const handleOpenListsDialog = () => {

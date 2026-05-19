@@ -333,16 +333,37 @@ export default function ListDetail() {
       const story = baseStories.find(s => s.id === sid);
       if (!story?.sources?.length) return;
       const best = story.sources.reduce((max: any, src: any) =>
-        (src.currentChapter || 0) > (max.currentChapter || 0) ? src : max);
-      if (best?.url) urls.push(best.url);
+        (src.currentChapter || 0) > (max.currentChapter || 0)
+          ? src
+          : max
+      );
+
+      if (!best?.url) return;
+
+      const rawUrl = best.url.trim();
+      const base = rawUrl.startsWith("http")
+        ? rawUrl
+        : "https://" + rawUrl;
+      const isInfoSite =
+        /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
+      const cleanBase = base.replace(/\/+$/, "");
+      const finalUrl =
+        isInfoSite || cleanBase.includes("?")
+          ? cleanBase
+          : `${cleanBase}/chapter-${best.currentChapter}/`;
+      urls.push(finalUrl);
     });
+
     if (urls.length === 0) return;
-       
     urls.forEach((url) => {
       window.open(url, "_blank", "noopener,noreferrer");
     });
-    
-    toast("Opening Sources", `${urls.length} tabs opened`, <ExternalLink size={15} />);
+    toast(
+      "Opening Sources",
+      `${urls.length} tabs opened`,
+      <ExternalLink size={15} />
+    );
+
     setSelectedIds(new Set());
     setBulkMode(false);
   };
