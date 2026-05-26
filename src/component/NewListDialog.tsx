@@ -158,18 +158,24 @@ export function NewListDialog({ open, onClose, onCreate, existingCount }: NewLis
           </div>
 
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-3 shrink-0 border-b border-border/60">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{ backgroundColor: `${finalColor}22`, border: `1.5px solid ${finalColor}55` }}>
-                <ListIcon size={14} style={{ color: finalColor }} />
+          <div className="relative border-b border-border/50 px-5 py-4 overflow-hidden shrink-0">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: `${finalColor}18`, borderColor: `${finalColor}40` }}>
+                  <ListIcon className="w-4 h-4" style={{ color: finalColor }} />
+                </div>
+                <div>
+                  <p className="font-bold text-[15px] tracking-tight">New List</p>
+                  <p className="text-[11px] text-muted-foreground leading-tight">Name it, color it, done.</p>
+                </div>
               </div>
-              <span className="font-bold text-sm">New List</span>
+              <button onClick={handleClose}
+                className="w-7 h-7 rounded-full bg-secondary border border-border flex items-center justify-center text-muted-foreground shrink-0">
+                <X size={13} />
+              </button>
             </div>
-            <button onClick={handleClose}
-              className="w-7 h-7 rounded-full bg-secondary border border-border flex items-center justify-center text-muted-foreground">
-              <X size={13} />
-            </button>
           </div>
 
           {/* Scrollable content */}
@@ -207,18 +213,24 @@ export function NewListDialog({ open, onClose, onCreate, existingCount }: NewLis
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-5 pt-5 pb-4 border-b border-border flex items-center justify-between bg-card shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ backgroundColor: `${finalColor}22`, border: `1.5px solid ${finalColor}55` }}>
-              <ListIcon size={14} style={{ color: finalColor }} />
+        <div className="relative border-b border-border/50 px-5 py-5 overflow-hidden shrink-0">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0"
+                style={{ backgroundColor: `${finalColor}18`, borderColor: `${finalColor}40` }}>
+                <ListIcon className="w-5 h-5" style={{ color: finalColor }} />
+              </div>
+              <div>
+                <p className="font-bold text-[17px] tracking-tight">New List</p>
+                <p className="text-[13px] text-muted-foreground">Name it, color it, done.</p>
+              </div>
             </div>
-            <h2 className="text-sm font-bold text-foreground">New List</h2>
+            <button onClick={handleClose}
+              className="w-7 h-7 rounded-full bg-secondary border border-border flex items-center justify-center text-muted-foreground shrink-0">
+              <X size={13} />
+            </button>
           </div>
-          <button onClick={handleClose}
-            className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
-            <X size={14} />
-          </button>
         </div>
 
         {/* Content */}
