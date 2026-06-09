@@ -1357,8 +1357,15 @@ function ProfilePanel({
                   <button onClick={() => setImportOpen(true)} className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-secondary/50 transition-colors">
                     <FileDown size={13} className="text-muted-foreground shrink-0" /><span className="text-sm text-foreground">Import Progress</span>
                   </button>
-                  <button onClick={() => setExportOpen(true)} className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-secondary/50 transition-colors border-t border-border/50">
+                   <button onClick={() => setExportOpen(true)} className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-secondary/50 transition-colors border-t border-border/50">
                     <FileUp size={13} className="text-muted-foreground shrink-0" /><span className="text-sm text-foreground">Export Progress</span>
+                  </button>
+                  <button onClick={async () => {
+                    const { migrateStoryTagsToGlobalTags } = await import("@/lib/globalTagsSync");
+                    await migrateStoryTagsToGlobalTags();
+                    alert("Tags migrated!");
+                  }} className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-secondary/50 transition-colors border-t border-border/50">
+                    <span className="text-sm text-amber-400">⬆ Migrate Tags to Cloud</span>
                   </button>
                 </div>
               )}
