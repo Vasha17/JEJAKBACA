@@ -14,7 +14,7 @@ export async function pullGlobalTags(): Promise<string[]> {
     .single();
   const remote: string[] = data?.global_tags ?? [];
   const local = getLocalTags();
-  const merged = Array.from(new Set([...remote, ...local]));
+  const merged = Array.from(new Set([...remote, ...local])).sort((a, b) => a.localeCompare(b));
   localStorage.setItem(KEY, JSON.stringify(merged));
   if (merged.length !== remote.length) await pushGlobalTags(merged);
   return merged;

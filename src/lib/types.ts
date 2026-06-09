@@ -104,9 +104,9 @@ import { pushGlobalTags } from "./globalTagsSync";
 export function saveGlobalTag(tag: string) {
   const tags = getGlobalTags();
   if (!tags.includes(tag)) {
-    tags.push(tag);
-    localStorage.setItem(GLOBAL_TAGS_KEY, JSON.stringify(tags));
-    pushGlobalTags(tags); // fire-and-forget
+    const sorted = [...tags, tag].sort((a, b) => a.localeCompare(b));
+    localStorage.setItem(GLOBAL_TAGS_KEY, JSON.stringify(sorted));
+    pushGlobalTags(sorted);
   }
 }
 
