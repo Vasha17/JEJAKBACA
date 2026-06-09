@@ -267,6 +267,18 @@ export function ProfileSidebar({
                     ↻ Sync Now
                   </button>
 
+                   {/* Migrate Tags */}
+                  <button
+                    onClick={async () => {
+                      const { migrateStoryTagsToGlobalTags } = await import("@/lib/globalTagsSync");
+                      await migrateStoryTagsToGlobalTags();
+                      alert("Tags migrated!");
+                    }}
+                    className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-secondary/50 transition-colors"
+                  >
+                    <span className="text-sm text-amber-400">⬆ Migrate Tags to Cloud</span>
+                  </button>
+
                   {/* Backup buttons */}
                   <button
                     onClick={() => setImportOpen(true)}

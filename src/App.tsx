@@ -15,6 +15,7 @@ import ListDetail from "./pages/lists/ListDetail";
 import Library from "./pages/Library";
 import StoryDetail from "./pages/StoryDetail/StoryDetailPage";
 import NotFound from "./pages/NotFound";
+import { pullGlobalTags } from "./lib/globalTagsSync";
 
 const queryClient = new QueryClient();
 
@@ -30,7 +31,7 @@ function useOAuthRedirectHandler() {
           access_token: accessToken,
           refresh_token: refreshToken,
         }).then(() => {
-          window.location.hash = "/";
+          window.location.replace("#/");
         });
       }
     }
@@ -232,15 +233,23 @@ function AppContent() {
   useRealtimeSync(user?.id);
 
   useEffect(() => {
+    if (!user) return;
+    void pullGlobalTags();
+  }, [user]);
+
+  useEffect(() => {
     if (!user?.id) return;
 
+    let running = false;
+
     const handleOnline = async () => {
-      console.log("🌐 Connection back, syncing...");
+      if (running) return;
+      running = true;
+
       try {
         await dexieAPI.sync(user.id);
-        console.log("✅ Reconnect sync complete");
-      } catch (err) {
-        console.error("❌ Reconnect sync failed:", err);
+      } finally {
+        running = false;
       }
     };
 
@@ -248,8 +257,8 @@ function AppContent() {
     return () => window.removeEventListener("online", handleOnline);
   }, [user?.id]);
 
-  const [skippedLogin, setSkippedLogin] = useState(
-    () => localStorage.getItem("jejakbaca_skip_login") === "true"
+  const [skippedLogin, setSkippedLogin] = useState(() =>
+    localStorage.getItem("jejakbaca_skip_login") === "true"
   );
 
   useEffect(() => {

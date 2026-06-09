@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/component/ui/button";
 import { BookOpen } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
+import { pullGlobalTags } from "@/lib/globalTagsSync";
 
 // ── Helper: format join date ───────────────────────────────────────────────
 export function formatMemberSince(dateStr: string | null | undefined): string {
@@ -32,6 +33,9 @@ export function useAuth() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        pullGlobalTags(); 
+      }
       setUser(session?.user ?? null);
       setLoading(false);
     });

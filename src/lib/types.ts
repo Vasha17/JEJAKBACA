@@ -99,11 +99,14 @@ export function getGlobalTags(): string[] {
   }
 }
 
+import { pushGlobalTags } from "./globalTagsSync";
+
 export function saveGlobalTag(tag: string) {
   const tags = getGlobalTags();
   if (!tags.includes(tag)) {
     tags.push(tag);
     localStorage.setItem(GLOBAL_TAGS_KEY, JSON.stringify(tags));
+    pushGlobalTags(tags); // fire-and-forget
   }
 }
 
@@ -113,7 +116,9 @@ export function removeGlobalTag(tag: string) {
     const existing = getGlobalTags();
     const norm = (t: string) => t.trim().toUpperCase();
     const filtered = existing.filter(t => norm(t) !== norm(tag));
+
     localStorage.setItem(GLOBAL_TAGS_KEY, JSON.stringify(filtered));
+    pushGlobalTags(filtered);
   } catch {
     // noop
   }
@@ -122,9 +127,16 @@ export function removeGlobalTag(tag: string) {
 // Remove multiple global tags at once (case-insensitive)
 export function removeGlobalTags(tagsToRemove: string[]) {
   try {
-    const removeSet = new Set(tagsToRemove.map(t => t.trim().toUpperCase()));
-    const filtered = getGlobalTags().filter(t => !removeSet.has(t.trim().toUpperCase()));
+    const removeSet = new Set(
+      tagsToRemove.map(t => t.trim().toUpperCase())
+    );
+
+    const filtered = getGlobalTags().filter(
+      t => !removeSet.has(t.trim().toUpperCase())
+    );
+
     localStorage.setItem(GLOBAL_TAGS_KEY, JSON.stringify(filtered));
+    pushGlobalTags(filtered);
   } catch {
     // noop
   }
