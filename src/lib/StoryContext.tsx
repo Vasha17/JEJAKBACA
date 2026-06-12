@@ -85,8 +85,7 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
         const { data } = await supabase.auth.getUser();
         const userId = data.user?.id;
 
-        if (userId) {
-          console.log("🔄 StoryContext: auto sync untuk user", userId);
+        if (userId) {         
           setSyncStats(prev => ({ ...prev, status: "syncing" }));
 
           // 3. Sync (push lokal → cloud, lalu pull cloud → lokal)
@@ -105,8 +104,7 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
               lastSync: new Date().toISOString(),
               pendingCount: unsynced.length,
               status: "success",
-            });
-            console.log("✅ StoryContext: sync selesai,", all.length, "stories");
+            });           
           }
         }
       } catch (e) {
@@ -138,8 +136,7 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
 
         const unsynced = await dexieAPI.getUnsynced();
         if (unsynced.length === 0) return; 
-
-        console.log("⏰ Periodic sync:", unsynced.length, "pending");
+                
         await dexieAPI.sync(data.user.id);
         
         const [all, remaining] = await Promise.all([

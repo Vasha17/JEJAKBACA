@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { X, Lock, Plus } from "lucide-react";
+import { X, Lock, Plus, Search } from "lucide-react";
 import { ReadingList } from "@/lib/types";
 import { ListCard } from "@/component/ListCard";
 import { NewListDialog } from "@/component/NewListDialog";
@@ -15,6 +15,13 @@ interface VaultListPanelProps {
 
 export function VaultListPanel({ open, onClose, listsMap, onCreated }: VaultListPanelProps) {
   const [newListDialogOpen, setNewListDialogOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  if (!open) return null;
+
+  const filteredEntries = Object.entries(listsMap).filter(([_, data]) =>
+    data.list.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   if (!open) return null;
 
@@ -59,9 +66,19 @@ export function VaultListPanel({ open, onClose, listsMap, onCreated }: VaultList
                 <Plus size={12} className="text-current" />
               </div>
               <span className="text-xs font-bold">Create Vault List</span>
-            </button>
+              </button>
 
-            {Object.entries(listsMap).map(([listId, data]) => (
+            <div className="col-span-2 md:col-span-1 relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search vault lists..."
+                className="w-full pl-9 pr-3 py-2 rounded-xl bg-secondary/30 border border-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
+            {filteredEntries.map(([listId, data]) => (
               <Link
                 to={`/lists/${listId}`}
                 key={listId}
@@ -84,6 +101,12 @@ export function VaultListPanel({ open, onClose, listsMap, onCreated }: VaultList
             {Object.keys(listsMap).length === 0 && (
               <p className="col-span-2 md:col-span-1 text-xs text-muted-foreground text-center py-8">
                 Vault is empty. Create a hidden list to get started.
+              </p>
+            )}
+
+            {Object.keys(listsMap).length > 0 && filteredEntries.length === 0 && (
+              <p className="col-span-2 md:col-span-1 text-xs text-muted-foreground text-center py-8">
+                No lists match "{search}"
               </p>
             )}
           </div>

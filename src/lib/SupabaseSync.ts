@@ -128,8 +128,7 @@ export function useRealtimeSync(userId?: string) {
           filter: `user_id=eq.${userId}`
         },
         async (payload) => {
-          const eventType = payload.eventType;
-          console.log(`Realtime ${eventType}:`, payload);
+          const eventType = payload.eventType;          
 
           // Handle DELETE
           if (eventType === 'DELETE') {

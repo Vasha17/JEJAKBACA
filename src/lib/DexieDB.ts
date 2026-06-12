@@ -52,8 +52,7 @@ async function getDB(): Promise<JejakBacaDB | null> {
     initPromise = (async () => {
       try {
         if (!window.indexedDB) throw new Error("IndexedDB not supported");
-        await db.open();
-        console.log("✅ Dexie Connected");
+        await db.open();        
         await migrateFromLocalStorageInternal(db);
         return db;
       } catch (error) {
@@ -333,8 +332,7 @@ async function migrateFromLocalStorageInternal(db: JejakBacaDB): Promise<void> {
       sync_status: SyncStatus.LOCAL,
       version: 1,
     }));
-    await db.stories.bulkAdd(dexieStories);
-    console.log(`✅ Migrated ${dexieStories.length} stories from localStorage`);
+    await db.stories.bulkAdd(dexieStories);    
   } catch (e) { console.error("❌ Migration failed:", e); }
 }
 

@@ -159,6 +159,7 @@ export function LibrarySearch({ search, onSearchChange, onSearchCommit, onReset,
   search: string; onSearchChange: (v: string) => void; onSearchCommit?: (v: string) => void; onReset?: () => void; stories: any[];
 }) {
   const [open, setOpen] = useState(false);
+  const [closing, setClosing] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
@@ -293,11 +294,17 @@ export function LibrarySearch({ search, onSearchChange, onSearchCommit, onReset,
   const handleClose = (e?: React.MouseEvent) => {
     e?.preventDefault();
     e?.stopPropagation();
-    setLocalSearch("");
-    onSearchChange("");
-    onSearchCommit?.("");
-    onReset?.();
-    setOpen(false);
+
+    setClosing(true);
+
+    setTimeout(() => {
+      setLocalSearch("");
+      onSearchChange("");
+      onSearchCommit?.("");
+      onReset?.();
+      setOpen(false);
+      setClosing(false);
+    }, 300);
   };
 
   return (
@@ -401,7 +408,14 @@ export function LibrarySearch({ search, onSearchChange, onSearchCommit, onReset,
           />
 
           <div
-            className="relative flex flex-col bg-card border-b border-border shadow-2xl rounded-b-3xl animate-in slide-in-from-top duration-300"
+            className={`
+              relative flex flex-col bg-card border-b border-border shadow-2xl rounded-b-3xl
+              ${
+                closing
+                  ? "animate-out slide-out-to-top duration-300"
+                  : "animate-in slide-in-from-top duration-300"
+              }
+            `}
             style={{ maxHeight: "92vh" }}
             onClick={(e) => e.stopPropagation()}
           >
