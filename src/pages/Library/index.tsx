@@ -4,7 +4,7 @@ import { useStories } from "@/lib/StoryContext";
 import {
   BookOpen, Check, CheckSquare, Square, Trash2, AlertCircle,
   Lock, LayoutGrid, AlignJustify, ChevronRight, Star,
-  X, Globe,
+  X, Globe, Eye,
 } from "lucide-react";
 import { StoryStatus, getGlobalTags } from "@/lib/types";
 import { Dialog, DialogContent } from "@/component/ui/dialog";
@@ -14,7 +14,7 @@ import { VaultDialog } from "@/component/VaultDialog";
 import { useAuth } from "@/component/Auth";
 import { isVaultUnlocked, lockVault } from "@/lib/vaultUtils";
 import "flag-icons/css/flag-icons.min.css";
-
+import { ScrollToTop } from "./components/ScrollToTop";
 import { SORT_OPTIONS, STATUS_COLORS, FORMAT_MAP } from "./constants";
 import { getStatusInfo, highlightText, pickHeroStory } from "./utils";
 import { usePullToVault } from "./hooks/usePullToVault";
@@ -28,7 +28,6 @@ import { BulkActionBar } from "./components/BulkActionBar";
 import { QuickViewModal } from "./components/QuickViewModal";
 import { PopupPermissionDialog } from "./components/PopupPermissionDialog";
 import { Link } from "react-router-dom";
-import { Eye } from "lucide-react";
 
 /* ---------- EmptyState ---------- */
 function EmptyState({ isVault = false }: { isVault?: boolean }) {
@@ -362,9 +361,9 @@ function Library() {
     } else if (loadMoreMode) {
       setDisplayedItems(filtered.slice(0, page * pageSize));
     } else {
-      setDisplayedItems(currentPageItems);
+      setDisplayedItems(filtered.slice((page - 1) * pageSize, page * pageSize));
     }
-  }, [page, filtered, fullLibraryItems, pageSize, loadMoreMode, showAllResults, currentPageItems]);
+  }, [page, filtered, pageSize, loadMoreMode, showAllResults]);
 
   /* ---- Pull-to-vault ---- */
   const pageRef = useRef<HTMLDivElement>(null);
@@ -847,6 +846,7 @@ function Library() {
           allTags={allTags}
         />
       )}
+      <ScrollToTop />
     </div>
   );
 }
