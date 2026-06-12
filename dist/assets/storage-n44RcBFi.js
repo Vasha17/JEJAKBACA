@@ -1,1 +1,0 @@
-const e="jejakbaca_stories";function a(){try{const t=localStorage.getItem(e);return t?JSON.parse(t):[]}catch{return[]}}function o(t){localStorage.setItem(e,JSON.stringify(t))}export{a as loadStories,o as saveStories};
