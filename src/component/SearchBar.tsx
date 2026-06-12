@@ -150,11 +150,12 @@ export default function SearchBar() {
         <div>
           <h4 className="text-xs font-semibold text-muted-foreground tracking-wider mb-3">{sectionLabel}</h4>
           <div className="flex flex-wrap gap-2">
-            {filtered.map((chip, i) => (
-              <GenreChip
+            {filtered.map((chip) => (
+               <GenreChip
                 key={chip.label}
                 chip={chip}
                 onClick={() => filters.cycleChip(setter, chips.findIndex((c) => c.label === chip.label))}
+                highlight={filterSearch}
               />
             ))}
           </div>
@@ -165,7 +166,7 @@ export default function SearchBar() {
           <div>
             <h4 className="text-xs font-semibold text-muted-foreground tracking-wider mb-3">THEME</h4>
             <div className="flex flex-wrap gap-2">
-              {filteredThemes.map((chip, i) => (
+              {filteredThemes.map((chip) => (
                 <GenreChip
                   key={chip.label}
                   chip={chip}
@@ -185,7 +186,7 @@ export default function SearchBar() {
         <div className="flex items-center gap-2">
           <Checkbox
             checked={filters.matchAll}
-            onCheckedChange={(val) => filters.setMatchAll(val === true)}
+            onCheckedChange={(val: boolean | "indeterminate") => filters.setMatchAll(val === true)}
             className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
           />
           <span className="text-sm text-foreground">Match ALL selected genres</span>

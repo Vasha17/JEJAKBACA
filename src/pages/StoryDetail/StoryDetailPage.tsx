@@ -10,7 +10,7 @@ import {
   DialogFooter, DialogClose,
 } from "@/component/ui/dialog";
 import {
-  BookOpen, X, Plus, Trash2, AlertCircle,
+  BookOpen, History, X, Plus, Trash2, AlertCircle,
   CheckCircle2, Globe, Database, ChevronLeft,
   ChevronRight, Search, Bookmark,
 } from "lucide-react";
@@ -27,7 +27,7 @@ import { StoryContent }                  from "./components/StoryContent";
 import { RightPanel }                    from "./components/RightPanel";
 import { NotesTimeline }                 from "./components/NotesTimeline";
 import {
-  STATUS_OPTIONS, statusColor,
+  STATUS_OPTIONS, 
   REL_LABELS, REL_COLORS,
   ARC_COLOR_PALETTES, ARC_COLORS,
   type ArcColorPalette,
@@ -61,7 +61,7 @@ const safeGet = <T,>(key: string, defaultValue: T): T => {
 export default function StoryDetailPage() {
   const { id }   = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const location = useLocation(); // Dipertahankan untuk kebutuhan state navigasi lain (misal: fromVault)  
+  const location = useLocation();
 
   const fromListId = location.state?.fromListId;
   const {
@@ -331,8 +331,6 @@ export default function StoryDetailPage() {
   }
 
   // ── Derived values ────────────────────────────────────────────────────────
-  const currentStatus       = STATUS_OPTIONS.find(s => s.value === story.status);
-  const dotColor            = statusColor(story.status);
   const globalTags          = getGlobalTags();
   const storyTagsSafe       = story?.tags || [];
   const storyTagsNorm       = storyTagsSafe.map(normalizeTag);
@@ -512,7 +510,7 @@ export default function StoryDetailPage() {
     const isInfoSite = /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
     const cleanBase = base.replace(/\/+$/, "");
     const chapterUrl = cleanBase.includes("?")
-      ? cleanBase  
+      ? cleanBase
       : `${cleanBase}/chapter-${best.currentChapter}/`;
     window.open(isInfoSite ? base : chapterUrl, "_blank");
   };
@@ -813,7 +811,7 @@ export default function StoryDetailPage() {
 
       {/* Rating */}
       <Dialog open={ratingDialog} onOpenChange={setRatingDialog}>
-        <DialogContent className="sm:max-w-sm p-6 rounded-2xl">
+        <DialogContent className="w-[92vw] max-w-2xl p-6 rounded-2xl mx-auto">
           <DialogHeader className="mb-2 text-center">
             <DialogTitle className="text-2xl font-bold">Rate This Story</DialogTitle>
             <p className="text-sm text-muted-foreground mt-1">How much did you enjoy it?</p>
@@ -834,39 +832,50 @@ export default function StoryDetailPage() {
       </Dialog>
 
       {/* Status */}
-      <Dialog open={statusDialog} onOpenChange={setStatusDialog}>
-        <DialogContent className="sm:max-w-md p-6 rounded-2xl">
-          <DialogHeader className="mb-4"><DialogTitle className="text-xl">Select Status</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
-            {STATUS_OPTIONS.map(s => (
-              <button key={s.value} onClick={() => { haptic("light"); handleStatusChange(s.value); }}
-                className={`relative overflow-hidden group flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200 ${story.status === s.value ? "border-primary bg-primary/5 scale-105 shadow-lg" : "border-border bg-card hover:border-primary/50 hover:bg-secondary"}`}>
-                {story.status === s.value && <div className="absolute inset-0 bg-primary/5 blur-xl -z-10" />}
-                <span className="w-8 h-8 rounded-full shadow-inner mb-2 ring-2 ring-background transition-transform group-hover:scale-110" style={{ backgroundColor: s.color }} />
-                <span className={`font-bold text-sm tracking-wide ${story.status === s.value ? "text-primary" : "text-foreground"}`}>{s.label}</span>
-                {story.status === s.value && <div className="absolute top-2 right-2 text-primary"><CheckCircle2 size={16} className="fill-current" /></div>}
-              </button>
-            ))}
+       <Dialog open={statusDialog} onOpenChange={setStatusDialog}>
+        <DialogContent className="w-[92vw] max-w-2xl p-0 overflow-hidden gap-0 mx-auto rounded-2xl">
+          <div className="px-5 pt-5 pb-4 border-b border-border">
+            <DialogTitle className="text-base font-bold text-foreground">Select Status</DialogTitle>
+          </div>
+          <div className="px-3 py-3 space-y-0.5">
+            {STATUS_OPTIONS.map(s => {
+              const isSelected = story.status === s.value;
+              return (
+                <button key={s.value} onClick={() => { haptic("light"); handleStatusChange(s.value); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all border ${isSelected ? "bg-primary/8 border-primary/25" : "border-transparent hover:bg-secondary/60 hover:border-border/60"}`}>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? "border-primary bg-primary" : "border-border bg-secondary"}`}>
+                    {isSelected && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                  <span className={`text-sm font-medium ${isSelected ? "text-foreground" : "text-foreground/80"}`}>{s.label}</span>
+                  {isSelected && <span className="text-[10px] font-bold text-primary shrink-0 bg-primary/10 px-1.5 py-0.5 rounded-full ml-auto">Active</span>}
+                </button>
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Bookmark */}
       <Dialog open={bookmarkDialog} onOpenChange={setBookmarkDialog}>
-        <DialogContent className="w-[92vw] max-w-sm mx-auto rounded-2xl">
-          <DialogHeader><DialogTitle>Add Bookmark</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+         <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto">
+          <DialogHeader className="px-4 py-3 border-b border-border bg-muted/20">
+            <DialogTitle className="text-base font-semibold flex items-center gap-2">
+              <Bookmark className="w-4 h-4 text-primary" /> Add Bookmark
+            </DialogTitle>
+          </DialogHeader>
+          <div className="p-4 space-y-3">
             <Input value={bmChapter} onChange={e => setBmChapter(e.target.value)} placeholder="Chapter number" type="number" step="0.1" />
             <Input value={bmNote}    onChange={e => setBmNote(e.target.value)}    placeholder="Short note (optional)" />
           </div>
-          <DialogFooter>
+           <div className="px-4 pb-4 flex gap-2 justify-end">
             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
-            <Button onClick={() => {
-              const ch = parseInt(bmChapter); if (!ch) return;
-              haptic("medium");
-              addBookmark(story.id, ch, bmNote); setBmChapter(""); setBmNote(""); setBookmarkDialog(false);
-            }}>Add</Button>
-          </DialogFooter>
+              <Button onClick={() => {
+                const ch = parseInt(bmChapter); if (!ch) return;
+                haptic("medium");
+                addBookmark(story.id, ch, bmNote); setBmChapter(""); setBmNote(""); setBookmarkDialog(false);
+              }}>Add</Button>
+            </div>
         </DialogContent>
       </Dialog>
 
@@ -888,7 +897,7 @@ export default function StoryDetailPage() {
 
       {/* Lists */}
       <Dialog open={listsDialog} onOpenChange={setListsDialog}>
-        <DialogContent className="w-[92vw] max-w-sm p-0 overflow-hidden gap-0 mx-auto rounded-2xl">
+        <DialogContent className="w-[92vw] max-w-2xl p-0 overflow-hidden gap-0 mx-auto rounded-2xl">
           <div className="px-5 pt-5 pb-4 border-b border-border">
             <DialogTitle className="text-base font-bold text-foreground">Add to List</DialogTitle>
             <p className="text-xs text-muted-foreground mt-0.5">Organise this story into your collections</p>
@@ -982,10 +991,15 @@ export default function StoryDetailPage() {
 
       {/* History */}
       <Dialog open={historyDialog} onOpenChange={setHistoryDialog}>
-        <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
-          <DialogHeader><DialogTitle>Version History</DialogTitle></DialogHeader>
+        <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto">
+          <DialogHeader className="px-4 py-3 border-b border-border bg-muted/20">
+            <DialogTitle className="text-base font-semibold flex items-center gap-2">
+              <History className="w-4 h-4" /> Version History
+            </DialogTitle>
+          </DialogHeader>
+
           {historyEntries.length > 0 ? (
-            <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+            <div className="p-4 space-y-2 max-h-80 overflow-y-auto">
               {historyEntries.map(entry => (
                 <div key={entry.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
                   <div className="flex-1 min-w-0">
@@ -1002,15 +1016,18 @@ export default function StoryDetailPage() {
               ))}
             </div>
           ) : <p className="text-sm text-muted-foreground italic py-4 text-center">No history yet.</p>}
+
           {historyEntries.length > 0 && (
-            <DialogFooter><Button variant="ghost" size="sm" onClick={clearHistory}>Clear History</Button></DialogFooter>
+            <div className="px-4 py-3 border-t border-border flex justify-end">
+              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive bg-destructive/10" onClick={clearHistory}>Clear History</Button>
+            </div>
           )}
         </DialogContent>
       </Dialog>
 
       {/* Related Stories */}
       <Dialog open={relatedDialog} onOpenChange={setRelatedDialog}>
-        <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
+        <DialogContent className="w-[92vw] max-w-2xl mx-auto rounded-2xl">
           <DialogHeader><DialogTitle>Related Stories</DialogTitle></DialogHeader>
           {relations.length > 0 ? (
             <div className="space-y-2 mb-4 max-h-56 overflow-y-auto pr-1">
@@ -1077,7 +1094,7 @@ export default function StoryDetailPage() {
 
       {/* Delete Bookmark */}
       <Dialog open={!!deleteBookmarkId} onOpenChange={open => { if (!open) setDeleteBookmarkId(null); }}>
-        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl">
+        <DialogContent className="w-[92vw] max-w-2xl rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl mx-auto">
           <div className="p-6 flex flex-col items-center text-center">
             <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
               <Bookmark className="w-7 h-7 text-primary" />
@@ -1096,7 +1113,7 @@ export default function StoryDetailPage() {
 
       {/* Delete Story */}
       <Dialog open={deleteStoryDialog} onOpenChange={setDeleteStoryDialog}>
-        <DialogContent className="sm:max-w-[380px] rounded-3xl border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl [&>button]:z-30">
+        <DialogContent className="w-[92vw] max-w-2xl rounded-3xl border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl [&>button]:z-30 mx-auto">
           <div className="absolute inset-0 bg-gradient-to-br from-destructive/10 via-background to-background pointer-events-none" />
           <div className="relative z-10 px-6 pt-8 pb-6 flex flex-col items-center text-center">
             <div className="w-16 h-16 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center mb-5 shadow-lg shadow-destructive/10">
@@ -1121,7 +1138,7 @@ export default function StoryDetailPage() {
 
       {/* Delete Note */}
       <Dialog open={!!deleteNoteId} onOpenChange={open => { if (!open) setDeleteNoteId(null); }}>
-        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl">
+        <DialogContent className="w-[92vw] max-w-2xl rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl mx-auto">
           <div className="p-6 flex flex-col items-center text-center">
             <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4"><Trash2 className="w-7 h-7 text-red-500" /></div>
             <DialogTitle className="text-xl font-bold text-foreground">Delete note?</DialogTitle>
@@ -1138,7 +1155,7 @@ export default function StoryDetailPage() {
 
       {/* Delete Tag */}
       <Dialog open={!!deleteTagConfirm} onOpenChange={open => { if (!open) setDeleteTagConfirm(null); }}>
-        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl">
+        <DialogContent className="w-[92vw] max-w-2xl rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl mx-auto">
           <div className="p-6 flex flex-col items-center text-center">
             <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4"><Trash2 className="w-7 h-7 text-red-500" /></div>
             <DialogTitle className="text-xl font-bold text-foreground">Delete tag?</DialogTitle>
@@ -1153,7 +1170,7 @@ export default function StoryDetailPage() {
 
       {/* Delete Arc */}
       <Dialog open={!!deleteArcId} onOpenChange={open => { if (!open) setDeleteArcId(null); }}>
-        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl">
+        <DialogContent className="w-[92vw] max-w-2xl rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl mx-auto">
           <div className="p-6 flex flex-col items-center text-center">
             <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4"><Trash2 className="w-7 h-7 text-red-500" /></div>
             <DialogTitle className="text-xl font-bold text-foreground">Delete arc?</DialogTitle>
@@ -1168,7 +1185,7 @@ export default function StoryDetailPage() {
 
       {/* No Source Alert */}
       <Dialog open={noSourceDialog} onOpenChange={setNoSourceDialog}>
-        <DialogContent className="w-[92vw] sm:max-w-[380px] rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl">
+        <DialogContent className="w-[92vw] max-w-2xl rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl mx-auto">
           <div className="p-6 flex flex-col items-center text-center">
             <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
               <BookOpen className="w-7 h-7 text-primary" />
@@ -1191,9 +1208,9 @@ export default function StoryDetailPage() {
 
       {/* Arc add/edit */}
       <Dialog open={arcDialog} onOpenChange={open => { if (!open) { setArcDialog(false); setEditingArc(null); } }}>
-        <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
+        <DialogContent className="w-[92vw] max-w-2xl mx-auto rounded-2xl">
           <DialogHeader><DialogTitle>{editingArc ? "Edit Arc" : "Add Arc"}</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+          <div className="space-y-2">
             <Input value={arcName} onChange={e => setArcName(e.target.value)} placeholder="Arc name (e.g. East Blue Arc)" className="bg-card" autoFocus />
             <div className="flex gap-2">
               <div className="flex-1">
@@ -1205,7 +1222,7 @@ export default function StoryDetailPage() {
                 <Input value={arcEnd} onChange={e => setArcEnd(e.target.value)} type="number" step="0.1" placeholder="100" className="bg-card" />
               </div>
             </div>
-            <div className="space-y-3 border-t border-border pt-3">
+            <div className="space-y-2 border-t border-border pt-2">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-semibold text-foreground">Arc Color</label>
                 <div className="flex items-center gap-0.5 bg-secondary rounded-lg p-0.5 border border-border">
@@ -1231,26 +1248,21 @@ export default function StoryDetailPage() {
                   </button>
                 ))}
               </div>
-              <div className="flex gap-1.5 flex-wrap">
+              <div className="flex gap-1 flex-wrap">
                 {ARC_COLOR_PALETTES[arcColorPalette].map((c, i) => {
                   const currentAutoColor = ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length];
                   const isSelected = arcColorMode === "manual" ? arcColor === c : currentAutoColor === c;
                   return (
                     <button key={i} onClick={() => { setArcColorMode("manual"); setArcColor(c); }}
-                      className={`w-7 h-7 rounded-full transition-all shrink-0 ${isSelected ? "ring-2 ring-offset-2 ring-offset-background ring-white scale-110" : "opacity-80 hover:opacity-100 hover:scale-105"}`}
+                      className={`w-6 h-6 rounded-full transition-all shrink-0 ${isSelected ? "ring-2 ring-offset-2 ring-offset-background ring-white scale-110" : "opacity-80 hover:opacity-100 hover:scale-105"}`}
                       style={{ backgroundColor: c }} />
                   );
                 })}
               </div>
-              <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-border bg-secondary/50">
-                <div className="w-5 h-5 rounded-full shadow-md shrink-0 ring-1 ring-white/20"
-                  style={{ backgroundColor: arcColorMode === "auto" ? ARC_COLOR_PALETTES[arcColorPalette][arcs.length % ARC_COLOR_PALETTES[arcColorPalette].length] : arcColor }} />
-                <p className="text-[10px] text-muted-foreground flex-1">{arcColorMode === "auto" ? `Auto • ${arcColorPalette} palette` : "Manually picked"}</p>
-              </div>
             </div>
             <div>
               <label className="text-[10px] text-muted-foreground mb-1 block">Description (optional)</label>
-              <textarea value={arcDesc} onChange={e => setArcDesc(e.target.value)} placeholder="What happens in this arc?" className="w-full bg-card border border-border rounded-md px-3 py-2 text-sm resize-none min-h-[80px] focus:outline-none focus:ring-1 focus:ring-ring" />
+              <textarea value={arcDesc} onChange={e => setArcDesc(e.target.value)} placeholder="What happens in this arc?" className="w-full bg-card border border-border rounded-md px-3 py-1.5 text-xs resize-none min-h-[60px] focus:outline-none focus:ring-1 focus:ring-ring" />
             </div>
           </div>
           <DialogFooter>
@@ -1262,7 +1274,7 @@ export default function StoryDetailPage() {
 
       {/* Country */}
       <Dialog open={countryDialog} onOpenChange={setCountryDialog}>
-        <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
+        <DialogContent className="w-[92vw] max-w-2xl mx-auto rounded-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Origin Country</DialogTitle></DialogHeader>
           <div className="relative mb-4">
             <Input placeholder="Search country (e.g. Japan, ID, USA)..." value={countrySearch} onChange={e => setCountrySearch(e.target.value)} className="pl-9" />
@@ -1379,7 +1391,7 @@ export default function StoryDetailPage() {
 
       {/* ═══ FLOATING UI ═════════════════════════════════════════════════════ */}
       {prevStory && (
-        <button onClick={() => handleNavigateStory(prevStory.id)} className="fixed left-2 top-1/2 -translate-y-1/2 z-40 p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 opacity-40 sm:opacity-0 hover:opacity-100 transition-all duration-300 group shadow-xl" title={`Previous: ${prevStory.title}`}>
+        <button onClick={() => handleNavigateStory(prevStory.id)} className="fixed left-2 top-1/2 -translate-y-1/2 z-40 p-2 sm:p-3 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-sm border border-white/10 opacity-30 hover:opacity-100 transition-all duration-300 group shadow-xl" title={`Previous: ${prevStory.title}`}>
           <ChevronLeft className="w-6 h-6 group-hover:-translate-x-0.5 transition-transform" />
         </button>
       )}

@@ -28,104 +28,109 @@ interface StoryRowProps {
 }
 
 // ─── Main Component ──────────────────────────────────
-export function StoryRow({ story, index, listId, onLogChapter, onRemove, bulkMode, selectedIds, onToggleSelect }: StoryRowProps) {
+export function StoryRow({ story, listId, onLogChapter, onRemove, bulkMode, selectedIds, onToggleSelect }: StoryRowProps) {
   const statusCfg = STATUS_CONFIG[story.status] ?? STATUS_CONFIG["plan-to-read"];
   const navigate = useNavigate();
   const isSelected = selectedIds?.has(story.id) ?? false;
+const updatedAt = new Date(story.chapterUpdatedAt);
+  const now = new Date();
+  const diffMs = now.getTime() - updatedAt.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  const timeAgo = !story.chapterUpdatedAt ? null
+    : diffMins < 1 ? "Just now"
+    : diffMins < 60 ? `${diffMins}m ago`
+    : diffHours < 24 ? `${diffHours}h ago`
+    : diffDays < 365 ? `${diffDays}d ago`
+    : `${Math.floor(diffDays / 365)}y ago`;
 
   return (
     <div
       onClick={() => {
-        if (bulkMode) {
-          onToggleSelect?.(story.id);
-        } else {
-          navigate(`/story/${story.id}`, { state: { fromListId: listId } });
-        }
+        if (bulkMode) onToggleSelect?.(story.id);
+        else navigate(`/story/${story.id}`, { state: { fromListId: listId } });
       }}
-      className="group relative flex items-center gap-4 px-4 py-3.5 rounded-2xl border border-border/60 bg-card hover:bg-card/80 hover:border-primary/50 transition-all duration-200 hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5 cursor-pointer animate-in fade-in slide-in-from-bottom-2"
+      className="group relative flex gap-3 p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-secondary hover:border-border transition-all cursor-pointer animate-in fade-in slide-in-from-bottom-2"
     >
-      {/* Checkbox / Index */}
-      <div className="flex items-center shrink-0 w-8 z-10" onClick={e => e.stopPropagation()}>
+      {/* Checkbox / drag */}
+      <div className="flex items-center shrink-0 self-center z-10" onClick={e => e.stopPropagation()}>
         {bulkMode ? (
-          <button
-            onClick={() => onToggleSelect?.(story.id)}
-            className="w-6 h-6 rounded bg-card/90 backdrop-blur border border-primary flex items-center justify-center shadow-md transition-colors"
-          >
+          <button onClick={() => onToggleSelect?.(story.id)}
+            className="w-6 h-6 rounded bg-card/90 backdrop-blur border border-primary flex items-center justify-center shadow-md">
             {isSelected ? <Check size={14} className="text-primary" /> : null}
           </button>
         ) : (
-          <>
-            <span className="group-hover:hidden text-[11px] font-mono font-black text-muted-foreground/30 w-5 text-right select-none tabular-nums">
-              {String(index + 1).padStart(2, "0")}
-            </span>
-            <span className="hidden group-hover:flex text-muted-foreground/50 cursor-grab active:cursor-grabbing p-1">
-              <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor">
-                <circle cx="4" cy="3" r="1.5"/><circle cx="8" cy="3" r="1.5"/>
-                <circle cx="4" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/>
-                <circle cx="4" cy="13" r="1.5"/><circle cx="8" cy="13" r="1.5"/>
-              </svg>
-            </span>
-          </>
+          <span className="text-muted-foreground/40 cursor-grab p-1">
+            <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor">
+              <circle cx="4" cy="3" r="1.5"/><circle cx="8" cy="3" r="1.5"/>
+              <circle cx="4" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/>
+              <circle cx="4" cy="13" r="1.5"/><circle cx="8" cy="13" r="1.5"/>
+            </svg>
+          </span>
         )}
       </div>
 
       {/* Cover */}
-      <div className="shrink-0 w-12 h-16 rounded-xl overflow-hidden bg-secondary border border-border/50 shadow-md transition-all duration-200 group-hover:shadow-primary/20 group-hover:shadow-lg">
+      <div className="w-20 shrink-0 aspect-[3/4] rounded-lg overflow-hidden bg-secondary border border-border/50">
         {story.coverUrl
-          ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-          : <div className="w-full h-full flex items-center justify-center text-muted-foreground/30"><BookOpen size={18} /></div>
-        }
+          ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover" />
+          : <div className="w-full h-full flex items-center justify-center"><BookOpen size={18} className="text-muted-foreground/20" /></div>}
       </div>
 
-      {/* Info */}
-      <div className="flex-1 min-w-0 space-y-1">
-        <p className="font-semibold text-sm text-foreground truncate leading-tight group-hover:text-primary transition-colors">
-          {story.title}
-        </p>
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`flex items-center gap-1.5 text-[11px] font-medium ${statusCfg.color}`}>
-            <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${statusCfg.dot}`} />
-            {statusCfg.label}
-          </span>
-          {story.currentChapter > 0 && (
-            <span className="text-[11px] text-muted-foreground/60 font-medium">
-              Ch.{story.currentChapter}
+      {/* Content */}
+      <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+            {story.title}
+          </p>
+          {timeAgo && <span className="text-[10px] text-foreground/60 shrink-0 bg-secondary px-2 py-0.5 rounded-md border border-border/50 whitespace-nowrap">{timeAgo}</span>}
+        </div>
+
+        {story.synopsis && (
+          <p className="text-[11px] text-foreground/60 line-clamp-2 leading-relaxed italic border-l-2 border-primary/50 pl-2">
+            "{story.synopsis.slice(0, 300)}..."
+          </p>
+        )}
+
+        {story.genres?.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {story.genres.slice(0, 4).map((g: string) => (
+              <span key={g} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">{g}</span>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between mt-auto">
+          <div className="flex items-center gap-3">
+            <span className={`flex items-center gap-1.5 text-[11px] font-medium ${statusCfg.color}`}>
+              <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${statusCfg.dot}`} />
+              {statusCfg.label}
             </span>
-          )}
+            {story.rating > 0 && (
+              <div className="flex items-center gap-0.5">
+                <Star size={11} className="fill-amber-400 text-amber-400" />
+                <span className="text-xs font-bold text-amber-400">{story.rating}</span>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-1 z-10" onClick={e => e.stopPropagation()}>
+            {!bulkMode && (
+              <>
+                <button onClick={e => { e.stopPropagation(); onLogChapter(story.id); }}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors">
+                  <PlusCircle size={14} />
+                </button>
+                <button onClick={e => { e.stopPropagation(); onRemove(story.id); }}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              </>
+            )}
+            <span className="text-[11px] text-primary font-bold ml-1">Ch. {story.currentChapter}</span>
+          </div>
         </div>
       </div>
-
-      {/* Rating */}
-      {!bulkMode && (
-        <div className="shrink-0 flex flex-col items-end gap-1.5 z-20" onClick={e => e.stopPropagation()}>                      
-          {story.rating > 0 && (
-            <div className="flex items-center gap-0.5 bg-amber-400/20 px-1.5 py-0.5 rounded-full">
-              <Star size={11} className="fill-amber-400 text-amber-400" />
-              <span className="text-[12px] font-bold text-amber-300">{story.rating}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Actions */}
-      {!bulkMode && (
-        <div className="shrink-0 flex items-center gap-1 ml-1 z-25" onClick={e => e.stopPropagation()}>
-          <button
-            onClick={(e) => { e.stopPropagation(); onLogChapter(story.id); }}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-            title="Log chapter"
-          >
-            <PlusCircle size={14} />
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onRemove(story.id); }}
-            className="p-1.5 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-500/10 transition-colors"
-            title="Remove from list"
-          >
-            <Trash2 size={14} />
-          </button>
-        </div>
-      )}
     </div>
   );
 }

@@ -2,8 +2,9 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { useStories } from "@/lib/StoryContext";
 import {
-  BookOpen, X, Check, CheckSquare, Square, Trash2, AlertCircle,
-  Lock, LayoutGrid, AlignJustify, ChevronRight, Star, Timer,
+  BookOpen, Check, CheckSquare, Square, Trash2, AlertCircle,
+  Lock, LayoutGrid, AlignJustify, ChevronRight, Star,
+  X, Globe,
 } from "lucide-react";
 import { StoryStatus, getGlobalTags } from "@/lib/types";
 import { Dialog, DialogContent } from "@/component/ui/dialog";
@@ -26,9 +27,8 @@ import { HeroSection } from "./components/HeroSection";
 import { BulkActionBar } from "./components/BulkActionBar";
 import { QuickViewModal } from "./components/QuickViewModal";
 import { PopupPermissionDialog } from "./components/PopupPermissionDialog";
-
 import { Link } from "react-router-dom";
-import { Play, Eye } from "lucide-react";
+import { Eye } from "lucide-react";
 
 /* ---------- EmptyState ---------- */
 function EmptyState({ isVault = false }: { isVault?: boolean }) {
@@ -56,15 +56,15 @@ function EmptyState({ isVault = false }: { isVault?: boolean }) {
 
 /* ---------- GridView ---------- */
 function GridView({
-  filtered, search, vaultUnlocked, bulkMode, selectedIds, setSelectedIds, setQuickView,
+  displayedItems, search, vaultUnlocked, bulkMode, selectedIds, setSelectedIds, setQuickView,
 }: {
-  filtered: any[]; search: string; vaultUnlocked: boolean;
+  displayedItems: any[]; search: string; vaultUnlocked: boolean;
   bulkMode: boolean; selectedIds: Set<string>;
   setSelectedIds: (s: Set<string>) => void; setQuickView: (s: any) => void;
 }) {
   return (
     <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-9 gap-3">
-      {filtered.map((story: any, index) => {
+      {displayedItems.map((story: any, index) => {
         const isSelected = selectedIds.has(story.id);
         const statusInfo = getStatusInfo(story.status);
         return (
@@ -78,10 +78,13 @@ function GridView({
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 pointer-events-none z-0" />
             <div className="absolute top-0 inset-x-0 p-2 bg-gradient-to-b from-black/60 via-black/10 to-transparent flex items-center justify-between z-10 pointer-events-none">
               <div className="flex items-center gap-1 max-w-[55%]">
-                {story.originCountry && <span className={`fi fi-${story.originCountry.toLowerCase()} rounded-sm shadow-sm`} style={{ width: 14, height: 10 }} />}
-                <span className="text-[9px] font-bold text-white/80 truncate">{FORMAT_MAP[(story.originCountry || "").toUpperCase()]}</span>
+                {story.originCountry 
+                  ? <span className={`fi fi-${story.originCountry.toLowerCase()} shadow-sm`} style={{ width: 16, height: 12, borderRadius: 2 }} />
+                  : <Globe size={10} className="text-white/60" />
+                }
+                <span className="text-[9px] font-bold text-white/90 truncate" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.6), 0 0 20px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.4)" }}>{FORMAT_MAP[(story.originCountry || "").toUpperCase()]}</span>
               </div>
-              <div className="flex items-center gap-1 bg-black/50 px-1.5 py-0.5 rounded-full border border-white/10">
+              <div className="flex items-center gap-1 bg-black/50 px-1.5 py-0.5 rounded-full border border-white/10 backdrop-blur-sm">
                 <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: STATUS_COLORS[story.status] }} />
                 <span className="text-[9px] text-white/80 whitespace-nowrap">{statusInfo.label}</span>
               </div>
@@ -128,55 +131,91 @@ function GridView({
 
 /* ---------- TimelineView ---------- */
 function TimelineView({
-  filtered, vaultUnlocked, bulkMode, selectedIds, setSelectedIds,
+  displayedItems, vaultUnlocked, bulkMode, selectedIds, setSelectedIds,
 }: {
-  filtered: any[]; vaultUnlocked: boolean;
+  displayedItems: any[]; vaultUnlocked: boolean;
   bulkMode: boolean; selectedIds: Set<string>;
   setSelectedIds: (s: Set<string>) => void;
 }) {
   return (
-    <div className="space-y-1">
-      {filtered.map((story: any, i: number) => {
-        const date = new Date(story.chapterUpdatedAt);
-        const prevDate = i > 0 ? new Date(filtered[i - 1].chapterUpdatedAt) : null;
-        const showDate = !prevDate || date.toDateString() !== prevDate.toDateString();
+    <div className="space-y-3">
+      {displayedItems.map((story: any, i: number) => {
+        const updatedAt = new Date(story.chapterUpdatedAt);
+        const now = new Date();
+        const diffMs = now.getTime() - updatedAt.getTime();
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+        const timeAgo = diffMins < 1 ? "Just now"
+          : diffMins < 60 ? `${diffMins}m ago`
+          : diffHours < 24 ? `${diffHours}h ago`
+          : diffDays < 365 ? `${diffDays}d ago`
+          : `${Math.floor(diffDays / 365)}y ago`;
+
         return (
-          <div key={story.id} className="relative animate-fade-in-up" style={{ animationDelay: `${i * 50}ms`, animationFillMode: "both" }}>
-            {showDate && (
-              <div className="flex items-center gap-3 py-3 sticky top-0 bg-background/95 backdrop-blur z-10">
-                <div className="h-px flex-1 bg-border" />
-                <span className="text-[10px] font-semibold tracking-widest text-muted-foreground uppercase">
-                  {date.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
-                </span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-            )}
-            <div className="flex items-center gap-4 p-3 rounded-xl hover:bg-secondary transition-all group">
+          <div key={story.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 30}ms`, animationFillMode: "both" }}>
+            <Link to={`/story/${story.id}`} state={{ fromVault: vaultUnlocked }}
+              className="flex gap-3 p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-secondary hover:border-border transition-all group">
               {bulkMode && (
-                <button onClick={() => {
+                <button onClick={e => {
+                  e.preventDefault(); e.stopPropagation();
                   const newSet = new Set(selectedIds);
                   if (newSet.has(story.id)) newSet.delete(story.id); else newSet.add(story.id);
                   setSelectedIds(newSet);
-                }} className="shrink-0">
+                }} className="shrink-0 self-center">
                   {selectedIds.has(story.id) ? <CheckSquare size={18} className="text-primary" /> : <Square size={18} className="text-muted-foreground" />}
                 </button>
               )}
-              <Link to={`/story/${story.id}`} state={{ fromVault: vaultUnlocked }} className="flex items-center gap-4 flex-1 min-w-0">
-                <div className="w-10 h-14 flex-shrink-0 rounded-lg overflow-hidden bg-secondary group-hover:shadow-md transition-shadow">
-                  {story.coverUrl
-                    ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover" />
-                    : <BookOpen size={16} className="m-auto mt-4 text-muted-foreground/30" />}
+
+              {/* Cover */}
+              <div className="w-16 sm:w-20 shrink-0 aspect-[3/4] rounded-lg overflow-hidden bg-secondary border border-border/50">
+                {story.coverUrl
+                  ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover" />
+                  : <div className="w-full h-full flex items-center justify-center"><BookOpen size={20} className="text-muted-foreground/20" /></div>}
+              </div>
+
+              {/* Content */}
+                <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    {story.originCountry 
+                      ? <span className={`fi fi-${story.originCountry.toLowerCase()} shrink-0`} style={{ width: 14, height: 11, borderRadius: 2 }} />
+                      : <Globe size={12} className="text-muted-foreground/60 shrink-0" />
+                    }
+                    <p className="text-sm font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">{story.title}</p>
+                  </div>
+                  <span className="text-[10px] text-foreground/60 shrink-0 bg-secondary px-2 py-0.5 rounded-md border border-border/50 whitespace-nowrap">{timeAgo}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground line-clamp-1 group-hover:text-primary transition-colors">{story.title}</p>
-                  <p className="text-xs text-muted-foreground">Ch. {story.currentChapter} · {story.author}</p>
+
+                {story.synopsis && (
+                  <p className="text-[11px] text-foreground/60 line-clamp-2 leading-relaxed italic border-l-2 border-primary pl-2 w-full">
+                    "{story.synopsis.slice(0, 500)}..."
+                  </p>
+                )}
+
+                {story.genres && story.genres.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {story.genres.map((g: string) => (
+                      <span key={g} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">{g}</span>
+                    ))}
+                  </div>
+                )}
+
+                 <div className="flex items-center justify-between mt-auto">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: STATUS_COLORS[story.status] }} />
+                      <span className="text-[10px] font-semibold" style={{ color: STATUS_COLORS[story.status] }}>{getStatusInfo(story.status).label}</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Star size={11} className="fill-amber-400 text-amber-400" />
+                      <span className="text-xs font-bold text-amber-400">{story.rating || "—"}</span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-primary font-bold">Ch. {story.currentChapter}</span>
                 </div>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <Star size={11} className="fill-yellow-400 text-yellow-400" />
-                  <span className="text-xs font-bold text-yellow-400">{story.rating || "—"}</span>
-                </div>
-              </Link>
-            </div>
+              </div>
+            </Link>
           </div>
         );
       })}
@@ -244,9 +283,15 @@ function Library() {
   /* --- UI state --- */
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("recent");
-  const [viewMode, setViewMode] = useState<"grid" | "timeline">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "timeline">(() =>
+    (localStorage.getItem("jejakbaca_view_mode") as "grid" | "timeline") || "grid"
+  );
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [loadMoreMode, setLoadMoreMode] = useState(false);
+  const [showAllSearchResults, setShowAllSearchResults] = useState(false);
+  const [displayedItems, setDisplayedItems] = useState<any[]>([]);
   const isInitialized = useRef(false);
 
   /* --- CTA preference --- */
@@ -285,8 +330,41 @@ function Library() {
     useHiddenStories(stories, listVersion);
 
   const { filtered, advFilterCount } = useLibraryFilter({
-    stories, search, sortBy, advFilters, vaultUnlocked, hiddenListIds,
+    stories, search, sortBy, advFilters, vaultUnlocked, hiddenListIds,    
   });
+  const { filtered: fullLibraryItems } = useLibraryFilter({
+    stories, search: "", sortBy, advFilters, vaultUnlocked, hiddenListIds,
+  });
+
+  const PAGE_SIZE_GRID_MOBILE = 25;
+  const PAGE_SIZE_GRID_DESKTOP = 50;
+  const PAGE_SIZE_LIST_MOBILE = 10;
+  const PAGE_SIZE_LIST_DESKTOP = 25;
+
+  const pageSize = viewMode === "grid"
+    ? (isMobile ? PAGE_SIZE_GRID_MOBILE : PAGE_SIZE_GRID_DESKTOP)
+    : (isMobile ? PAGE_SIZE_LIST_MOBILE : PAGE_SIZE_LIST_DESKTOP);
+
+  const totalPages = Math.ceil(filtered.length / pageSize);
+  const currentPageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const showAllResults = showAllSearchResults && search.trim().length > 0;
+  const visibleItems = filtered;
+
+  useEffect(() => {
+    setPage(1);
+    setLoadMoreMode(false);
+    setDisplayedItems([]);
+  }, [search, sortBy, viewMode, advFilters]);
+
+  useEffect(() => {
+    if (showAllResults) {
+      setDisplayedItems(filtered);
+    } else if (loadMoreMode) {
+      setDisplayedItems(filtered.slice(0, page * pageSize));
+    } else {
+      setDisplayedItems(currentPageItems);
+    }
+  }, [page, filtered, fullLibraryItems, pageSize, loadMoreMode, showAllResults, currentPageItems]);
 
   /* ---- Pull-to-vault ---- */
   const pageRef = useRef<HTMLDivElement>(null);
@@ -383,8 +461,8 @@ function Library() {
 
   /* ---- Bulk actions ---- */
   const toggleSelectAll = () => {
-    if (selectedIds.size === filtered.length) setSelectedIds(new Set());
-    else setSelectedIds(new Set(filtered.map((s: any) => s.id)));
+    if (selectedIds.size === visibleItems.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(visibleItems.map((s: any) => s.id)));
   };
 
   const confirmBulkDelete = () => {
@@ -451,7 +529,22 @@ function Library() {
 
   const handleSearchChange = (val: string) => {
     if (val === "##") { setSearch(""); setVaultOpen(true); return; }
+    setShowAllSearchResults(false);
     setSearch(val);
+  };
+
+  const handleSearchCommit = (val: string) => {
+    setSearch(val);
+    setPage(1);
+    setLoadMoreMode(false);
+    setShowAllSearchResults(true);
+  };
+
+  const handleResetLibrary = () => {
+    setSearch("");
+    setAdvFilters(EMPTY_FILTERS);
+    setShowAllSearchResults(false);
+    setSearchParams({}, { replace: true });
   };
 
   const showPullOverlay = !vaultUnlocked && pullProgress > 0.02;
@@ -471,9 +564,11 @@ function Library() {
           variant="library"
           search={search}
           onSearchChange={handleSearchChange}
+          onSearchCommit={handleSearchCommit}
           filters={advFilters}
           onFiltersChange={setAdvFilters}
           filterCount={advFilterCount}
+          onReset={handleResetLibrary}
           allTags={allTags}
           storiesCount={stories.length}
           totalChapters={totalChapters}
@@ -487,6 +582,7 @@ function Library() {
           hiddenCount={hiddenStoriesCount}
           search={search}
           onSearchChange={handleSearchChange}
+          onSearchCommit={handleSearchCommit}
           onBack={() => { lockVault(); setVaultUnlocked(false); setSearch(""); }}
           filterCount={advFilterCount}
           onOpenFilter={() => setVaultFilterOpen(true)}
@@ -507,20 +603,29 @@ function Library() {
         {!loading && (
           <div className="flex items-center justify-between gap-4 pb-2 group">
             <div className="flex items-center gap-3">
-              <span className="text-xs text-foreground font-medium">{filtered.length} results</span>
+              <span className="text-xs text-foreground font-medium">{visibleItems.length} results</span>
               <SortMenu
                 sortBy={sortBy} setSortBy={setSortBy}
                 sortMenuOpen={sortMenuOpen} setSortMenuOpen={setSortMenuOpen}
                 advFilters={advFilters}
               />
+              {search && (
+                <button
+                  onClick={() => setSearch("")}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-semibold bg-primary/15 text-primary border border-primary/40 hover:bg-primary/25 transition-all whitespace-nowrap max-w-[140px]"
+                >
+                  <span className="truncate">"{search}"</span>
+                  <X size={10} className="shrink-0" />
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2 ml-auto">
               <div className="flex items-center bg-secondary rounded-xl p-0.5 border border-border">
-                <button onClick={() => setViewMode("grid")}
+                <button onClick={() => { setViewMode("grid"); localStorage.setItem("jejakbaca_view_mode", "grid"); }}
                   className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "grid" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground active:scale-90"}`}>
                   <LayoutGrid size={15} />
                 </button>
-                <button onClick={() => setViewMode("timeline")}
+                <button onClick={() => { setViewMode("timeline"); localStorage.setItem("jejakbaca_view_mode", "timeline"); }}
                   className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "timeline" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground active:scale-90"}`}>
                   <AlignJustify size={15} />
                 </button>
@@ -535,11 +640,11 @@ function Library() {
         )}
 
         {/* Select all row */}
-        {bulkMode && filtered.length > 0 && (
+        {bulkMode && visibleItems.length > 0 && (
           <div className="flex items-center justify-end text-xs text-muted-foreground pb-2">
             <button onClick={toggleSelectAll} className="flex items-center gap-2 hover:text-foreground transition-colors">
-              {selectedIds.size === filtered.length ? <CheckSquare size={14} className="text-primary" /> : <Square size={14} />}
-              {selectedIds.size === filtered.length ? "Deselect All" : "Select All"}
+              {selectedIds.size === visibleItems.length ? <CheckSquare size={14} className="text-primary" /> : <Square size={14} />}
+              {selectedIds.size === visibleItems.length ? "Deselect All" : "Select All"}
             </button>
           </div>
         )}
@@ -559,7 +664,7 @@ function Library() {
         {/* Grid */}
         {!loading && filtered.length > 0 && viewMode === "grid" && (
           <GridView
-            filtered={filtered} search={search} vaultUnlocked={vaultUnlocked}
+            displayedItems={displayedItems}search={search} vaultUnlocked={vaultUnlocked}
             bulkMode={bulkMode} selectedIds={selectedIds}
             setSelectedIds={setSelectedIds} setQuickView={setQuickView}
           />
@@ -568,10 +673,61 @@ function Library() {
         {/* Timeline */}
         {!loading && filtered.length > 0 && viewMode === "timeline" && (
           <TimelineView
-            filtered={filtered} vaultUnlocked={vaultUnlocked}
+            displayedItems={displayedItems}vaultUnlocked={vaultUnlocked}
             bulkMode={bulkMode} selectedIds={selectedIds}
             setSelectedIds={setSelectedIds}
           />
+        )}
+
+        {!loading && !showAllResults && filtered.length > pageSize && (
+          <div className="flex flex-col sm:flex-row items-center sm:items-center sm:justify-between gap-4 pt-4">
+            {page < totalPages ? (
+              <button
+                onClick={() => { setLoadMoreMode(true); setPage(p => p + 1); }}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 active:scale-95 transition-all shadow-lg shadow-primary/20"
+              >
+                <ChevronRight size={16} className="rotate-90" /> Load More 
+              </button>
+            ) : <div />}
+
+            {/* Page numbers */}
+            <div className="flex items-center gap-1">
+              <button
+                disabled={page === 1}
+                onClick={() => { setLoadMoreMode(false); setPage(p => p - 1); }}
+                className="w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+              >
+                <ChevronRight size={14} className="rotate-180" />
+              </button>
+              {(() => {
+                const pages: (number | "...")[] = [];
+                if (totalPages <= 7) {
+                  for (let i = 1; i <= totalPages; i++) pages.push(i);
+                } else {
+                  pages.push(1);
+                  if (page > 3) pages.push("...");
+                  for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i);
+                  if (page < totalPages - 2) pages.push("...");
+                  pages.push(totalPages);
+                }
+                return pages.map((p, i) => p === "..."
+                  ? <span key={`ellipsis-${i}`} className="w-8 h-8 flex items-center justify-center text-muted-foreground text-xs">…</span>
+                  : <button key={p}
+                      onClick={() => { setLoadMoreMode(false); setPage(p as number); }}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold border transition-all ${page === p ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-border text-muted-foreground hover:text-foreground"}`}>
+                      {p}
+                    </button>
+                );
+              })()}
+              <button
+                disabled={page === totalPages}
+                onClick={() => { setLoadMoreMode(false); setPage(p => p + 1); }}
+                className="w-8 h-8 rounded-lg flex items-center justify-center border border-border bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-30 transition-colors"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Vault hint */}

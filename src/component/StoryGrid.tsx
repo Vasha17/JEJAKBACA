@@ -1,11 +1,13 @@
+import "flag-icons/css/flag-icons.min.css";
 import { Story } from "@/lib/types";
-import { Star, BookOpen, Plus, X, Check } from "lucide-react";
+import { FORMAT_MAP } from "@/pages/Library/constants";
+import { Star, BookOpen, Plus, X, Check, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 // ─── Interfaces ───────────────────────────────────────
 interface StoryGridProps {
   story: Story;
-  listId: string; 
+  listId: string;
   onLogChapter?: (id: string) => void;
   onRemove?: (id: string) => void;
   bulkMode?: boolean;
@@ -38,7 +40,8 @@ const STATUS_LABEL: Record<string, string> = {
 export function StoryGrid({ story, listId, onLogChapter, onRemove, bulkMode, selectedIds, onToggleSelect }: StoryGridProps) {
   const navigate = useNavigate();
   const isSelected = selectedIds?.has(story.id) ?? false;
-  return (    
+
+  return (
     <div
       onClick={() => {
         if (bulkMode) {
@@ -47,7 +50,7 @@ export function StoryGrid({ story, listId, onLogChapter, onRemove, bulkMode, sel
           navigate(`/story/${story.id}`, { state: { fromListId: listId } });
         }
       }}
-      className="group relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-secondary border border-border transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:shadow-primary/10 hover:scale-[1.02]cursor-pointer block animate-in fade-in zoom-in-95"
+      className="group relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-secondary border border-border transition-all duration-300 hover:-translate-y-2 hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/10 hover:border-primary/50 cursor-pointer animate-fade-in-up"
     >
       {/* Cover Image */}
       {story.coverUrl ? (
@@ -62,24 +65,48 @@ export function StoryGrid({ story, listId, onLogChapter, onRemove, bulkMode, sel
         </div>
       )}
 
-      {/* Top Overlay: Status & Rating */}
+      {/* 2. Hover Dark Overlay */}
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 pointer-events-none z-0" />
+
+      {/* Top Overlay: Flag + Format Label (Left) & Status Pill (Right) */}
       <div className="absolute top-0 inset-x-0 p-2 bg-gradient-to-b from-black/80 via-black/40 to-transparent flex items-center justify-between z-10 pointer-events-none">
+        {/* 1. Left Side: Flag & Format */}
+        <div className="flex items-center gap-1 max-w-[55%]">
+          {story.originCountry && (
+            <span 
+              className={`fi fi-${story.originCountry.toLowerCase()} shadow-sm`} 
+              style={{ width: 16, height: 12, borderRadius: 2 }} 
+            />
+          )}
+          <span 
+            className="text-[9px] font-bold text-white/90 truncate" 
+            style={{ textShadow: "0 1px 3px rgba(0,0,0,0.6)" }}
+          >
+            {FORMAT_MAP[(story.originCountry || "").toUpperCase()]}
+          </span>
+        </div>
+
+        {/* 1. Right Side: Status Pill */}
         <div className="flex items-center gap-1 bg-black/50 px-1.5 py-0.5 rounded-full border border-white/10 backdrop-blur-sm">
-          <span
-            className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse"
-            style={{ backgroundColor: STATUS_COLORS[story.status] ?? "#6b7280" }}
+          <span 
+            className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" 
+            style={{ backgroundColor: STATUS_COLORS[story.status] }} 
           />
-          <span className="text-[9px] text-white/80 whitespace-nowrap font-medium">
+          <span className="text-[9px] text-white/80 whitespace-nowrap">
             {STATUS_LABEL[story.status] ?? story.status}
           </span>
         </div>
-        {story.rating > 0 && (
-          <div className="flex items-center gap-0.5 bg-amber-400/20 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
-            <Star size={9} className="fill-amber-400 text-amber-400" />
-            <span className="text-[10px] font-bold text-amber-300">{story.rating}</span>
-          </div>
-        )}
       </div>
+
+      {/* 3. Eye Button (Quick View) */}
+      <button
+        onClick={(e) => { 
+          e.stopPropagation();           
+        }}
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-12 h-12 rounded-full bg-black/20 backdrop-blur-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 hover:scale-110 hover:bg-black/60 border border-white/20"
+      >
+        <Eye size={15} className="text-white drop-shadow-md" />
+      </button>
 
       {/* Bulk Mode Checkbox */}
       {bulkMode && (
@@ -115,22 +142,12 @@ export function StoryGrid({ story, listId, onLogChapter, onRemove, bulkMode, sel
             )}
           </div>
 
-          {/* Action Buttons (Hover only) */}
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20" onClick={e => e.stopPropagation()}>
-            <button
-              onClick={(e) => { e.stopPropagation(); onLogChapter?.(story.id); }}
-              className="p-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-white hover:bg-primary hover:border-primary transition-all"
-              title="+1 Chapter"
-            >
-              <Plus size={11} />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); onRemove?.(story.id); }}
-              className="p-1.5 rounded-full bg-black/50 backdrop-blur-md border border-white/20 text-white hover:bg-red-500 hover:border-red-500 transition-all"
-              title="Remove"
-            >
-              <X size={11} />
-            </button>
+          {/* 4. Rating Pill */}
+          <div className="flex items-center gap-0.5 bg-amber-400/20 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
+            <Star size={9} className="fill-amber-400 text-amber-400" />
+            <span className="text-[10px] font-bold text-amber-300">
+              {story.rating || "—"}
+            </span>
           </div>
         </div>
       </div>

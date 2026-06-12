@@ -2,5 +2,7 @@
     "terminal.integrated.customGlyphs": false,
     "deno.enable": true,
     "deno.enablePaths": ["supabase/functions"],
-    "deno.unstable": ["sloppy-imports"]
+    "deno.unstable": [
+        "sloppy-imports"
+    ]
 }

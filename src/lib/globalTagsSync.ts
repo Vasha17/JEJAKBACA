@@ -2,7 +2,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { db } from "./DexieDB";
 
 const KEY = "jejakbaca_global_tags";
-const MIGRATION_KEY = "global_tags_migrated_v1";
 
 export async function pullGlobalTags(): Promise<string[]> {
   const { data: { user } } = await supabase.auth.getUser();

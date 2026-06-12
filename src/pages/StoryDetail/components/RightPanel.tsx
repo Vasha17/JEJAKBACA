@@ -7,7 +7,7 @@ import { Button } from "@/component/ui/button";
 import { Input } from "@/component/ui/input";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
-  DialogTrigger, DialogFooter, DialogClose,
+  DialogTrigger, DialogClose,
 } from "@/component/ui/dialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -100,8 +100,11 @@ export function RightPanel({
             <DialogTrigger asChild>
               <button className="px-2 py-0.5 text-[10px] rounded bg-secondary/50 text-muted-foreground border border-border/40 hover:text-foreground hover:bg-secondary">Edit</button>
             </DialogTrigger>
-            <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
-              <DialogHeader><DialogTitle>Edit Sources</DialogTitle></DialogHeader>
+            <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto">
+              <DialogHeader className="px-4 py-3 border-b border-border bg-muted/20">
+                <DialogTitle className="text-base font-semibold">Edit Sources</DialogTitle>
+              </DialogHeader>
+              <div className="p-4">            
               {story.sources && story.sources.length > 0 ? (
                 <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
                   <p className="text-[10px] text-muted-foreground text-center">🔔 Select up to 2 sources for notifications. ({trackedSourceIds.length}/2 active)</p>
@@ -169,7 +172,8 @@ export function RightPanel({
                     );
                   })}
                 </div>
-              ) : <p className="text-sm text-muted-foreground italic">No sources added yet.</p>}
+               ) : <p className="text-sm text-muted-foreground italic p-4">No sources added yet.</p>}
+  </div>
             </DialogContent>
           </Dialog>
 
@@ -178,9 +182,11 @@ export function RightPanel({
             <DialogTrigger asChild>
               <button className="px-2 py-0.5 text-[10px] rounded bg-secondary/50 text-muted-foreground border border-border/40 hover:text-foreground hover:bg-secondary">Add</button>
             </DialogTrigger>
-            <DialogContent className="w-[92vw] max-w-md mx-auto rounded-2xl">
-              <DialogHeader><DialogTitle>Add Reading Link</DialogTitle></DialogHeader>
-              <div className="space-y-2">
+            <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto">
+              <DialogHeader className="px-4 py-3 border-b border-border bg-muted/20">
+                <DialogTitle className="text-base font-semibold">Add Reading Link</DialogTitle>
+              </DialogHeader>
+              <div className="p-4 space-y-2">
                 <div className="relative">
                   <Input
                     value={srcName}
@@ -201,9 +207,12 @@ export function RightPanel({
                     }}
                   />
                   {srcNameSuggestion && (
-                    <div className="absolute inset-0 flex items-center px-3 pointer-events-none">
-                      <span className="text-transparent">{srcName}</span>
-                      <span className="text-foreground/40 text-sm">{srcNameSuggestion.slice(srcName.length)}</span>
+                    <div
+                      className="absolute inset-0 flex items-center px-3 cursor-pointer"
+                      onClick={() => { setSrcName(srcNameSuggestion); setSrcNameSuggestion(""); }}
+                    >
+                      <span className="text-transparent select-none">{srcName}</span>
+                      <span className="text-foreground/40 text-sm select-none">{srcNameSuggestion.slice(srcName.length)}</span>
                     </div>
                   )}
                 </div>
@@ -212,15 +221,15 @@ export function RightPanel({
                   <Input value={srcChapter} onChange={e => setSrcChapter(e.target.value)} placeholder="Chapter" type="number" step="0.1" className="bg-card text-sm w-24" />
                   <Input value={srcLang} onChange={e => setSrcLang(e.target.value)} placeholder="Lang (EN, ID, KR)" className="bg-card text-sm flex-1" />
                 </div>
-              </div>
-              <DialogFooter>
+               </div>
+              <div className="px-4 pb-4 flex gap-2 justify-end border-t border-border pt-3">
                 <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
                 <Button onClick={() => {
                   if (!srcName.trim() || !srcUrl.trim()) return;
                   addSource(story.id, { name: srcName.trim(), url: srcUrl.trim(), currentChapter: parseInt(srcChapter) || 0, language: srcLang.trim().toUpperCase() || "" });
                   setSrcName(""); setSrcUrl(""); setSrcChapter(""); setSrcLang(""); setAddSourceDialog(false);
                 }}><Plus className="w-3.5 h-3.5 mr-1" />Add Link</Button>
-              </DialogFooter>
+              </div>
             </DialogContent>
           </Dialog>
 
@@ -316,16 +325,20 @@ export function RightPanel({
               <DialogTrigger asChild>
                 <button className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border">Link</button>
               </DialogTrigger>
-              <DialogContent className="w-[92vw] max-w-sm mx-auto rounded-2xl">
-                <DialogHeader><DialogTitle>Add Media Link</DialogTitle></DialogHeader>
-                <Input value={mediaLabel} onChange={e => setMediaLabel(e.target.value)} placeholder="Label / Alt text" className="bg-card" />
-                <Input value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} placeholder="URL or link" className="bg-card" />
-                <DialogFooter>
+              <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto">
+                <DialogHeader className="px-4 py-3 border-b border-border bg-muted/20">
+                  <DialogTitle className="text-base font-semibold">Add Media Link</DialogTitle>
+                </DialogHeader>
+                <div className="p-4 space-y-3">
+                  <Input value={mediaLabel} onChange={e => setMediaLabel(e.target.value)} placeholder="Label / Alt text" className="bg-card" />
+                  <Input value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} placeholder="https://..." className="bg-card" />
+                </div>
+                <div className="px-4 pb-4 flex gap-2 justify-end border-t border-border pt-3">
                   <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
                   <Button onClick={() => {
                     if (mediaUrl.trim()) { addMedia(story.id, { type: "link", url: mediaUrl.trim(), label: mediaLabel.trim() || "Link" }); setMediaUrl(""); setMediaLabel(""); setMediaDialog(false); }
                   }}>Add</Button>
-                </DialogFooter>
+                </div>
               </DialogContent>
             </Dialog>
             <button onClick={() => mediaFileRef.current?.click()} className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border flex items-center gap-1">
@@ -353,7 +366,7 @@ export function RightPanel({
 
       {/* Media lightbox */}
       <Dialog open={!!mediaLightbox} onOpenChange={open => { if (!open) setMediaLightbox(null); }}>
-        <DialogContent className="max-w-3xl p-0 bg-black/95 border-border overflow-hidden rounded-xl">
+        <DialogContent className="w-[92vw] max-w-2xl p-0 bg-black/95 border-border overflow-hidden rounded-xl mx-auto">
           {mediaLightbox && (
             <>
               <img src={mediaLightbox.url} alt={mediaLightbox.label} className="w-full h-auto max-h-[75vh] object-contain" />

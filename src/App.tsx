@@ -6,6 +6,15 @@ import { HashRouter, Routes, Route, useLocation } from "react-router-dom";
 import { StoryProvider } from "@/lib/StoryContext";
 import { useState, useEffect, useRef } from "react";
 import { useAuth, LoginPage } from "@/component/Auth";
+
+function normalizeHashRouterPath() {
+  if (typeof window === "undefined") return;
+  const { pathname, search, hash } = window.location;
+  if (hash.startsWith("#/") || pathname === "/" || pathname === "") return;
+  window.location.replace(`${window.location.origin}/#${pathname}${search}`);
+}
+
+normalizeHashRouterPath();
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSync } from "@/lib/SupabaseSync";
 import { dexieAPI } from "@/lib/DexieDB";

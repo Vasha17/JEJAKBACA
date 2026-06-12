@@ -233,6 +233,7 @@ export default function ListDetail() {
   const [baseStories, setBaseStories] = useState<any[]>([]);
 
   const [bulkMode, setBulkMode] = useState(false);
+  const [backPressed, setBackPressed] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [descHtml, setDescHtml] = useState("");
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -240,7 +241,7 @@ export default function ListDetail() {
   const [sortBy, setSortBy] = useState("custom");
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [viewMode, setViewMode] = useState<"list" | "grid">(() => localStorage.getItem("listview") as any ?? "list");
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -261,18 +262,19 @@ export default function ListDetail() {
   }, [id]);
 
   useEffect(() => {
-  setBaseStories(prev => {
-    const inList = allStories.filter((s: any) => s.lists?.includes(id));
-    const prevIds = prev.map(s => s.id);
-    const newStories = inList.filter(s => !prevIds.includes(s.id));
-    const updated = prev.map(s => {
-      const fresh = inList.find(x => x.id === s.id);
-      if (!fresh) return s;
-      return { ...fresh, orderIndex: s.orderIndex };
+    setBaseStories(prev => {
+      const inList = allStories.filter((s: any) => s.lists?.includes(id));
+      const prevIds = prev.map(s => s.id);
+      const newStories = inList.filter(s => !prevIds.includes(s.id))
+        .map(s => ({ ...s }));
+      const updated = prev.map(s => {
+        const fresh = inList.find(x => x.id === s.id);
+        if (!fresh) return s;      
+        return { ...fresh };
+      });
+      return [...updated, ...newStories].sort((a, b) => (a.orderIndex ?? 99999) - (b.orderIndex ?? 99999));
     });
-    return [...updated, ...newStories];
-  });
-}, [allStories]);
+  }, [allStories]);
 
   let displayStories = [...baseStories]; 
 
@@ -292,7 +294,7 @@ export default function ListDetail() {
 
   if (!listConfig) return (
     <div className="min-h-screen bg-background">
-      <Navbar variant="lists" listSearch="" onListSearchChange={() => {}} onNewList={() => {}} storiesCount={allStories.length} totalChapters={0} completedCount={0} avgRating={0} />
+      <Navbar variant="lists" listSearch="" onListSearchChange={() => {}} onNewList={() => {}} storiesCount={allStories.length} totalChapters={0} completedCount={0} avgRating={0} hideMobileNav={true} />
       <div className="container px-4 py-20 text-center">
         <p className="text-muted-foreground">List not found</p>
         <Link to="/lists" className="text-primary text-sm mt-2 inline-block">← Back to lists</Link>
@@ -422,7 +424,7 @@ export default function ListDetail() {
     ? globalRatedStories.reduce((sum: number, s: any) => sum + s.rating, 0) / globalRatedStories.length
     : 0;
 
-  const updatedAgo = formatTimeAgo(listConfig.updatedAt);
+  const updatedAgo = formatTimeAgo(listConfig.updatedAt);  
 
   return (
     <div className="min-h-screen bg-background">
@@ -443,9 +445,14 @@ export default function ListDetail() {
         totalChapters={globalTotalChapters}
         completedCount={globalCompletedCount}
         avgRating={globalAvgRating}
+        hideMobileNav={true}
       />
-      <div className="px-4 md:px-8 py-6 max-w-screen-xl mx-auto space-y-6 pb-24 md:pb-32">
+      <div className="px-4 md:px-8 py-6 max-w-screen-xl mx-auto space-y-6 pb-18 md:pb-32">
         <button
+          onTouchStart={() => setBackPressed(true)}
+          onTouchEnd={() => setBackPressed(false)}
+          onMouseDown={() => setBackPressed(true)}
+          onMouseUp={() => setBackPressed(false)}
           onClick={() => {
             if (fromVault) {
               navigate("/", { state: { openVault: true } });
@@ -453,7 +460,7 @@ export default function ListDetail() {
               navigate("/lists");
             }
           }}
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className={`inline-flex items-center gap-1.5 text-xs transition-all duration-150 active:-translate-x-1 active:scale-95 ${backPressed ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
         >
           <ArrowLeft size={12} /> {fromVault ? "Back to Vault" : "Back to Lists"}
         </button>
@@ -489,10 +496,10 @@ export default function ListDetail() {
           </div>
           <div className="flex items-center gap-2 ml-auto">
             <div className="flex items-center bg-secondary rounded-xl p-0.5 border border-border">
-              <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "list" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+              <button onClick={() => { setViewMode("list"); localStorage.setItem("listview", "list"); }} className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "list" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
                 <AlignJustify size={15} />
               </button>
-              <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "grid" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+              <button onClick={() => { setViewMode("grid"); localStorage.setItem("listview", "grid"); }} className={`p-1.5 rounded-lg transition-all duration-200 ${viewMode === "grid" ? "bg-primary/20 text-primary border border-primary/50 shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
                 <LayoutGrid size={15} />
               </button>
             </div>

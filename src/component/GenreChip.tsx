@@ -3,9 +3,10 @@ import { type FilterChip, type ChipState } from "@/hooks/useSearchFilters";
 interface GenreChipProps {
   chip: FilterChip;
   onClick: () => void;
+  highlight?: string;
 }
 
-export function GenreChip({ chip, onClick }: GenreChipProps) {
+export function GenreChip({ chip, onClick, highlight }: GenreChipProps) {
   const base =
     "px-3 py-1.5 rounded-full text-sm font-medium cursor-pointer select-none transition-all duration-150 border";
 
@@ -22,8 +23,18 @@ export function GenreChip({ chip, onClick }: GenreChipProps) {
 
 
   return (
-    <button className={`${base} ${stateStyles[chip.state]}`} onClick={onClick} type="button">
-      {chip.label}
+     <button className={`${base} ${stateStyles[chip.state]}`} onClick={onClick} type="button">
+      {highlight ? (() => {
+        const idx = chip.label.toLowerCase().indexOf(highlight.toLowerCase());
+        if (idx === -1) return chip.label;
+        return <>
+          {chip.label.slice(0, idx)}
+          <span style={{ color: "hsl(var(--primary))", fontWeight: 700, textDecoration: "underline" }}>
+            {chip.label.slice(idx, idx + highlight.length)}
+          </span>
+          {chip.label.slice(idx + highlight.length)}
+        </>;
+      })() : chip.label}
     </button>
   );
 }

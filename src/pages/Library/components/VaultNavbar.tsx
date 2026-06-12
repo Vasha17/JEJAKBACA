@@ -6,6 +6,7 @@ interface VaultNavbarProps {
   hiddenCount: number;
   search: string;
   onSearchChange: (v: string) => void;
+  onSearchCommit?: (v: string) => void;
   onBack: () => void;
   filterCount: number;
   onOpenFilter: () => void;
@@ -14,7 +15,7 @@ interface VaultNavbarProps {
 }
 
 export function VaultNavbar({
-  hiddenCount, search, onSearchChange, onBack, filterCount, onOpenFilter, stories, onOpenLists,
+  hiddenCount, search, onSearchChange, onSearchCommit, onBack, filterCount, onOpenFilter, stories, onOpenLists,
 }: VaultNavbarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -53,6 +54,7 @@ export function VaultNavbar({
           <LibrarySearch
             search={search}
             onSearchChange={onSearchChange}
+            onSearchCommit={onSearchCommit}
             stories={stories}
           />
           <button

@@ -31,7 +31,7 @@ export function NotesTimeline({
     <section className="px-4 sm:px-6 mt-10 sm:mt-8 mb-20 space-y-4">
       {/* Tab bar */}
       <div className="flex items-center justify-between">
-        <div className="relative flex items-center rounded-2xl bg-secondary/40 border border-border/50 backdrop-blur-xl p-1 overflow-hidden w-full max-w-[330px]">
+        <div className="relative flex items-center rounded-2xl bg-secondary/40 border border-border/50 backdrop-blur-xl p-1 overflow-hidden w-full max-w-[180px] sm:max-w-[330px]">
         <div
         className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-xl bg-primary/10 border border-primary/25 shadow-sm transition-all duration-300 ${
           activeTab === "notes"
@@ -44,11 +44,9 @@ export function NotesTimeline({
           <button
             key={tab}
             onClick={() => handleTabChange(tab)}
-            className={`flex-1 relative z-10 px-5 py-2 text-[13px] font-medium text-center transition-colors duration-300 whitespace-nowrap ${
-              activeTab === tab
-                ? "text-primary shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
+            className={`flex-1 relative z-10 py-2 font-medium text-center transition-colors duration-300 whitespace-nowrap ${tab === "notes" ? "px-4" : "px-5"} sm:px-5 ${
+              tab === "notes" ? "text-[11px] sm:text-[13px]" : "text-[11px] sm:text-[13px]"
+            } ${activeTab === tab ? "text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
           >
             {tab === "notes" ? "My Notes" : "Arc Timeline"}
           </button>

@@ -10,7 +10,7 @@ import { Input } from "@/component/ui/input";
 import { Textarea } from "@/component/ui/textarea";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
-  DialogTrigger, DialogFooter, DialogClose,
+  DialogTrigger, DialogClose,
 } from "@/component/ui/dialog";
 
 import { REL_LABELS, REL_COLORS } from "../constants/status";
@@ -89,7 +89,7 @@ export function StoryContent({
   const [bookmarkAsc, setBookmarkAsc] = useState(true);
 
   return (
-    <div className="flex-1 min-w-0 space-y-8">
+    <div className="flex-1 min-w-0 space-y-8 -mt-4">
 
       {/* Synopsis */}
       <div className="rounded-xl bg-card/80 border border-border/60 p-4 space-y-2">
@@ -101,13 +101,24 @@ export function StoryContent({
                 <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg rounded-2xl">
-              <DialogHeader><DialogTitle>Edit Synopsis</DialogTitle></DialogHeader>
-              <Textarea value={synopsisValue} onChange={e => setSynopsisValue(e.target.value)} placeholder="Write the synopsis..." className="min-h-[200px] bg-card resize-none" style={{ textAlign: "justify" }} />
-              <DialogFooter>
+            <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto">
+              <DialogHeader className="px-4 py-3 border-b border-border bg-muted/20">
+                <DialogTitle className="text-base font-semibold">Edit Synopsis</DialogTitle>
+              </DialogHeader>
+              <div className="p-4">
+                <Textarea
+                  value={synopsisValue}
+                  onChange={e => setSynopsisValue(e.target.value)}
+                  placeholder="Write the synopsis..."
+                  className="min-h-[220px] bg-card resize-none text-sm leading-relaxed"
+                  style={{ textAlign: "justify" }}
+                  autoFocus
+                />
+              </div>
+              <div className="px-4 pb-4 flex gap-2 justify-end border-t border-border pt-3">
                 <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
                 <Button onClick={() => { updateStory(story.id, { synopsis: synopsisValue }); setSynopsisEditDialog(false); }}>Save</Button>
-              </DialogFooter>
+              </div>
             </DialogContent>
           </Dialog>
         </div>

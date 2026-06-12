@@ -4,7 +4,7 @@ import {
   BookOpen, Search, X, Plus, User, Filter as FilterIcon,
   Palette, HardDrive, Keyboard, FileDown, FileUp, Edit,
   Camera, ChevronRight, Sun, Moon, Settings, Home, List,
-  LogIn, LogOut, Eye, KeyRound,
+  LogIn, LogOut, Eye, KeyRound, Menu,
 } from "lucide-react";
 import { AddStoryDialog } from "@/component/AddStoryDialog";
 import { useStories } from "@/lib/StoryContext";
@@ -95,6 +95,8 @@ interface LibraryNavbarProps {
   onFiltersChange: (f: Filters) => void;
   filterCount: number;
   allTags?: string[];
+  onSearchCommit?: (v: string) => void;
+  onReset?: () => void;
 }
 
 interface ListsNavbarProps {
@@ -112,6 +114,7 @@ type BaseProps = {
   ctaPreference?: "floating" | "inside";
   onCtaChange?: (val: "floating" | "inside") => void;
   onOpenShortcuts?: () => void;
+  hideMobileNav?: boolean;
 };
 
 type NavbarProps = (LibraryNavbarProps | ListsNavbarProps) & BaseProps;
@@ -152,8 +155,8 @@ function ProfileButton({ onClick }: { onClick: () => void }) {
 }
 
 /* ─── Library Search ─────────────────────────── */
-export function LibrarySearch({ search, onSearchChange, stories }: {
-  search: string; onSearchChange: (v: string) => void; stories: any[];
+export function LibrarySearch({ search, onSearchChange, onSearchCommit, onReset, stories }: {
+  search: string; onSearchChange: (v: string) => void; onSearchCommit?: (v: string) => void; onReset?: () => void; stories: any[];
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -182,8 +185,6 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
       if (!open) return;
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
-        onSearchChange("");
-        setLocalSearch("");
       }
     };
     document.addEventListener("click", h);
@@ -196,14 +197,16 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
         e.stopPropagation();
         setOpen(false);
         onSearchChange("");
+        onSearchCommit?.("");
+        onReset?.();
         return;
-      }     
+      }   
     };
     document.addEventListener("keydown", h, true); 
     return () => document.removeEventListener("keydown", h, true);
   }, [open, onSearchChange]);
 
-  const suggestions = useMemo(() => {
+  const allSuggestions = useMemo(() => {
     if (!localSearch.trim()) return [];
     return stories.filter((s: any) => {
       if (s.hidden) return false;
@@ -212,6 +215,9 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
     });
   }, [localSearch, stories]);
 
+  const suggestions = allSuggestions.slice(0, 5);
+  const hasMore = allSuggestions.length > 5;
+
   const STATUS_COLORS: Record<string, string> = {
     "reading": "#22c55e", "completed": "#3b82f6", "on-hold": "#eab308",
     "dropped": "#ef4444", "plan-to-read": "#6b7280", "re-reading": "#a855f7",
@@ -219,6 +225,19 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
   const STATUS_LABELS: Record<string, string> = {
     "reading": "Reading", "completed": "Completed", "on-hold": "On Hold",
     "dropped": "Dropped", "plan-to-read": "Plan to Read", "re-reading": "Re-reading",
+  };
+
+  const highlight = (text: string) => {
+    if (!localSearch.trim()) return text;
+    const idx = text.toLowerCase().indexOf(localSearch.toLowerCase());
+    if (idx === -1) return text;
+    return (
+      <>
+        {text.slice(0, idx)}
+        <span style={{ color: "hsl(var(--primary))", fontWeight: 700 }}>{text.slice(idx, idx + localSearch.length)}</span>
+        {text.slice(idx + localSearch.length)}
+      </>
+    );
   };
 
   const ResultItem = ({ s }: { s: any }) => {
@@ -243,7 +262,7 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
 
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-bold text-foreground truncate group-hover:text-primary transition-colors">
-            {s.title}
+            {highlight(s.title)}
           </p>
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             {fmt && <span className="text-[11px] text-foreground/80">{fmt}</span>}
@@ -256,7 +275,7 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
             </span>
           </div>
           {s.author && (
-            <p className="text-[10px] text-muted-foreground/50 mt-0.5 truncate">{s.author}</p>
+            <p className="text-[10px] text-muted-foreground/90 mt-0.5 truncate">{highlight(s.author)}</p>
           )}
         </div>
       </Link>
@@ -276,6 +295,8 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
     e?.stopPropagation();
     setLocalSearch("");
     onSearchChange("");
+    onSearchCommit?.("");
+    onReset?.();
     setOpen(false);
   };
 
@@ -299,21 +320,26 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
               onChange={(e) => handleSearchInput(e.target.value)}
               className="sm:block hidden bg-transparent text-xs w-full min-w-0 outline-none text-foreground placeholder:text-muted-foreground"
             />
-          )}
-
-          {open && !isMobile && (
-            <>
-              {localSearch &&  (
-                <button onClick={handleClearText} className="text-muted-foreground hover:text-foreground shrink-0 ml-1">
-                  <X size={12} />
-                </button>
-              )}
-              <button onClick={handleClose} className="text-xs font-semibold text-primary ml-2 shrink-0">
-                Cancel
-              </button>
-            </>
-          )}
+          )}          
         </div>
+
+        {open && window.innerWidth >= 640 && (
+          <>
+            <button
+              onClick={(e) => { handleClearText(e as any); setTimeout(() => inputRef.current?.focus(), 50); }}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
+              title="Clear search"
+            >
+              <X size={15} />
+            </button>
+            <button
+              onClick={handleClose}
+              className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors whitespace-nowrap"
+            >
+              Cancel
+            </button>
+          </>
+        )}
 
         {/* DESKTOP SEARCH OVERLAY */}
         {open && (
@@ -347,6 +373,19 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
                     ))}
                   </div>
                 </div>
+              {hasMore && (
+                <button
+                  onClick={() => {
+                    onSearchChange(localSearch);
+                    onSearchCommit?.(localSearch);
+                    setOpen(false);
+                    setLocalSearch("");
+                  }}
+                  className="w-full py-3 text-xs font-bold text-primary hover:bg-primary/5 border-t border-border transition-colors flex items-center justify-center gap-2"
+                >
+                  View all {allSuggestions.length} results for "{localSearch}" →
+                </button>
+              )}
               </>
             )}
           </div>
@@ -368,25 +407,21 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
           >
             <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50">
               <Search size={16} className="text-muted-foreground shrink-0" />
+              
               <input
                 autoFocus
                 placeholder="Search titles, authors…"
                 value={localSearch}
                 onChange={(e) => handleSearchInput(e.target.value)}
                 className="flex-1 bg-transparent text-sm outline-none text-foreground placeholder:text-muted-foreground"
-              />              
-              {localSearch && (                
-                <button 
-                  onClick={handleClearText}
-                  className="text-muted-foreground hover:text-foreground p-1"
-                >
-                  <X size={14} />
+              />                                        
+
+              {localSearch && (
+                <button onClick={handleClearText} className="p-1.5 text-muted-foreground hover:text-foreground shrink-0">
+                  <X size={15} />
                 </button>
-              )}              
-              <button
-                onClick={handleClose}
-                className="text-xs font-semibold text-primary ml-1 shrink-0"
-              >
+              )}
+              <button onClick={handleClose} className="text-xs font-semibold text-primary ml-1 shrink-0">
                 Cancel
               </button>
             </div>
@@ -397,12 +432,15 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
                   {suggestions.length} result{suggestions.length !== 1 ? "s" : ""}
                 </span>
               </div>
-            )}
+            )}            
 
             <div className="flex-1 overflow-y-auto overscroll-contain">
               {!localSearch ? (
-                <div className="py-12 text-center text-sm text-muted-foreground/50">
-                  Type to search your library…
+                <div className="px-4 py-4 space-y-3">
+                  <p className="text-[10px] font-black tracking-widest text-muted-foreground/40 uppercase">Recently Updated</p>
+                  {[...stories].filter(s => !s.hidden).sort((a,b) => new Date(b.chapterUpdatedAt).getTime() - new Date(a.chapterUpdatedAt).getTime()).slice(0, 5).map((s: any) => (
+                    <ResultItem key={s.id} s={s} />
+                  ))}
                 </div>
               ) : suggestions.length === 0 ? (
                 <div className="flex flex-col items-center py-12 gap-2">
@@ -416,13 +454,25 @@ export function LibrarySearch({ search, onSearchChange, stories }: {
               )}
             </div>
 
+            {hasMore && (
+              <button
+                onClick={() => {
+                  onSearchChange(localSearch);
+                  onSearchCommit?.(localSearch);
+                  setOpen(false);
+                }}
+                className="w-full py-3 text-xs font-bold text-primary hover:bg-primary/5 border-t border-border flex items-center justify-center gap-2"
+              >
+                View all {allSuggestions.length} results for "{localSearch}" →
+              </button>
+            )}
+            
             <div className="flex justify-center py-2 shrink-0">
               <div className="w-10 h-1 rounded-full bg-border/50" />
             </div>
           </div>
         </div>
-      )}
-     
+      )}     
     </>
   );
 }
@@ -1416,7 +1466,7 @@ export function Navbar(props: NavbarProps) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);   
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 640);
@@ -1454,7 +1504,7 @@ export function Navbar(props: NavbarProps) {
   }, [props.variant, props.onOpenShortcuts]);
 
   const isLibrary = location.pathname === "/" || location.pathname === "/home";
-  const isLists = location.pathname === "/lists" || location.pathname.startsWith("/list/");
+  const isLists = location.pathname === "/lists" || location.pathname.startsWith("/list/") || location.pathname.startsWith("/lists/");
 
   const handleExport = async (fmt: string = "json") => {
     try {
@@ -1541,7 +1591,7 @@ export function Navbar(props: NavbarProps) {
 
           {props.variant === "library" && (
             <div className="flex items-center gap-2 ml-auto">
-              <LibrarySearch search={props.search} onSearchChange={props.onSearchChange} stories={stories} />
+              <LibrarySearch search={props.search} onSearchChange={props.onSearchChange} onSearchCommit={props.onSearchCommit} onReset={props.onReset} stories={stories} />
               <button onClick={() => setFilterOpen(true)}
                 className={`relative flex items-center justify-center w-8 h-8 rounded-xl backdrop-blur-sm transition-all border border-border/50 ${props.filterCount > 0 ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "bg-secondary text-muted-foreground hover:text-foreground"}`}>
                 <FilterIcon size={16} />
@@ -1564,7 +1614,7 @@ export function Navbar(props: NavbarProps) {
         </div>
       </header>
 
-      {isMobile && (
+      {isMobile && !props.hideMobileNav && (
         <nav className="fixed bottom-0 left-0 right-0 z-30 bg-card/95 backdrop-blur-xl border-t border-border">
           <div className="flex items-center justify-around px-2 h-16">
             <Link to="/" className={`flex flex-col items-center justify-center w-16 h-full gap-1 transition-colors ${isLibrary ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>
