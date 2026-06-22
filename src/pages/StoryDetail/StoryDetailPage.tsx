@@ -372,12 +372,27 @@ export default function StoryDetailPage() {
     return publicUrlData.publicUrl;
   };
 
+  const isAtsumaruStory = (value: any) => {
+    const whereToRead = String(value?.whereToRead ?? "").toLowerCase();
+    const sourceNames = (value?.sources ?? [])
+      .map((src: any) => `${src?.name ?? ""} ${src?.url ?? ""}`.toLowerCase())
+      .join(" ");
+    return `${whereToRead} ${sourceNames}`.includes("atsumaru");
+  };
+
   const handleSuggestTags = async () => {
     if (!story.title) return;
     setSuggestedLoading(true);
     try {
+      const atsSource = isAtsumaruStory(story);
       const { data, error } = await supabase.functions.invoke("suggest-tags", {
-        body: { title: story.title, synopsis: story.synopsis, existingTags: story.tags },
+        body: {
+          title: story.title,
+          synopsis: story.synopsis,
+          existingTags: story.tags,
+          atsumaruTags: story.tags ?? [],
+          isAtsumaruSource: atsSource,
+        },
       });
       if (error) throw error;
       if (Array.isArray(data.tags))

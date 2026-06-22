@@ -15,17 +15,69 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function normalizeTag(tag: string) {
+  return tag.trim().toLowerCase();
+}
+
+function mergeTags(existingTags: string[] = [], incomingTags: string[] = []) {
+  const canonicalByNorm = new Map<string, string>();
+  const merged: string[] = [];
+
+  for (const tag of existingTags) {
+    const normalized = normalizeTag(tag);
+    if (!normalized || canonicalByNorm.has(normalized)) continue;
+    canonicalByNorm.set(normalized, tag);
+    merged.push(tag);
+  }
+
+  for (const tag of incomingTags) {
+    const normalized = normalizeTag(tag);
+    if (!normalized) continue;
+
+    const canonical = canonicalByNorm.get(normalized);
+    if (canonical) continue;
+
+    canonicalByNorm.set(normalized, tag);
+    merged.push(tag);
+  }
+
+  return merged;
+}
+
+function filterNewTags(tags: string[], existingTags: string[] = []) {
+  const existingNorms = new Set(existingTags.map(normalizeTag));
+
+  return tags.filter((tag) => {
+    const normalized = normalizeTag(tag);
+    return normalized && !existingNorms.has(normalized);
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { title, synopsis, existingTags } = await req.json();
+    const {
+      title,
+      synopsis,
+      existingTags = [],
+      atsumaruTags = [],
+      isAtsumaruSource = false,
+    } = await req.json();
 
     if (!title) {
       return new Response(
         JSON.stringify({ tags: [] }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (isAtsumaruSource && Array.isArray(atsumaruTags) && atsumaruTags.length > 0) {
+      const mergedTags = mergeTags(existingTags, atsumaruTags);
+      return new Response(
+        JSON.stringify({ tags: mergedTags }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -53,7 +105,8 @@ serve(async (req) => {
 Story Information:
 Title: ${title}
  ${synopsis ? `Synopsis: ${synopsis}` : ""}
- ${existingTags?.length ? `Already has these tags (do NOT suggest these again): ${existingTags.join(", ")}` : ""}
+  ${atsumaruTags?.length ? `Reference tags from source (use as hints): ${atsumaruTags.join(", ")}` : ""}
+  ${existingTags?.length ? `Already has these tags (do NOT suggest these again): ${existingTags.join(", ")}` : ""}
 
 TASK:
 Suggest 3 to 6 relevant tags for this story.
@@ -113,9 +166,7 @@ Example: ["Action", "Fantasy"]`;
     });
     
     // Hapus tag yang sudah ada sebelumnya (deduplikasi)
-    const uniqueTags = finalTags.filter(tag => 
-      !existingTags?.some((existing: string) => existing.toLowerCase() === tag.toLowerCase())
-    );
+    const uniqueTags = filterNewTags(finalTags, existingTags);
 
     return new Response(
       JSON.stringify({ tags: uniqueTags }),

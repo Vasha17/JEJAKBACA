@@ -16,18 +16,21 @@ import { createStory } from "@/lib/types";
 
 /* ─── Site badges config ─────────────────────────────── */
 const API_SITES = [
-  { name: "MAL",       label: "MAL"          },
-  { name: "MangaDex",  label: "MangaDex"     },
-  { name: "AniList",   label: "AniList"      },
-  { name: "Kagane",    label: "Kagane"       },
+  { name: "MAL",      label: "MAL"      },
+  { name: "MangaDex", label: "MangaDex" },
+  { name: "AniList",  label: "AniList"  },
+  { name: "Kagane",   label: "Kagane"   },
 ];
 
 const SCRAPE_SITES = [
-  { name: "Webtoon",    label: "Webtoon"    },
-  { name: "MangaBuddy", label: "MangaBuddy" },
+  { name: "Weebrook",   label: "Weebrook"   },
   { name: "Kaliscan",   label: "Kaliscan"   },
+  { name: "MGJinx",     label: "MGJinx"     },
   { name: "Mangago",    label: "Mangago"    },
   { name: "BunManga",   label: "BunManga"   },
+  { name: "MangaK",     label: "MangaK"     },
+  { name: "TopManhua",  label: "TopManhua"  },
+  { name: "Atsumaru",   label: "Atsumaru"   },
 ];
 
 /* ─── Mobile detection ───────────────────────────────── */
@@ -67,6 +70,34 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
   function normalize(s: string) {
     return s.toLowerCase().replace(/[^a-z0-9]/g, "");
   }
+
+  function isAtsumaruSource(url: string, sourceName?: string) {
+    const haystack = `${url} ${sourceName ?? ""}`.toLowerCase();
+    return haystack.includes("atsumaru");
+  }
+
+  function mergeTags(existingTags: string[] = [], incomingTags: string[] = []) {
+    const seen = new Set<string>();
+    const merged: string[] = [];
+
+    for (const tag of existingTags) {
+      const normalized = tag.trim().toLowerCase();
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+      merged.push(tag);
+    }
+
+    for (const tag of incomingTags) {
+      const normalized = tag.trim().toLowerCase();
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+      merged.push(tag);
+    }
+
+    return merged;
+  }
+
+  const isExperimentalPreview = autoPreview?.sourceQuality === "experimental";
 
   const duplicates = stories.filter(s => {
     const norm = normalize(title);
@@ -109,6 +140,36 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
     if (!autoPreview) return;
     const d = autoPreview;
     const now = new Date().toISOString();
+    const sourceTags = Array.isArray(d.tags) ? d.tags : [];
+    const atsSource = isAtsumaruSource(autoUrl.trim(), d.sourceName);
+
+    let tags: string[] = [];
+    if (sourceTags.length > 0) {
+      if (atsSource) {
+        const { data: tagData } = await supabase.functions.invoke("suggest-tags", {
+          body: {
+            title: d.title,
+            synopsis: d.description,
+            atsumaruTags: sourceTags,
+            existingTags: [],
+            isAtsumaruSource: true,
+          },
+        });
+        tags = Array.isArray(tagData?.tags) ? tagData.tags : mergeTags([], sourceTags);
+      } else {
+        const { data: tagData } = await supabase.functions.invoke("suggest-tags", {
+          body: {
+            title: d.title,
+            synopsis: d.description,
+            atsumaruTags: sourceTags,
+            existingTags: [],
+            isAtsumaruSource: false,
+          },
+        });
+        tags = Array.isArray(tagData?.tags) ? tagData.tags : [];
+      }
+    }
+
     const storyData = createStory({
       title: d.title || "Untitled",
       altTitle: d.altTitle || d.alt_title || "",
@@ -131,6 +192,7 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
       }] : [],
       status: "plan-to-read",
       currentChapter: 1,
+      tags,
     });
     try {
       const newStory = await addStoryWithMeta(storyData);
@@ -267,13 +329,18 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
             </div>
           ) : (
             <div className="rounded-2xl border border-border/50 bg-secondary/20 p-4 space-y-4">
-              <div className="flex items-start gap-3 p-3 rounded-xl border border-primary/30 bg-primary/10">
+               <div className="flex items-start gap-3 p-3 rounded-xl border border-primary/30 bg-primary/10">
                 <CheckCircle2 className="w-4 h-4 text-primary/90 mt-0.5 shrink-0" />
-                <p className="text-xs text-primary/90 font-semibold">Data found! Review before adding.</p>
+                <p className="flex-1 text-xs text-primary/90 font-semibold">Data found! Review before adding.</p>
               </div>
               <div className="flex gap-3">
                 {(autoPreview.coverUrl || autoPreview.cover || autoPreview.thumbnail) && (
-                  <div className="w-24 h-34 rounded-2xl overflow-hidden border border-border bg-secondary shrink-0 shadow-xl shadow-black/30">
+                  <div className="relative w-24 h-34 rounded-2xl overflow-hidden border border-border bg-secondary shrink-0 shadow-xl shadow-black/30">
+                    {isExperimentalPreview && (
+                      <div className="absolute top-2 -right-6 z-10 rotate-45 bg-amber-500 px-6 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-black shadow-lg shadow-amber-500/30 border border-amber-200/70">
+                        Experimental
+                      </div>
+                    )}
                     <img
                       src={autoPreview.coverUrl || autoPreview.cover || autoPreview.thumbnail}
                       alt=""

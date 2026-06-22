@@ -448,7 +448,7 @@ export function HeroSection({
 
               {/* --- ALTERNATIVE TITLES SECTION --- */}
               {(() => {
-                const titles = story.altTitle ? String(story.altTitle).split(/[,\n]/).map((t: string) => t.trim()).filter(Boolean) : [];
+                const titles = story.altTitle ? String(story.altTitle).split(/[\/,\n]/).map((t: string) => t.trim()).filter(Boolean) : [];
                 const SHOW = 2;
 
                 return (

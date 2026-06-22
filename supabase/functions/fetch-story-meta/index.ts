@@ -32,6 +32,70 @@ function extractIdFromUrl(url: string, pattern: RegExp): string {
   return match?.[1] ?? "";
 }
 
+function stripHtml(text: string): string {
+  return text
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .trim();
+}
+
+function extractAtsumaruList(html: string, key: "genres" | "tags") {
+  const items = new Set<string>();
+  const regex = new RegExp(
+    `<a[^>]*href=["']\/explore\?${key}=\\d+["'][^>]*>([\s\S]*?)<\/a>`,
+    "gi"
+  );
+
+  for (const match of html.matchAll(regex)) {
+    const value = stripHtml(match[1] ?? "");
+    if (value) items.add(value);
+  }
+
+  return Array.from(items);
+}
+
+async function fetchFromAtsumaru(url: string): Promise<StoryMeta> {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Atsumaru page error: ${res.status}`);
+  }
+
+  const html = await res.text();
+
+  const title = stripHtml(
+    html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? ""
+  ) || "Unknown";
+
+  const description = stripHtml(
+    html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']*)["'][^>]*>/i)?.[1] ?? ""
+  );
+
+  const genres = extractAtsumaruList(html, "genres");
+  const tags = extractAtsumaruList(html, "tags");
+
+  return {
+    title,
+    altTitle: "",
+    author: "Unknown",
+    cover: "",
+    description,
+    genre: genres,
+    tags,
+    demographic: "",
+    country: "JP",
+    whereToRead: url,
+  };
+}
+
 // 1. MANGADEX API
 async function fetchFromMangaDex(url: string): Promise<StoryMeta> {
   const mangaId = extractIdFromUrl(url, /mangadex\.org\/title\/([a-f0-9-]{36})/);
@@ -345,6 +409,8 @@ Deno.serve(async (req) => {
       meta = await fetchFromMAL(url);
     } else if (domain.includes("anilist.co")) {
       meta = await fetchFromAniList(url);
+    } else if (domain.includes("atsumaru")) {
+      meta = await fetchFromAtsumaru(url);
     } else {     
       meta = await fetchWithGroqFallback(url);
     }
