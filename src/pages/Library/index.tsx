@@ -4,7 +4,7 @@ import { useStories } from "@/lib/StoryContext";
 import {
   BookOpen, Check, CheckSquare, Square, Trash2, AlertCircle,
   Lock, LayoutGrid, AlignJustify, ChevronRight, Star,
-  X, Globe, Eye,
+  X, Globe, Eye, Info,
 } from "lucide-react";
 import { StoryStatus, getGlobalTags } from "@/lib/types";
 import { Dialog, DialogContent } from "@/component/ui/dialog";
@@ -59,7 +59,7 @@ function GridView({
 }: {
   displayedItems: any[]; search: string; vaultUnlocked: boolean;
   bulkMode: boolean; selectedIds: Set<string>;
-  setSelectedIds: (s: Set<string>) => void; setQuickView: (s: any) => void;
+  setSelectedIds: (s: Set<string>) => void;  setQuickView: (s: any) => void;
 }) {
   return (
     <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-9 gap-3">
@@ -130,11 +130,11 @@ function GridView({
 
 /* ---------- TimelineView ---------- */
 function TimelineView({
-  displayedItems, vaultUnlocked, bulkMode, selectedIds, setSelectedIds,
+  displayedItems, vaultUnlocked, bulkMode, selectedIds, setSelectedIds, setQuickView,
 }: {
   displayedItems: any[]; vaultUnlocked: boolean;
   bulkMode: boolean; selectedIds: Set<string>;
-  setSelectedIds: (s: Set<string>) => void;
+  setSelectedIds: (s: Set<string>) => void; setQuickView: (s: any) => void;
 }) {
   return (
     <div className="space-y-3">
@@ -152,9 +152,9 @@ function TimelineView({
           : `${Math.floor(diffDays / 365)}y ago`;
 
         return (
-          <div key={story.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 30}ms`, animationFillMode: "both" }}>
-            <Link to={`/story/${story.id}`} state={{ fromVault: vaultUnlocked }}
-              className="flex gap-3 p-3 rounded-xl border border-border/50 bg-card/50 hover:bg-secondary hover:border-border transition-all group">
+          <div key={story.id} className="animate-fade-in-up border-b border-border/75 last:border-b-0" style={{ animationDelay: `${i * 30}ms`, animationFillMode: "both" }}>
+          <Link to={`/story/${story.id}`} state={{ fromVault: vaultUnlocked }}
+            className="relative flex gap-3 p-3 hover:bg-secondary transition-all group">
               {bulkMode && (
                 <button onClick={e => {
                   e.preventDefault(); e.stopPropagation();
@@ -166,54 +166,61 @@ function TimelineView({
                 </button>
               )}
 
-              {/* Cover */}
               <div className="w-16 sm:w-20 shrink-0 aspect-[3/4] rounded-lg overflow-hidden bg-secondary border border-border/50">
                 {story.coverUrl
                   ? <img src={story.coverUrl} alt={story.title} className="w-full h-full object-cover" />
                   : <div className="w-full h-full flex items-center justify-center"><BookOpen size={20} className="text-muted-foreground/20" /></div>}
               </div>
 
-              {/* Content */}
-                <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                <div className="flex items-start justify-between gap-2">
+              <div className="flex-1 min-w-0 flex flex-col justify-between gap-2 pr-6">
+                <div>
                   <div className="flex items-center gap-1.5 min-w-0">
-                    {story.originCountry 
+                    {story.originCountry
                       ? <span className={`fi fi-${story.originCountry.toLowerCase()} shrink-0`} style={{ width: 14, height: 11, borderRadius: 2 }} />
-                      : <Globe size={12} className="text-muted-foreground/60 shrink-0" />
-                    }
+                      : <Globe size={12} className="text-muted-foreground shrink-0" style={{ opacity: 0.95 }} />}
                     <p className="text-sm font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">{story.title}</p>
                   </div>
-                  <span className="text-[10px] text-foreground/60 shrink-0 bg-secondary px-2 py-0.5 rounded-md border border-border/50 whitespace-nowrap">{timeAgo}</span>
+                  {story.synopsis && (
+                    <p className="text-[11px] text-foreground/50 line-clamp-2 leading-relaxed italic border-l-2 border-primary pl-2 mt-1 w-full">
+                      "{story.synopsis.slice(0, 500)}..."
+                    </p>
+                  )}
+                  {story.genres && story.genres.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                      {story.genres.slice(0, 3).map((g: string) => (
+                        <span key={g} className="sm:hidden text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">{g}</span>
+                      ))}
+                      {story.genres.length > 4 && (
+                        <span className="sm:hidden text-[10px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground border border-border/50 font-medium">+{story.genres.length - 4}</span>
+                      )}
+                      {story.genres.map((g: string) => (
+                        <span key={`d-${g}`} className="hidden sm:inline-block text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">{g}</span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {story.synopsis && (
-                  <p className="text-[11px] text-foreground/60 line-clamp-2 leading-relaxed italic border-l-2 border-primary pl-2 w-full">
-                    "{story.synopsis.slice(0, 500)}..."
-                  </p>
-                )}
-
-                {story.genres && story.genres.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {story.genres.map((g: string) => (
-                      <span key={g} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-medium">{g}</span>
-                    ))}
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-1 text-[11px] text-foreground/70">                    
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: STATUS_COLORS[story.status] }} />
+                    <span className="text-[11px] font-semibold text-primary">Ch. {story.currentChapter}</span>
+                    <span className="text-[11px]">· {timeAgo}</span>
                   </div>
-                )}
-
-                 <div className="flex items-center justify-between mt-auto">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: STATUS_COLORS[story.status] }} />
-                      <span className="text-[10px] font-semibold" style={{ color: STATUS_COLORS[story.status] }}>{getStatusInfo(story.status).label}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-3">                   
+                    <div className="flex items-center gap-1 bg-amber-400/10 border border-amber-400/20 rounded-full px-1.5 py-0.5">
                       <Star size={11} className="fill-amber-400 text-amber-400" />
-                      <span className="text-xs font-bold text-amber-400">{story.rating || "—"}</span>
+                      <span className="text-[11px] font-bold text-amber-400">{story.rating || "—"}</span>
                     </div>
                   </div>
-                  <span className="text-[11px] text-primary font-bold">Ch. {story.currentChapter}</span>
                 </div>
               </div>
+
+              <button
+                onClick={e => { e.preventDefault(); e.stopPropagation(); setQuickView(story); }}
+                className="absolute top-2 right-2 w-7 h-7 rounded-lg border border-border/50 bg-secondary/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                <Info size={14} />
+              </button>
             </Link>
           </div>
         );
@@ -672,9 +679,9 @@ function Library() {
         {/* Timeline */}
         {!loading && filtered.length > 0 && viewMode === "timeline" && (
           <TimelineView
-            displayedItems={displayedItems}vaultUnlocked={vaultUnlocked}
+            displayedItems={displayedItems} vaultUnlocked={vaultUnlocked}
             bulkMode={bulkMode} selectedIds={selectedIds}
-            setSelectedIds={setSelectedIds}
+            setSelectedIds={setSelectedIds} setQuickView={setQuickView}
           />
         )}
 
