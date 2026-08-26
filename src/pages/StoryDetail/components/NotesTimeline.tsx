@@ -44,13 +44,19 @@ export function NotesTimeline({
   };
 
   const firstReadingEntry = findTransitionTo("reading", "first");
-  const showReadingMilestone = story.status === "reading" || story.status === "completed";
+  const showReadingMilestone = ["reading","completed","on-hold","hiatus","dropped","re-reading"].includes(story.status);
   const readingDate = showReadingMilestone
     ? firstReadingEntry?.createdAt || story.createdAt
     : null;
 
   const lastCompletedEntry = findTransitionTo("completed", "last");
-  const completedDate = story.status === "completed" ? lastCompletedEntry?.createdAt : null;
+  const lastDroppedEntry = findTransitionTo("dropped", "last");
+  const completedDate =
+    story.status === "completed" || story.status === "re-reading"
+      ? lastCompletedEntry?.createdAt
+      : story.status === "dropped"
+      ? lastDroppedEntry?.createdAt
+      : null;
   return (
     <section className="px-4 sm:px-6 mt-10 sm:mt-8 mb-20 space-y-4">
       {/* Tab bar */}

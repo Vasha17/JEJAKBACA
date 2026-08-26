@@ -4,7 +4,7 @@ import { useStories } from "@/lib/StoryContext";
 import {
   BookOpen, Check, CheckSquare, Square, Trash2, AlertCircle,
   Lock, LayoutGrid, AlignJustify, ChevronRight, Star,
-  X, Globe, Eye, Info,
+  X, Globe, Eye, Info, Loader2,
 } from "lucide-react";
 import { StoryStatus, getGlobalTags } from "@/lib/types";
 import { Dialog, DialogContent } from "@/component/ui/dialog";
@@ -62,7 +62,7 @@ function GridView({
   setSelectedIds: (s: Set<string>) => void;  setQuickView: (s: any) => void;
 }) {
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-9 gap-3">
+    <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 xl:grid-cols-8 2xl:grid-cols-9 gap-3 transition-all duration-300">
       {displayedItems.map((story: any, index) => {
         const isSelected = selectedIds.has(story.id);
         const statusInfo = getStatusInfo(story.status);
@@ -296,6 +296,7 @@ function Library() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [loadMoreMode, setLoadMoreMode] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [showAllSearchResults, setShowAllSearchResults] = useState(false);
   const [displayedItems, setDisplayedItems] = useState<any[]>([]);
   const isInitialized = useRef(false);
@@ -689,10 +690,21 @@ function Library() {
           <div className="flex flex-col sm:flex-row items-center sm:items-center sm:justify-between gap-4 pt-4">
             {page < totalPages ? (
               <button
-                onClick={() => { setLoadMoreMode(true); setPage(p => p + 1); }}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 active:scale-95 transition-all shadow-lg shadow-primary/20"
+                disabled={loadingMore}
+                onClick={() => {
+                  setLoadingMore(true);
+                  setTimeout(() => {
+                    setLoadMoreMode(true);
+                    setPage(p => p + 1);
+                    setLoadingMore(false);
+                  }, 600);
+                }}
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-primary text-primary-foreground text-sm font-bold hover:bg-primary/90 active:scale-95 transition-all shadow-lg shadow-primary/20 disabled:opacity-70"
               >
-                <ChevronRight size={16} className="rotate-90" /> Load More 
+                {loadingMore
+                  ? <Loader2 size={16} className="animate-spin" />
+                  : <ChevronRight size={16} className="rotate-90" />}
+                {loadingMore ? "Loading..." : "Load More"}
               </button>
             ) : <div />}
 
