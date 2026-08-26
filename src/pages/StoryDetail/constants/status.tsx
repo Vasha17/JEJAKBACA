@@ -14,18 +14,38 @@ export const STATUS_OPTIONS: { value: StoryStatus; label: string; color: string 
 export const statusColor = (s: string) =>
   STATUS_OPTIONS.find(o => o.value === s)?.color ?? "#6b7280";
 
-export type RelationType = "prequel" | "sequel" | "spin-off" | "related";
+export type RelationType =
+  | "sequel" | "prequel" | "spin-off" | "side-story"
+  | "parallel-story" | "alternate-universe" | "adaptation"
+  | "crossover" | "related";
 export type RelationMode = "local" | "mention";
 
-export const REL_LABELS: Record<RelationType, string> = {
-  prequel: "Prequel", sequel: "Sequel", "spin-off": "Spin-off", related: "Related",
-};
+export const REL_TYPE_OPTIONS = [
+  { value: "sequel",             ribbon: "SEQUEL",       label: "Sequel",             description: "Continues the story." },
+  { value: "prequel",            ribbon: "PREQUEL",      label: "Prequel",            description: "Comes before the story." },
+  { value: "spin-off",           ribbon: "SPIN-OFF",     label: "Spin-off",           description: "Branches off, own path." },
+  { value: "side-story",         ribbon: "SIDE STORY",   label: "Side Story",         description: "Extra bit, same world." },
+  { value: "parallel-story",     ribbon: "PARALLEL",     label: "Parallel Story",     description: "Same time, other view." },
+  { value: "alternate-universe", ribbon: "ALT. UNIVERSE",label: "Alternate Universe", description: "Alt timeline or world." },
+  { value: "adaptation",         ribbon: "ADAPTATION",   label: "Adaptation",         description: "Same story, other format." },
+  { value: "crossover",          ribbon: "CROSSOVER",    label: "Crossover",          description: "Mixes with another story." },
+  { value: "related",            ribbon: "RELATED",      label: "Related",            description: "Connected some other way." },
+] as const;
+
+export const REL_LABELS: Record<RelationType, string> = Object.fromEntries(
+  REL_TYPE_OPTIONS.map(o => [o.value, o.ribbon])
+) as Record<RelationType, string>;
 
 export const REL_COLORS: Record<RelationType, string> = {
-  prequel:    "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  sequel:     "bg-green-500/10 text-green-400 border-green-500/20",
-  "spin-off": "bg-purple-500/10 text-purple-400 border-purple-500/20",
-  related:    "bg-gray-500/10 text-gray-400 border-gray-500/20",
+  sequel:             "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  prequel:            "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  "spin-off":         "bg-pink-500/10 text-pink-400 border-pink-500/20",
+  "side-story":       "bg-teal-500/10 text-teal-400 border-teal-500/20",
+  "parallel-story":   "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+  "alternate-universe": "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+  adaptation:         "bg-lime-500/10 text-lime-400 border-lime-500/20",
+  crossover:          "bg-orange-500/10 text-orange-400 border-orange-500/20",
+  related:            "bg-gray-500/10 text-gray-400 border-gray-500/20",
 };
 
 export const ARC_COLORS = [

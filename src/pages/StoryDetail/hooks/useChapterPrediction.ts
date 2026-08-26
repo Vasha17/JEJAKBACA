@@ -12,10 +12,10 @@ export type Prediction = {
 };
 
 export const getCHLog  = (sid: string): ChapterLog[] => lsGet<ChapterLog[]>(`ch_log_${sid}`, []);
-export const pushCHLog = (sid: string, ch: number) => {
+export const pushCHLog = (sid: string, ch: number, date?: string) => {
   const log = getCHLog(sid);
   if (log[0]?.chapter === ch) return;
-  log.unshift({ chapter: ch, date: new Date().toISOString() });
+  log.unshift({ chapter: ch, date: date || new Date().toISOString() });
   lsSet(`ch_log_${sid}`, log.slice(0, 40));
 };
 

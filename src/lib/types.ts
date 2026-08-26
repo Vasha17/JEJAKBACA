@@ -52,6 +52,7 @@ export interface HistoryEntry {
 }
 
 export interface Story {
+  lastComicUpdateAt: undefined;
   orderIndex?: number;
   totalChapters?: any;
   type?: any;

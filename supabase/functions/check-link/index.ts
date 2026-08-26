@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { createServer } from "http";
 
 const corsHeaders = {

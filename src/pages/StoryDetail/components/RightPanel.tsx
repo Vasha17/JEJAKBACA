@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   BookOpen, Bell, X, Plus, Upload, Image, ExternalLink,
   Eye, AlertCircle, Loader2, CheckCircle2, XCircle, Pencil,
@@ -86,6 +87,7 @@ export function RightPanel({
   toggleTracked, handleSaveSourceEdit, handleSaveMediaLabel,
   handleMediaFileUpload, checkLink, getBadgeStyles,
 }: RightPanelProps) {
+  const [deleteSourceId, setDeleteSourceId] = useState<string | null>(null);
   return (
     <div className="lg:w-80 space-y-6">
       {/* Where to Read header */}
@@ -96,24 +98,36 @@ export function RightPanel({
         </div>
         <div className="flex gap-1">
           {/* Edit sources */}
-          <Dialog open={sourceDialog} onOpenChange={setSourceDialog}>
+          <Dialog open={sourceDialog} onOpenChange={(open) => { setSourceDialog(open); if (!open) setEditSrcId(null); }}>
             <DialogTrigger asChild>
               <button className="px-2 py-0.5 text-[10px] rounded bg-secondary/50 text-muted-foreground border border-border/40 hover:text-foreground hover:bg-secondary">Edit</button>
             </DialogTrigger>
-            <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto">
-              <DialogHeader className="px-4 py-3 border-b border-border bg-muted/20">
-                <DialogTitle className="text-base font-semibold">Edit Sources</DialogTitle>
-              </DialogHeader>
-              <div className="p-4">            
+            <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto border-border/60 bg-card/95 backdrop-blur-xl">
+              <div className="border-b border-border/50 px-4 py-3">
+                <DialogHeader className="text-left">
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                      <Bell className="w-3.5 h-3.5 text-primary/90" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-sm font-bold tracking-tight">Reading Sources</DialogTitle>
+                      <p className="text-[10px] text-muted-foreground leading-tight">Reorder, edit, or track update notifications.</p>
+                    </div>
+                  </div>
+                </DialogHeader>
+              </div>
+              <div className="p-5 pt-0.5">            
               {story.sources && story.sources.length > 0 ? (
-                <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-                  <p className="text-[10px] text-muted-foreground text-center">🔔 Select up to 2 sources for notifications. ({trackedSourceIds.length}/2 active)</p>
+                <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+                  <p className="text-xs text-muted-foreground text-center">🔔 Select up to 2 sources for notifications. ({trackedSourceIds.length}/2 active)</p>
                   {story.sources.map((src: any) => {
                     const isTracked = trackedSourceIds.includes(src.id);
                     const canTrack = isTracked || trackedSourceIds.length < 2;
+
                     return (
-                      <div key={src.id} className={`p-3 rounded-lg bg-secondary/50 border space-y-2 ${isTracked ? "border-primary/40" : "border-border"}`}>
-                        <div className="flex items-center justify-between">
+                      <div key={src.id} className={`relative overflow-hidden p-4 rounded-xl bg-secondary/40 border space-y-0.5 ${isTracked ? "border-primary/40" : "border-border/60"}`}>
+                        {isTracked && <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-transparent pointer-events-none" />}
+                        <div className="relative flex items-center justify-between">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className="font-bold text-xs text-foreground uppercase tracking-wide truncate">{src.name}</span>
                             <button onClick={() => toggleTracked(src.id)} disabled={!canTrack}
@@ -121,7 +135,26 @@ export function RightPanel({
                               <Bell className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                          <button onClick={() => removeSource(story.id, src.id)} className="text-destructive hover:text-destructive/80 shrink-0"><X className="w-3.5 h-3.5" /></button>
+                          {editSrcId !== src.id ? (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button onClick={() => {
+                                const idx = story.sources.findIndex((s:any)=>s.id===src.id);
+                                if (idx <= 0) return;
+                                const arr = [...story.sources];
+                                [arr[idx-1], arr[idx]] = [arr[idx], arr[idx-1]];
+                                updateStory(story.id, { sources: arr });
+                              }} className="text-muted-foreground hover:text-foreground text-xs px-0.5">▲</button>
+                              <button onClick={() => {
+                                const idx = story.sources.findIndex((s:any)=>s.id===src.id);
+                                if (idx >= story.sources.length-1) return;
+                                const arr = [...story.sources];
+                                [arr[idx], arr[idx+1]] = [arr[idx+1], arr[idx]];
+                                updateStory(story.id, { sources: arr });
+                              }} className="text-muted-foreground hover:text-foreground text-xs px-0.5">▼</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setDeleteSourceId(src.id)} className="text-destructive hover:text-destructive/80 shrink-0"><X className="w-3.5 h-3.5" /></button>
+                          )}
                         </div>
                         {editSrcId === src.id ? (
                           <div className="space-y-2">
@@ -182,11 +215,22 @@ export function RightPanel({
             <DialogTrigger asChild>
               <button className="px-2 py-0.5 text-[10px] rounded bg-secondary/50 text-muted-foreground border border-border/40 hover:text-foreground hover:bg-secondary">Add</button>
             </DialogTrigger>
-            <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto">
-              <DialogHeader className="px-4 py-3 border-b border-border bg-muted/20">
-                <DialogTitle className="text-base font-semibold">Add Reading Link</DialogTitle>
-              </DialogHeader>
-              <div className="p-4 space-y-2">
+            <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto border-border/60 bg-card/95 backdrop-blur-xl">
+              <div className="relative border-b border-border/50 px-4 py-3 overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-bl from-primary/10 via-transparent to-transparent pointer-events-none" />
+                <DialogHeader className="relative text-left">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                      <ExternalLink className="w-3.5 h-3.5 text-primary/90" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-sm font-bold tracking-tight">New Reading Link</DialogTitle>
+                      <p className="text-[10px] text-muted-foreground leading-tight">Add a site where you follow this story.</p>
+                    </div>
+                  </div>
+                </DialogHeader>
+              </div>
+              <div className="p-5 pt-4 space-y-3">
                 <div className="relative">
                   <Input
                     value={srcName}
@@ -216,10 +260,10 @@ export function RightPanel({
                     </div>
                   )}
                 </div>
-                <Input value={srcUrl} onChange={e => setSrcUrl(e.target.value)} placeholder="URL" className="bg-card text-sm" />
+                <Input value={srcUrl} onChange={e => setSrcUrl(e.target.value)} placeholder="URL" className="bg-card text-base h-11" />
                 <div className="flex gap-2">
-                  <Input value={srcChapter} onChange={e => setSrcChapter(e.target.value)} placeholder="Chapter" type="number" step="0.1" className="bg-card text-sm w-24" />
-                  <Input value={srcLang} onChange={e => setSrcLang(e.target.value)} placeholder="Lang (EN, ID, KR)" className="bg-card text-sm flex-1" />
+                  <Input value={srcChapter} onChange={e => setSrcChapter(e.target.value)} placeholder="Chapter" type="number" step="0.1" className="bg-card text-base h-11 w-28" />
+                  <Input value={srcLang} onChange={e => setSrcLang(e.target.value)} placeholder="Lang (EN, ID, KR)" className="bg-card text-base h-11 flex-1" />
                 </div>
                </div>
               <div className="px-4 pb-4 flex gap-2 justify-end border-t border-border pt-3">
@@ -227,6 +271,12 @@ export function RightPanel({
                 <Button onClick={() => {
                   if (!srcName.trim() || !srcUrl.trim()) return;
                   addSource(story.id, { name: srcName.trim(), url: srcUrl.trim(), currentChapter: parseInt(srcChapter) || 0, language: srcLang.trim().toUpperCase() || "" });
+                  if (trackedSourceIds.length < 2) {
+                    setTimeout(() => {
+                      const newSrc = story.sources[story.sources.length - 1];
+                      if (newSrc && !trackedSourceIds.includes(newSrc.id)) toggleTracked(newSrc.id);
+                    }, 150);
+                  }
                   setSrcName(""); setSrcUrl(""); setSrcChapter(""); setSrcLang(""); setAddSourceDialog(false);
                 }}><Plus className="w-3.5 h-3.5 mr-1" />Add Link</Button>
               </div>
@@ -298,12 +348,14 @@ export function RightPanel({
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className={`text-[10px] ${isTracked && isAhead ? "text-foreground font-semibold" : "text-muted-foreground"}`}>Ch. {srcCh}</span>
+                    <div className="flex flex-col">
+                      <span className={`text-[10px] ${isTracked && isAhead ? "text-foreground font-semibold" : "text-muted-foreground"}`}>Ch. {srcCh}</span>                      
+                    </div>
                     {isTracked && isAhead && (
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold shadow-sm ${getBadgeStyles(chaptersAhead)}`}>+{chaptersAhead}</span>
                     )}
                   </div>
-                  <span className="text-[10px] text-muted-foreground shrink-0 opacity-60">{format(new Date(src.updatedAt), "MMM d, yyyy")}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0 opacity-60">{format(new Date(story.lastComicUpdateAt || src.updatedAt), "MMM d, yyyy")}</span>
                 </div>
               </a>
             </div>
@@ -325,10 +377,20 @@ export function RightPanel({
               <DialogTrigger asChild>
                 <button className="px-2 py-0.5 text-[10px] rounded bg-secondary text-secondary-foreground border border-border">Link</button>
               </DialogTrigger>
-              <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto">
-                <DialogHeader className="px-4 py-3 border-b border-border bg-muted/20">
-                  <DialogTitle className="text-base font-semibold">Add Media Link</DialogTitle>
-                </DialogHeader>
+              <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto border-border/60 bg-card/95 backdrop-blur-xl">
+                <div className="border-b border-border/50 px-4 py-3">
+                  <DialogHeader className="text-left">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                        <Image className="w-3.5 h-3.5 text-primary/90" />
+                      </div>
+                      <div>
+                        <DialogTitle className="text-sm font-bold tracking-tight">Add Media Link</DialogTitle>
+                        <p className="text-[10px] text-muted-foreground leading-tight">Attach an external image or link.</p>
+                      </div>
+                    </div>
+                  </DialogHeader>
+                </div>
                 <div className="p-4 space-y-3">
                   <Input value={mediaLabel} onChange={e => setMediaLabel(e.target.value)} placeholder="Label / Alt text" className="bg-card" />
                   <Input value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} placeholder="https://..." className="bg-card" />
@@ -391,6 +453,21 @@ export function RightPanel({
         </DialogContent>
       </Dialog>
     </div>
+    <Dialog open={!!deleteSourceId} onOpenChange={open => { if (!open) setDeleteSourceId(null); }}>
+     <DialogContent className="w-[92vw] max-w-2xl rounded-3xl border border-border/60 bg-card/95 backdrop-blur-xl p-0 overflow-hidden shadow-2xl mx-auto">
+        <div className="p-6 flex flex-col items-center text-center">
+          <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-4"><X className="w-7 h-7 text-red-500" /></div>
+          <DialogTitle className="text-xl font-bold text-foreground">Delete source?</DialogTitle>
+          <p className="text-sm text-muted-foreground mt-2 leading-relaxed">This reading source will be permanently deleted.</p>
+          <div className="flex w-full gap-3 mt-6">
+            <Button variant="secondary" className="flex-1 rounded-xl h-11" onClick={() => setDeleteSourceId(null)}>Cancel</Button>
+            <Button className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 text-white" onClick={() => {
+              if (deleteSourceId) { removeSource(story.id, deleteSourceId); setDeleteSourceId(null); }
+            }}>Delete</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   </div>
   );
 }

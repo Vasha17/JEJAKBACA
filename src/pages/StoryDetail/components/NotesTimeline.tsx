@@ -1,7 +1,9 @@
-import { FileText, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { FileText, Pencil, Trash2, ChevronLeft, ChevronRight, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { RichTextDisplay } from "@/component/RichTextEditor";
 import type { Arc } from "../utils/helpers";
+import { STATUS_OPTIONS } from "../constants/status";
+import type { HistoryEntry } from "../hooks/useStoryHistory";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -10,6 +12,7 @@ interface NotesTimelineProps {
   activeTab: "notes" | "timeline";
   handleTabChange: (tab: "notes" | "timeline") => void;
   arcs: Arc[];
+  statusHistory: HistoryEntry[];
   setNotesDialog: (v: boolean) => void;
   setEditingNote: (v: any) => void;
   setNoteContent: (v: string) => void;
@@ -23,10 +26,29 @@ interface NotesTimelineProps {
 
 export function NotesTimeline({
   story, activeTab, handleTabChange,
-  arcs,
+  arcs, statusHistory,
   setNotesDialog, setEditingNote, setNoteContent, setDeleteNoteId,
   handleOpenArcDialog, handleMoveArc, setDeleteArcId,
 }: NotesTimelineProps) {
+    const statusColor = (val: string) => STATUS_OPTIONS.find(s => s.value === val)?.color || "#6b7280";
+
+  const findTransitionTo = (statusValue: string, mode: "first" | "last") => {
+    const matches = statusHistory.filter(e => e.newValue === statusValue);
+    if (matches.length === 0) return null;
+    return matches.reduce((acc, e) => {
+      const isBetter = mode === "first"
+        ? new Date(e.createdAt) < new Date(acc.createdAt)
+        : new Date(e.createdAt) > new Date(acc.createdAt);
+      return isBetter ? e : acc;
+    });
+  };
+
+  const firstReadingEntry = findTransitionTo("reading", "first");
+  const showReadingMilestone = story.status === "reading" || story.status === "completed";
+  const readingDate = showReadingMilestone ? firstReadingEntry?.createdAt : null;
+
+  const lastCompletedEntry = findTransitionTo("completed", "last");
+  const completedDate = story.status === "completed" ? lastCompletedEntry?.createdAt : null;
   return (
     <section className="px-4 sm:px-6 mt-10 sm:mt-8 mb-20 space-y-4">
       {/* Tab bar */}
@@ -109,7 +131,29 @@ export function NotesTimeline({
 
       {/* Timeline tab */}
       {activeTab === "timeline" && (
-        arcs.length > 0 ? (
+        <>
+        {(readingDate || completedDate) && (
+          <div className="mb-5 p-4 rounded-xl bg-card/60 border border-border/50">
+            <div className="flex items-center gap-2">
+              <div className="flex-1 flex flex-col items-start gap-1.5">
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: readingDate ? statusColor("reading") : "#6b7280" }} />
+                  <span className={`text-xs font-semibold ${readingDate ? "text-foreground" : "text-muted-foreground/50"}`}>Reading</span>
+                </div>
+                <span className="text-[11px] text-muted-foreground pl-6">{readingDate ? format(new Date(readingDate), "MMM d, yyyy") : "—"}</span>
+              </div>
+              <div className="flex-1 h-px bg-border mx-1" />
+              <div className="flex-1 flex flex-col items-end gap-1.5">
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-xs font-semibold ${completedDate ? "text-foreground" : "text-muted-foreground/50"}`}>Finished</span>
+                  <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: completedDate ? statusColor("completed") : "#6b7280" }} />
+                </div>
+                <span className="text-[11px] text-muted-foreground pr-6">{completedDate ? format(new Date(completedDate), "MMM d, yyyy") : "—"}</span>
+              </div>
+            </div>
+          </div>
+        )}
+        {arcs.length > 0 ? (
           <div className="relative">
             <div className="absolute left-[18px] top-3 bottom-3 w-px bg-border" />
             <div className="space-y-2">
@@ -171,7 +215,8 @@ export function NotesTimeline({
             </div>
             <button onClick={() => handleOpenArcDialog()} className="text-xs text-primary hover:underline font-medium">Add your first arc →</button>
           </div>
-        )
+        )}
+        </>
       )}
     </section>
   );

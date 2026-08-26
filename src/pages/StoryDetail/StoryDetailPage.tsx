@@ -13,6 +13,10 @@ import {
   BookOpen, History, X, Plus, Trash2, AlertCircle,
   CheckCircle2, Globe, Database, ChevronLeft,
   ChevronRight, Search, Bookmark,
+  GitBranchIcon,
+  RotateCcw,
+  FileText,
+  List,
 } from "lucide-react";
 import { format } from "date-fns";
 import { RichTextEditor } from "@/component/RichTextEditor";
@@ -27,8 +31,8 @@ import { StoryContent }                  from "./components/StoryContent";
 import { RightPanel }                    from "./components/RightPanel";
 import { NotesTimeline }                 from "./components/NotesTimeline";
 import {
-  STATUS_OPTIONS, 
-  REL_LABELS, REL_COLORS,
+  STATUS_OPTIONS,
+  REL_LABELS, REL_COLORS, REL_TYPE_OPTIONS,
   ARC_COLOR_PALETTES, ARC_COLORS,
   type ArcColorPalette,
 } from "./constants/status";
@@ -231,7 +235,16 @@ export default function StoryDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    try { setTrackedSourceIds(safeGet<string[]>(`tracked_sources_${id}`, [])); }
+    try {
+      const saved = safeGet<string[]>(`tracked_sources_${id}`, []);
+      if (saved.length === 0 && story?.sources && story.sources.length > 0) {
+        const autoTracked = story.sources.slice(0, 2).map((s: any) => s.id);
+        setTrackedSourceIds(autoTracked);
+        lsSet(`tracked_sources_${id}`, autoTracked);
+      } else {
+        setTrackedSourceIds(saved);
+      }
+    }
     catch (e) { console.warn("Gagal load tracked sources", e); }
   }, [id]);
 
@@ -248,11 +261,15 @@ export default function StoryDetailPage() {
   const { historyEntries, handleOpenHistory, handleUndoHistory, clearHistory } =
     useStoryHistory(story?.id || "", updateStory);
 
-  const {
-    relations, newRelTitle, newRelType, newRelMode, newRelUrl, relSuggestions,
-    setNewRelType, setNewRelMode, setNewRelStoryId, setNewRelUrl,
-    handleOpenRelated, handleRelTitleInput, handleAddRelation, handleRemoveRelation,
-  } = useStoryRelations(story?.id || "", stories);
+  const statusHistory = historyEntries.filter(e => e.type === "status");
+
+ const {
+  relations, newRelTitle, newRelType, newRelMode, newRelUrl, relSuggestions,
+  setNewRelType, setNewRelMode, setNewRelStoryId, setNewRelUrl,
+  handleOpenRelated, handleRelTitleInput, handleAddRelation, handleRemoveRelation,
+} = useStoryRelations(story?.id || "", stories);
+
+  const [relTypeDropdownOpen, setRelTypeDropdownOpen] = useState(false);
 
   // ── Navigation ────────────────────────────────────────────────────────────
   const fromVault = location.state?.fromVault === true;
@@ -286,7 +303,7 @@ export default function StoryDetailPage() {
       type: "chapter", label: "Chapter updated",
       oldValue: String(story.currentChapter), newValue: String(ch),
     });
-    pushCHLog(story.id, ch);
+    pushCHLog(story.id, ch, story.lastComicUpdateAt || undefined);
     const updatedSources = (story.sources || []).map((src: any) =>
       (src.currentChapter || 0) < ch ? { ...src, currentChapter: ch } : src
     );
@@ -338,7 +355,7 @@ export default function StoryDetailPage() {
   const inlineRelations     = loadRelations(story.id);
   const synopsisParagraphs  = story.synopsis ? story.synopsis.split("\n").filter((p: string) => p.trim()) : [];
   const hasMoreSynopsis     = synopsisParagraphs.length > 1 || (synopsisParagraphs[0]?.length > 200);
-  const prediction          = computePrediction(story.id, story.chapterUpdatedAt);
+  const prediction          = computePrediction(story.id, story.lastComicUpdateAt || story.chapterUpdatedAt);
 
   const trackedSourcesWithUpdates = story.sources.filter((src: any) =>
     trackedSourceIds.includes(src.id) && (src.currentChapter || 0) > (story.currentChapter || 0)
@@ -349,10 +366,10 @@ export default function StoryDetailPage() {
   const hasUpdates = trackedSourcesWithUpdates.length > 0;
 
   const getBadgeStyles = (diff: number) => {
-    if (diff >= 50) return "bg-red-500/30 shadow-red-500/80 text-white";
+    if (diff >= 50) return "bg-red-500/40 shadow-red-500/80 text-white";
     if (diff >= 20) return "bg-orange-400/40 shadow-orange-500/800 text-white";
     if (diff >= 10) return "bg-yellow-600/60 shadow-yellow-500/100 text-white";
-    return "bg-blue-500/60 shadow-blue-500/30 text-white";
+    return "bg-blue-500/40 shadow-blue-500/30 text-white";
   };
 
   const anyDialogOpen = coverDialog || headerDialog || ratingDialog || notesDialog ||
@@ -423,11 +440,14 @@ export default function StoryDetailPage() {
   };
 
   const handleToggleGenre = (g: string) => {
-    if (g === "__CLEAR__") { updateStory(story.id, { genres: [] }); return; }
     const cur: string[] = story.genres || [];
-    updateStory(story.id, {
-      genres: cur.includes(g) ? cur.filter((x: string) => x !== g) : [...cur, g],
-    });
+    if (g === "__CLEAR__") {
+      pushHistory(story.id, { type: "genre", label: "Genres cleared", oldValue: cur.join(", "), newValue: "" });
+      updateStory(story.id, { genres: [] }); return;
+    }
+    const next = cur.includes(g) ? cur.filter((x: string) => x !== g) : [...cur, g];
+    pushHistory(story.id, { type: "genre", label: "Genres changed", oldValue: cur.join(", "), newValue: next.join(", ") });
+    updateStory(story.id, { genres: next });
   };
 
   const handleRatingChange = (r: number) => {
@@ -445,11 +465,20 @@ export default function StoryDetailPage() {
     const stripped = content.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").trim();
     if (!stripped) return;
     if (editingNote) {
+      const oldText = editingNote.text?.replace(/<[^>]+>/g, "").slice(0, 40) || "";
       const updatedNotes = (story.notes || []).map((n: any) =>
         n.id === editingNote.id ? { ...n, text: content } : n
       );
+      pushHistory(story.id, {
+        type: "note", label: "Note edited",
+        oldValue: oldText, newValue: stripped.slice(0, 40),
+      });
       updateStory(story.id, { notes: updatedNotes });
     } else {
+      pushHistory(story.id, {
+        type: "note", label: "Note added",
+        oldValue: "", newValue: stripped.slice(0, 40),
+      });
       addNote(story.id, content);
     }
     noteContentRef.current = "";
@@ -499,6 +528,7 @@ export default function StoryDetailPage() {
     const file = e.target.files?.[0]; if (!file) return;
     try {
       const publicUrl = await uploadToStorage(file, "covers");
+      pushHistory(story.id, { type: "cover", label: "Cover changed", oldValue: story.coverUrl || "", newValue: publicUrl });
       const updates: any = { coverUrl: publicUrl };
       if (!story.headerUrl) updates.headerUrl = publicUrl;
       updateStory(story.id, updates); setCoverDialog(false);
@@ -510,6 +540,7 @@ export default function StoryDetailPage() {
     const file = e.target.files?.[0]; if (!file) return;
     try {
       const publicUrl = await uploadToStorage(file, "headers");
+      pushHistory(story.id, { type: "header", label: "Header changed", oldValue: story.headerUrl || "", newValue: publicUrl });
       updateStory(story.id, { headerUrl: publicUrl }); setHeaderDialog(false);
     } catch { alert("Image upload failed."); }
     e.target.value = "";
@@ -700,7 +731,7 @@ export default function StoryDetailPage() {
 
       {/* ═══ MAIN CONTENT ════════════════════════════════════════════════════ */}
       <main className="container max-w-7xl mx-auto">
-        <div className="px-4 sm:px-6 mt-12 space-y-6 sm:space-y-0">
+        <div className="px-0.5 sm:px-1 mt-12 space-y-6 sm:space-y-0">
           <div className="flex flex-col lg:flex-row gap-6 sm:gap-6 gap-y-8">
 
             {/* Left column */}
@@ -812,6 +843,7 @@ export default function StoryDetailPage() {
           activeTab={activeTab}
           handleTabChange={handleTabChange}
           arcs={arcs}
+          statusHistory={statusHistory}
           setNotesDialog={setNotesDialog}
           setEditingNote={setEditingNote}
           setNoteContent={setNoteContent}
@@ -850,20 +882,20 @@ export default function StoryDetailPage() {
        <Dialog open={statusDialog} onOpenChange={setStatusDialog}>
         <DialogContent className="w-[92vw] max-w-2xl p-0 overflow-hidden gap-0 mx-auto rounded-2xl">
           <div className="px-5 pt-5 pb-4 border-b border-border">
-            <DialogTitle className="text-base font-bold text-foreground">Select Status</DialogTitle>
+            <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Select Status</DialogTitle>
           </div>
           <div className="px-3 py-3 space-y-0.5">
             {STATUS_OPTIONS.map(s => {
               const isSelected = story.status === s.value;
               return (
                 <button key={s.value} onClick={() => { haptic("light"); handleStatusChange(s.value); }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all border ${isSelected ? "bg-primary/8 border-primary/25" : "border-transparent hover:bg-secondary/60 hover:border-border/60"}`}>
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? "border-primary bg-primary" : "border-border bg-secondary"}`}>
-                    {isSelected && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl transition-all border ${isSelected ? "bg-primary/8 border-primary/25" : "border-transparent hover:bg-secondary/60 hover:border-border/60"}`}>
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${isSelected ? "border-primary bg-primary" : "border-border bg-secondary"}`}>
+                    {isSelected && <svg width="12" height="10" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </div>
-                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                  <span className={`text-sm font-medium ${isSelected ? "text-foreground" : "text-foreground/80"}`}>{s.label}</span>
-                  {isSelected && <span className="text-[10px] font-bold text-primary shrink-0 bg-primary/10 px-1.5 py-0.5 rounded-full ml-auto">Active</span>}
+                  <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                  <span className={`text-base font-medium ${isSelected ? "text-foreground" : "text-foreground/80"}`}>{s.label}</span>
+                  {isSelected && <span className="text-xs font-bold text-primary shrink-0 bg-primary/10 px-2 py-1 rounded-full ml-auto">Active</span>}
                 </button>
               );
             })}
@@ -880,7 +912,7 @@ export default function StoryDetailPage() {
             </DialogTitle>
           </DialogHeader>
           <div className="p-4 space-y-3">
-            <Input value={bmChapter} onChange={e => setBmChapter(e.target.value)} placeholder="Chapter number" type="number" step="0.1" />
+            <Input value={bmChapter} onChange={e => setBmChapter(e.target.value)} placeholder="Chapter number" type="number" step="0.1" className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
             <Input value={bmNote}    onChange={e => setBmNote(e.target.value)}    placeholder="Short note (optional)" />
           </div>
            <div className="px-4 pb-4 flex gap-2 justify-end">
@@ -888,6 +920,7 @@ export default function StoryDetailPage() {
               <Button onClick={() => {
                 const ch = parseInt(bmChapter); if (!ch) return;
                 haptic("medium");
+                pushHistory(story.id, { type: "bookmark", label: "Bookmark added", oldValue: "", newValue: `Ch. ${ch}${bmNote ? " – " + bmNote : ""}` });
                 addBookmark(story.id, ch, bmNote); setBmChapter(""); setBmNote(""); setBookmarkDialog(false);
               }}>Add</Button>
             </div>
@@ -898,10 +931,15 @@ export default function StoryDetailPage() {
       <Dialog open={notesDialog} onOpenChange={open => { if (!open) { setNotesDialog(false); setEditingNote(null); noteContentRef.current = ""; } }}>
         <DialogContent className="w-[92vw] max-w-2xl max-h-[85vh] flex flex-col overflow-hidden mx-auto rounded-2xl">
           <DialogHeader className="shrink-0">
-            <DialogTitle>{editingNote ? "Edit Note" : "Write a Note"}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><FileText className="w-4 h-4 text-primary" /> {editingNote ? "Edit Note" : "Write a Note"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto min-h-0">
-            <RichTextEditor content={noteContent} onChange={(val) => { setNoteContent(val); noteContentRef.current = val; }} placeholder="Write your notes here..." />
+            <RichTextEditor
+              content={noteContent}
+              onChange={(val) => { setNoteContent(val); noteContentRef.current = val; }}
+              placeholder="Write your notes here..."
+              onImageUpload={(file) => uploadToStorage(file, "notes")}
+            />
           </div>
           <DialogFooter className="shrink-0 pt-2">
             <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
@@ -914,15 +952,15 @@ export default function StoryDetailPage() {
       <Dialog open={listsDialog} onOpenChange={setListsDialog}>
         <DialogContent className="w-[92vw] max-w-2xl p-0 overflow-hidden gap-0 mx-auto rounded-2xl">
           <div className="px-5 pt-5 pb-4 border-b border-border">
-            <DialogTitle className="text-base font-bold text-foreground">Add to List</DialogTitle>
+            <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2"><List className="w-4 h-4 text-primary" /> Add to List</DialogTitle>
             <p className="text-xs text-muted-foreground mt-0.5">Organise this story into your collections</p>
           </div>
-          <div className="px-3 py-3 space-y-0.5 max-h-60 overflow-y-auto">
+          <div className="px-3 py-3 space-y-1.5 max-h-60 overflow-y-auto">
             {customLists.length > 0 ? (
               customLists.map((list: any) => {
                 const isIn = story.lists?.includes(list.id) || false;
                 return (
-                  <label key={list.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all border ${isIn ? "bg-primary/8 border-primary/25" : "border-transparent hover:bg-secondary/60 hover:border-border/60"}`}>
+                  <label key={list.id} className={`flex items-center gap-3 px-4 py-4 rounded-xl cursor-pointer transition-all border ${isIn ? "bg-primary/8 border-primary/25" : "border-transparent hover:bg-secondary/60 hover:border-border/60"}`}>
                     <div className="relative shrink-0">
                       <input type="checkbox" checked={isIn} onChange={() => {
                         if (isIn) { removeListFromStory(story.id, list.id); }
@@ -932,19 +970,19 @@ export default function StoryDetailPage() {
                           setCustomLists(lists.filter(l => story.hidden ? l.isHidden : !l.isHidden));
                         }, 50);
                       }} className="sr-only" />
-                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${isIn ? "border-primary bg-primary shadow-sm shadow-primary/30" : "border-border bg-secondary"}`}>
+                      <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${isIn ? "border-primary bg-primary shadow-sm shadow-primary/30" : "border-border bg-secondary"}`}>
                         {isIn && (
-                          <svg width="11" height="8" viewBox="0 0 11 8" fill="none">
+                          <svg width="13" height="10" viewBox="0 0 11 8" fill="none">
                             <path d="M1 4L4 7L10 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-white/10" style={{ backgroundColor: list.color || "#6b7280" }} />
-                      <span className={`text-sm font-medium truncate ${isIn ? "text-foreground" : "text-foreground/80"}`}>{list.name}</span>
+                      <div className="w-3 h-3 rounded-full shrink-0 ring-1 ring-white/10" style={{ backgroundColor: list.color || "#6b7280" }} />
+                      <span className={`text-base font-medium truncate ${isIn ? "text-foreground" : "text-foreground/80"}`}>{list.name}</span>
                     </div>
-                    {isIn && <span className="text-[10px] font-bold text-primary shrink-0 bg-primary/10 px-1.5 py-0.5 rounded-full">Added</span>}
+                    {isIn && <span className="text-xs font-bold text-primary shrink-0 bg-primary/10 px-2 py-1 rounded-full">Added</span>}
                   </label>
                 );
               })
@@ -1006,27 +1044,35 @@ export default function StoryDetailPage() {
 
       {/* History */}
       <Dialog open={historyDialog} onOpenChange={setHistoryDialog}>
-        <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto">
-          <DialogHeader className="px-4 py-3 border-b border-border bg-muted/20">
-            <DialogTitle className="text-base font-semibold flex items-center gap-2">
-              <History className="w-4 h-4" /> Version History
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto border-border/60 bg-card/95 backdrop-blur-xl">
+          <div className="border-b border-border/50 px-4 py-3">
+            <DialogHeader className="text-left">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shrink-0">
+                  <History className="w-3.5 h-3.5 text-amber-400" />
+                </div>
+                <div>
+                  <DialogTitle className="text-sm font-bold tracking-tight">Version History</DialogTitle>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Track and undo recent changes.</p>
+                </div>
+              </div>
+            </DialogHeader>
+          </div>
 
           {historyEntries.length > 0 ? (
-            <div className="p-4 space-y-2 max-h-80 overflow-y-auto">
-              {historyEntries.map(entry => (
-                <div key={entry.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
+            <div className="p-4 space-y-3 max-h-80 overflow-y-auto">
+              {historyEntries.slice(0, 10).map(entry => (
+                <div key={entry.id} className="flex items-center gap-3 p-4 rounded-lg bg-secondary/50 border border-border">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-foreground">{entry.label}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                    <p className="text-sm font-semibold text-foreground">{entry.label}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
                       <span className="line-through opacity-60">{entry.oldValue || "—"}</span>
                       <span className="mx-1">→</span>
                       <span className="text-primary">{entry.newValue}</span>
                     </p>
-                    <p className="text-[10px] text-muted-foreground/60 mt-0.5">{format(new Date(entry.createdAt), "MMM d, yyyy HH:mm")}</p>
+                    <p className="text-[11px] text-muted-foreground/60 mt-1">{format(new Date(entry.createdAt), "MMM d, yyyy HH:mm")}</p>
                   </div>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs shrink-0 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10" onClick={() => handleUndoHistory(entry, story)}>Undo</Button>
+                  <Button size="sm" variant="ghost" className="h-8 text-sm shrink-0 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 gap-1.5" onClick={() => handleUndoHistory(entry, story)}><RotateCcw className="w-3.5 h-3.5" />Undo</Button>
                 </div>
               ))}
             </div>
@@ -1045,9 +1091,9 @@ export default function StoryDetailPage() {
         <DialogContent className="w-[92vw] max-w-2xl mx-auto rounded-2xl">
           <DialogHeader><DialogTitle>Related Stories</DialogTitle></DialogHeader>
           {relations.length > 0 ? (
-            <div className="space-y-2 mb-4 max-h-56 overflow-y-auto pr-1">
+            <div className="space-y-3 mb-4 max-h-56 overflow-y-auto pr-1">
               {relations.map(rel => (
-                <div key={rel.id} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
+                <div key={rel.id} className="flex items-center gap-3 p-4 rounded-lg bg-secondary/50 border border-border">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                      <span
@@ -1069,21 +1115,30 @@ export default function StoryDetailPage() {
                 </div>
               ))}
             </div>
-          ) : <p className="text-sm text-muted-foreground italic mb-4">No related stories yet.</p>}
-          <div className="border-t border-border pt-5 mt-4 space-y-3">
-            <span className="text-xs text-muted-foreground font-semibold block">Add Related Story</span>
-            <div className="flex gap-1">
+          ) : <p className="text-sm text-center text-muted-foreground italic mb-2">No related stories yet.</p>}
+          <div className="relative rounded-2xl border border-border/50 bg-secondary/20 p-4 space-y-4 mt-4 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
+            <div className="relative flex items-center gap-3">
+              <div className="w-9 h-9 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <GitBranchIcon className="w-4 h-4 text-primary/90" />
+              </div>
+              <div>
+                <p className="font-bold text-sm tracking-tight">Add Related Story</p>
+                <p className="text-[11px] text-muted-foreground leading-tight">Link a prequel, sequel, spin-off, or mention.</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
               {(["local", "mention"] as const).map(m => (
                 <button key={m} onClick={() => setNewRelMode(m)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-xs rounded-lg border transition-colors ${newRelMode === m ? "bg-primary text-primary-foreground border-primary" : "bg-secondary text-secondary-foreground border-border"}`}>
+                  className={`flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium rounded-xl border transition-colors ${newRelMode === m ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20" : "bg-secondary/60 text-secondary-foreground border-border/60 hover:bg-secondary"}`}>
                   {m === "local" ? <><Database className="w-3.5 h-3.5" />Local DB</> : <><Globe className="w-3.5 h-3.5" />Mention + Link</>}
                 </button>
               ))}
             </div>
             <div className="relative">
-              <Input value={newRelTitle} onChange={e => handleRelTitleInput(e.target.value)} placeholder={newRelMode === "local" ? "Search title in library..." : "Story title"} className="bg-card text-sm" />
+              <Input value={newRelTitle} onChange={e => handleRelTitleInput(e.target.value)} placeholder={newRelMode === "local" ? "Search title in library..." : "Story title"} className="bg-card rounded-xl text-sm" />
               {newRelMode === "local" && relSuggestions.length > 0 && (
-                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-zinc-900 border border-border rounded-xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
                   {relSuggestions.map(s => (
                     <button key={s.id} onClick={() => { setNewRelStoryId(s.id); handleRelTitleInput(s.title); }} className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors flex items-center gap-2">
                       <BookOpen className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -1093,15 +1148,55 @@ export default function StoryDetailPage() {
                 </div>
               )}
             </div>
-            {newRelMode === "mention" && <Input value={newRelUrl} onChange={e => setNewRelUrl(e.target.value)} placeholder="URL / hyperlink (optional)" className="bg-card text-sm" />}
-            <div className="flex gap-2">
-              <select value={newRelType} onChange={e => setNewRelType(e.target.value as any)} className="flex-1 h-9 rounded-md border border-border bg-card text-sm px-3 text-foreground">
-                <option value="prequel">Prequel</option>
-                <option value="sequel">Sequel</option>
-                <option value="spin-off">Spin-off</option>
-                <option value="related">Related</option>
-              </select>
-              <Button size="sm" onClick={handleAddRelation} disabled={!newRelTitle.trim()}><Plus className="w-3.5 h-3.5 mr-1" />Add</Button>
+            {newRelMode === "mention" && <Input value={newRelUrl} onChange={e => setNewRelUrl(e.target.value)} placeholder="URL / hyperlink (optional)" className="bg-card rounded-xl text-sm" />}
+            <div className="flex gap-2 pt-1">
+              <div className="relative w-40 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setRelTypeDropdownOpen(o => !o)}
+                  className={`w-full h-9 sm:h-10 rounded-md border text-xs sm:text-sm font-bold px-3 text-left flex items-center justify-between transition-colors ${REL_COLORS[newRelType]}`}
+                >
+                  <span>{REL_TYPE_OPTIONS.find(o => o.value === newRelType)?.ribbon}</span>
+                  <svg
+                    className={`w-3.5 h-3.5 transition-transform ${relTypeDropdownOpen ? "rotate-180" : ""}`}
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                  </svg>
+                </button>
+
+                {relTypeDropdownOpen && (
+                 <div className="absolute z-50 bottom-full left-0 mb-1 w-56 sm:w-72 bg-zinc-900 border border-border rounded-lg shadow-xl overflow-hidden max-h-64 sm:max-h-80 overflow-y-auto">
+                    {REL_TYPE_OPTIONS.map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => {
+                          setNewRelType(opt.value as any);
+                          setRelTypeDropdownOpen(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 flex items-center gap-2 transition-colors ${
+                          newRelType === opt.value ? "bg-primary/10" : "hover:bg-secondary"
+                        }`}
+                      >
+                        <span className={`text-[9px] sm:text-[10px] px-1.5 py-0.5 sm:px-2 sm:py-1 rounded border font-medium shrink-0 ${REL_COLORS[opt.value]}`}>
+                          {opt.ribbon}
+                        </span>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground truncate">{opt.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Button
+                size="sm"
+                onClick={handleAddRelation}
+                disabled={!newRelTitle.trim()}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />Add
+              </Button>
             </div>
           </div>
         </DialogContent>
@@ -1119,7 +1214,11 @@ export default function StoryDetailPage() {
             <div className="flex w-full gap-3 mt-6">
               <Button variant="secondary" className="flex-1 rounded-xl h-11" onClick={() => setDeleteBookmarkId(null)}>Cancel</Button>
               <Button className="flex-1 rounded-xl h-11 bg-red-500 hover:bg-red-600 text-white" onClick={() => {
-                if (deleteBookmarkId) { removeBookmark(story.id, deleteBookmarkId); setDeleteBookmarkId(null); }
+                if (deleteBookmarkId) {
+                  const bm = story.bookmarks?.find((b: any) => b.id === deleteBookmarkId);
+                  pushHistory(story.id, { type: "bookmark", label: "Bookmark deleted", oldValue: bm ? `Ch. ${bm.chapter}` : "", newValue: "" });
+                  removeBookmark(story.id, deleteBookmarkId); setDeleteBookmarkId(null);
+                }
               }}>Delete</Button>
             </div>
           </div>

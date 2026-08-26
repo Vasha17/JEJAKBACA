@@ -101,10 +101,20 @@ export function StoryContent({
                 <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
             </DialogTrigger>
-            <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto">
-              <DialogHeader className="px-4 py-3 border-b border-border bg-muted/20">
-                <DialogTitle className="text-base font-semibold">Edit Synopsis</DialogTitle>
-              </DialogHeader>
+            <DialogContent className="w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto border-border/60 bg-card/95 backdrop-blur-xl">
+              <div className="border-b border-border/50 px-4 py-3">
+                <DialogHeader className="text-left">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                      <Pencil className="w-3.5 h-3.5 text-primary/90" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-sm font-bold tracking-tight">Edit Synopsis</DialogTitle>
+                      <p className="text-[10px] text-muted-foreground leading-tight">Update the story's description.</p>
+                    </div>
+                  </div>
+                </DialogHeader>
+              </div>
               <div className="p-4">
                 <Textarea
                   value={synopsisValue}
@@ -202,7 +212,7 @@ export function StoryContent({
                 }}
                 className={`h-7 px-3 rounded-lg flex items-center gap-1.5 text-[10px] font-medium border transition-all
                   ${tagMode === m
-                    ? "bg-secondary/50 text-foreground border-border shadow-sm"
+                    ? "bg-primary/10 text-primary border-primary/25 shadow-sm"
                     : "bg-transparent text-muted-foreground border-transparent hover:bg-secondary/40 hover:text-foreground"
                   }`}
               >

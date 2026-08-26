@@ -20,10 +20,10 @@ export const highlightText = (text: string, query: string) => {
 
 export function pickHeroStory(stories: any[]): any | null {
   if (!stories || stories.length === 0) return null;
-  const candidates = stories.filter(
+  const readingStories = stories.filter(
     (s: any) => s.status === "reading" || s.status === "re-reading"
   );
-  if (candidates.length === 0) return null;
+  const candidates = readingStories.length > 0 ? readingStories : stories;
   if (candidates.length === 1) return candidates[0];
   const sorted = [...candidates].sort((a: any, b: any) => {
     const tA = new Date(a.chapterUpdatedAt || a.updatedAt || 0).getTime();

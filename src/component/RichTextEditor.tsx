@@ -1,8 +1,9 @@
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, ReactNodeViewRenderer, NodeViewWrapper } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import UnderlineExt from "@tiptap/extension-underline";
 import TextAlign from "@tiptap/extension-text-align";
 import LinkExt from "@tiptap/extension-link";
+import ImageExt from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
 import { Mark, mergeAttributes } from "@tiptap/core";
@@ -12,9 +13,57 @@ import {
   Heading1, Heading2, Heading3,
   AlignLeft, AlignCenter, AlignRight, AlignJustify,
   List, ListOrdered,
-  Link2, Minus,
+  Link2, Minus, ImageIcon, Loader2, Maximize2, X,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { createPortal } from "react-dom";
+
+// ─── Note Image (fixed size + click-to-zoom) ───────────────────────────────────
+function NoteImageComponent({ node }: any) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  return (
+    <NodeViewWrapper as="div" className="inline-block" contentEditable={false}>
+      <div
+        className="group relative inline-block rounded-lg overflow-hidden cursor-zoom-in"
+        style={{ width: 320 }}
+        onClick={() => setLightboxOpen(true)}
+      >
+        <img src={node.attrs.src} alt={node.attrs.alt || ""} className="block w-full h-auto rounded-lg" />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+          <Maximize2 className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </div>
+
+      {lightboxOpen && createPortal(
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+            onClick={(e) => { e.stopPropagation(); setLightboxOpen(false); }}
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img
+            src={node.attrs.src}
+            alt={node.attrs.alt || ""}
+            className="h-[80vh] sm:h-screen w-auto max-w-[92vw] sm:max-w-[95vw] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>,
+        document.body
+      )}
+    </NodeViewWrapper>
+  );
+}
+
+const NoteImage = ImageExt.extend({
+  addNodeView() {
+    return ReactNodeViewRenderer(NoteImageComponent);
+  },
+});
 
 // ─── Custom Spoiler Mark ───────────────────────────────────────────────────────
 const Spoiler = Mark.create({
@@ -69,6 +118,56 @@ const EDITOR_STYLE = `
 `;
 
 const DISPLAY_STYLE = `  
+    .spoiler-view p:empty {
+    min-height: 1.5em;
+  }
+
+  .spoiler-view p:empty::before {
+    content: "\u00a0";
+  }
+
+  .note-img-wrap {
+    position: relative;
+    display: inline-block;
+    cursor: zoom-in;
+    width: 320px;
+    max-width: 20%;
+    overflow: hidden;
+    border-radius: 8px;
+  }
+
+  .note-img-wrap img {
+    border-radius: 8px;
+    display: block;
+  }
+
+  .note-img-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0);
+    border-radius: 8px;
+    opacity: 0;
+    transition: opacity 0.2s ease, background 0.2s ease;
+    color: white;
+    pointer-events: none;
+  }
+
+  .note-img-wrap:hover .note-img-overlay {
+    opacity: 1;
+    background: rgba(0,0,0,0.2);
+  }
+
+  .note-img-zoom-icon {
+    display: block;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    aspect-ratio: 1 / 1;
+  }
+
   .spoiler-view .spoiler {
     background-color: hsl(var(--muted-foreground) / 0.9); 
     color: transparent !important;
@@ -103,6 +202,7 @@ interface RichTextEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   className?: string;
+  onImageUpload?: (file: File) => Promise<string>;
 }
 
 // ─── RichTextEditor ───────────────────────────────────────────────────────────
@@ -111,9 +211,12 @@ export function RichTextEditor({
   onChange,
   placeholder = "Write your notes here...",
   className,
+  onImageUpload,
 }: RichTextEditorProps) {
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+  const [imageUploading, setImageUploading] = useState(false);
+  const imageFileRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -123,6 +226,7 @@ export function RichTextEditor({
       Spoiler,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       LinkExt.configure({ autolink: true, openOnClick: false, linkOnPaste: true }),
+      NoteImage.configure({ HTMLAttributes: { class: "rounded-lg" } }),
       Placeholder.configure({ placeholder }),
       CharacterCount,
     ],
@@ -173,6 +277,22 @@ export function RichTextEditor({
     editor.chain().focus().setLink({ href: url }).run();
     setLinkUrl("");
     setShowLinkInput(false);
+  };
+
+  const handleImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !onImageUpload) { e.target.value = ""; return; }
+    setImageUploading(true);
+    try {
+      const url = await onImageUpload(file);
+      editor.chain().focus().setImage({ src: url }).run();
+    } catch (err) {
+      console.error("Image upload failed:", err);
+      alert("Failed to upload image.");
+    } finally {
+      setImageUploading(false);
+      e.target.value = "";
+    }
   };
 
   const words = editor.storage.characterCount?.words() ?? 0;
@@ -265,6 +385,18 @@ export function RichTextEditor({
             <Link2 className="w-3.5 h-3.5" />
           </TB>
 
+          {/* Image */}
+          {onImageUpload && (
+            <TB
+              active={false}
+              onClick={() => imageFileRef.current?.click()}
+              title="Insert Image"
+            >
+              {imageUploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
+            </TB>
+          )}
+          <input ref={imageFileRef} type="file" accept="image/*" className="hidden" onChange={handleImageFileChange} />
+
           {/* Horizontal Rule */}
           <TB active={false} onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Horizontal Rule">
             <Minus className="w-3.5 h-3.5" />
@@ -316,13 +448,30 @@ export function RichTextEditor({
   );
 }
 
+// bungkus setiap <img> mentah dengan wrapper span biar bisa dikasih overlay hover-zoom via CSS
+const MAXIMIZE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="note-img-zoom-icon"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" x2="14" y1="3" y2="10"/><line x1="3" x2="10" y1="21" y2="14"/></svg>`;
+
+function wrapImagesForZoom(html: string): string {
+  return html.replace(/<img([^>]*)>/g, (match) => {
+    return `<span class="note-img-wrap">${match}<span class="note-img-overlay">${MAXIMIZE_SVG}</span></span>`;
+  });
+}
+
 // ─── RichTextDisplay ──────────────────────────────────────────────────────────
 export function RichTextDisplay({ html, className }: { html: string; className?: string }) {
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
   const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {    
     const targetNode = e.target as Node;    
     const targetElement = targetNode instanceof HTMLElement ? targetNode : targetNode.parentElement;
     
     if (!targetElement) return;
+
+    const img = targetElement.closest(".note-img-wrap")?.querySelector("img") as HTMLImageElement | null;
+    if (img) {
+      setLightboxSrc(img.src);
+      return;
+    }
 
     const spoiler = targetElement.closest(".spoiler") as HTMLElement | null;
     if (spoiler) {
@@ -340,9 +489,30 @@ export function RichTextDisplay({ html, className }: { html: string; className?:
           className
         )}
         style={{ textAlign: "justify" }}
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: wrapImagesForZoom(html) }}
         onClick={handleClick}
       />
+
+      {lightboxSrc && createPortal(
+        <div
+          className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <button
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+            onClick={(e) => { e.stopPropagation(); setLightboxSrc(null); }}
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img
+            src={lightboxSrc}
+            alt=""
+            className="h-[80vh] sm:h-screen w-auto max-w-[92vw] sm:max-w-[95vw] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>,
+        document.body
+      )}
     </>
   );
 }
