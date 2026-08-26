@@ -45,7 +45,9 @@ export function NotesTimeline({
 
   const firstReadingEntry = findTransitionTo("reading", "first");
   const showReadingMilestone = story.status === "reading" || story.status === "completed";
-  const readingDate = showReadingMilestone ? firstReadingEntry?.createdAt : null;
+  const readingDate = showReadingMilestone
+    ? firstReadingEntry?.createdAt || story.createdAt
+    : null;
 
   const lastCompletedEntry = findTransitionTo("completed", "last");
   const completedDate = story.status === "completed" ? lastCompletedEntry?.createdAt : null;
@@ -132,7 +134,7 @@ export function NotesTimeline({
       {/* Timeline tab */}
       {activeTab === "timeline" && (
         <>
-        {(readingDate || completedDate) && (
+        {showReadingMilestone && (
           <div className="mb-5 p-4 rounded-xl bg-card/60 border border-border/50">
             <div className="flex items-center gap-2">
               <div className="flex-1 flex flex-col items-start gap-1.5">

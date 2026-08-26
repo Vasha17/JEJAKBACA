@@ -457,6 +457,7 @@ export default function StoryDetailPage() {
 
   const handleStatusChange = (s: StoryStatus) => {
     pushHistory(story.id, { type: "status", label: "Status changed", oldValue: story.status, newValue: s });
+    handleOpenHistory();
     updateStory(story.id, { status: s }); setStatusDialog(false);
   };
 
