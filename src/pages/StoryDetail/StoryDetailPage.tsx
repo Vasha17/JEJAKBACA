@@ -547,10 +547,8 @@ export default function StoryDetailPage() {
     e.target.value = "";
   };
 
-  const handleReadNow = () => {
-    if (!story.sources || story.sources.length === 0) {
-      setNoSourceDialog(true); return;
-    }
+  const getReadingUrl = () => {
+    if (!story.sources || story.sources.length === 0) return null;
     const best = [...story.sources].sort((a: any, b: any) => (b.currentChapter || 0) - (a.currentChapter || 0))[0];
     const rawUrl = best.url.trim();
     const base = rawUrl.startsWith("http") ? rawUrl : "https://" + rawUrl;
@@ -559,7 +557,11 @@ export default function StoryDetailPage() {
     const chapterUrl = cleanBase.includes("?")
       ? cleanBase
       : `${cleanBase}/chapter-${best.currentChapter}/`;
-    window.open(isInfoSite ? base : chapterUrl, "_blank");
+    return isInfoSite ? base : chapterUrl;
+  };
+
+  const handleReadNow = () => {
+    if (!getReadingUrl()) setNoSourceDialog(true);
   };
 
   const handleOpenListsDialog = () => {
@@ -1521,15 +1523,23 @@ export default function StoryDetailPage() {
           <div className="bg-black/80 text-white text-[10px] px-2 py-1 rounded mb-1 opacity-0 animate-in fade-in slide-in-from-bottom-2 duration-300 pointer-events-auto" id="read-tooltip">
             Press N to continue
           </div>
-          <button
-            onClick={handleReadNow}
+          <a
+            href={getReadingUrl() || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={e => {
+              if (!getReadingUrl()) {
+                e.preventDefault();
+                handleReadNow();
+              }
+            }}
             onMouseEnter={() => document.getElementById("read-tooltip")?.classList.remove("opacity-0")}
             onMouseLeave={() => document.getElementById("read-tooltip")?.classList.add("opacity-0")}
             className="pointer-events-auto flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-b from-primary to-primary/90 text-primary-foreground border border-white/20 shadow-lg shadow-primary/40 hover:shadow-xl hover:shadow-primary/60 hover:-translate-y-0.5 active:scale-95 transition-all duration-300 font-semibold text-sm"
           >
             <BookOpen className="w-5 h-5" />
             <span>Continue Reading</span>
-          </button>
+          </a>
         </div>
       )}
 
