@@ -19,7 +19,15 @@ export const pushCHLog = (sid: string, ch: number, date?: string) => {
   lsSet(`ch_log_${sid}`, log.slice(0, 40));
 };
 
-export function computePrediction(sid: string, lastUpdatedAt: string): Prediction {
+export function computePrediction(sid: string, lastUpdatedAt: string, status?: string): Prediction {
+  const INACTIVE_STATUSES = ["dropped", "on-hold", "hiatus", "plan-to-read", "completed"];
+  if (status && INACTIVE_STATUSES.includes(status)) {
+    return {
+      avgDays: null, daysUntil: null, confidence: "insufficient",
+      message: "Prediction paused for this status",
+      progressPct: 0,
+    };
+  }
   const log = getCHLog(sid);
   const daysSinceLast = differenceInDays(new Date(), new Date(lastUpdatedAt));
 
@@ -43,8 +51,10 @@ export function computePrediction(sid: string, lastUpdatedAt: string): Predictio
     message: "Need more chapter update history", progressPct: 0,
   };
 
-  const avg    = intervals.reduce((a, b) => a + b, 0) / intervals.length;
-  const stdDev = Math.sqrt(intervals.reduce((a, v) => a + (v - avg) ** 2, 0) / intervals.length);
+  const weights   = intervals.map((_, i) => intervals.length - i);
+  const weightSum = weights.reduce((a, b) => a + b, 0);
+  const avg       = intervals.reduce((a, v, i) => a + v * weights[i], 0) / weightSum;
+  const stdDev    = Math.sqrt(intervals.reduce((a, v) => a + (v - avg) ** 2, 0) / intervals.length);
   const cv     = stdDev / avg;
   const confidence: Prediction["confidence"] =
     intervals.length >= 5 && cv < 0.25 ? "high"

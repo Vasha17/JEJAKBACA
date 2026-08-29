@@ -355,7 +355,7 @@ export default function StoryDetailPage() {
   const inlineRelations     = loadRelations(story.id);
   const synopsisParagraphs  = story.synopsis ? story.synopsis.split("\n").filter((p: string) => p.trim()) : [];
   const hasMoreSynopsis     = synopsisParagraphs.length > 1 || (synopsisParagraphs[0]?.length > 200);
-  const prediction          = computePrediction(story.id, story.lastComicUpdateAt || story.chapterUpdatedAt);
+  const prediction          = computePrediction(story.id, story.lastComicUpdateAt || story.chapterUpdatedAt, story.status);
 
   const trackedSourcesWithUpdates = story.sources.filter((src: any) =>
     trackedSourceIds.includes(src.id) && (src.currentChapter || 0) > (story.currentChapter || 0)

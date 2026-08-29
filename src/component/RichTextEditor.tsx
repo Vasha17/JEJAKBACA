@@ -15,7 +15,7 @@ import {
   List, ListOrdered,
   Link2, Minus, ImageIcon, Loader2, Maximize2, X,
 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 
 // ─── Note Image (fixed size + click-to-zoom) ───────────────────────────────────
@@ -244,6 +244,14 @@ export function RichTextEditor({
       },
     },
   });
+
+  useEffect(() => {
+    if (!editor) return;
+    const current = editor.getHTML();
+    if (content !== current) {
+      editor.commands.setContent(content || "", false);
+    }
+  }, [content, editor]);
 
   if (!editor) return null;
 

@@ -449,7 +449,7 @@ export function HeroSection({
           </div>
         </div>
 
-        <div className="flex-1 z-10 pb-2 sm:pt-2 space-y-2 sm:space-y-1.5 max-h-[145px] sm:max-h-[290px] overflow-visible">
+        <div className="flex-1 min-w-0 z-10 pb-2 sm:pt-2 space-y-2 sm:space-y-1.5 max-h-[145px] sm:max-h-[290px] overflow-visible">
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
               {editingTitle ? (
@@ -466,7 +466,6 @@ export function HeroSection({
               {/* --- ALTERNATIVE TITLES SECTION --- */}
               {(() => {
                 const titles = (story.altTitle || "").split(/\n/).map((t: string) => t.trim()).filter(Boolean);
-                const SHOW = 2;
 
                 return (
                   <>
@@ -582,7 +581,10 @@ export function HeroSection({
                   <Button size="sm" className="h-7" type="submit">Save</Button>
                 </form>
               ) : (
-                <p className={`text-[12px] sm:text-base mt-0.5 sm:mt-1.5 leading-tight truncate cursor-pointer transition-colors ${story.author ? "text-foreground/80 hover:text-primary" : "text-muted-foreground/40 hover:text-muted-foreground italic"}`} onClick={() => { setEditingTitle(false); setEditingAltTitle(false); setAuthorValue(story.author || ""); setEditingAuthor(true); }}>
+                <p
+                  className={`min-w-0 w-full overflow-hidden text-ellipsis text-[12px] sm:text-base mt-0.5 sm:mt-1.5 leading-tight whitespace-nowrap cursor-pointer transition-colors ${story.author ? "text-foreground/80 hover:text-primary" : "text-muted-foreground/40 hover:text-muted-foreground italic"}`}
+                  onClick={() => { setEditingTitle(false); setEditingAltTitle(false); setAuthorValue(story.author || ""); setEditingAuthor(true); }}
+                >
                   {story.author || "Unknown Author"}
                 </p>
               )}
