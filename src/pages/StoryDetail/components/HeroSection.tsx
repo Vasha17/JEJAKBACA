@@ -173,6 +173,59 @@ export function HeroSection({
     prediction.daysUntil <= 1 && 
     !hasSeenUpdateNotif;
 
+  const updateNotificationBell = hasUpdates ? (
+    <Dialog open={updateBellDialog} onOpenChange={setUpdateBellDialog}>
+      <DialogTrigger asChild>
+        <button
+          aria-label="View available updates"
+          title="View available updates"
+          onClick={event => event.stopPropagation()}
+          className="relative p-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 transition-transform animate-pulse hover:scale-110"
+        >
+          <Bell size={16} />
+          <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-card" />
+        </button>
+      </DialogTrigger>
+      <DialogContent className="w-[92vw] sm:max-w-md rounded-2xl border-emerald-500/50 bg-gradient-to-br from-emerald-900 to-slate-900 text-white shadow-2xl shadow-emerald-500/20 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        <DialogHeader className="relative z-10 pb-2">
+          <div className="absolute -top-10 -right-10 text-emerald-500/10 opacity-50 pointer-events-none"><Bell size={120} strokeWidth={1} /></div>
+          <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+            </span>
+            Updates Available!
+          </DialogTitle>
+          <p className="text-sm text-emerald-100/80 mt-1">{trackedSourcesWithUpdates.length} source(s) ahead. Behind by <span className="text-emerald-300 font-bold">+{maxChaptersAhead} chapters</span>.</p>
+          {shouldShowUpdateNotif && (
+            <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 w-fit">
+              <Zap className="w-3 h-3 text-emerald-300 fill-emerald-300/30 animate-pulse" />
+              <span className="text-[11px] font-bold text-emerald-200">
+                {prediction.daysUntil === 0 ? "Update Today!" : "Update Tomorrow!"}
+              </span>
+              <button onClick={event => { event.stopPropagation(); setHasSeenUpdateNotif(true); }} className="text-emerald-300/60 hover:text-emerald-100 transition-colors ml-0.5">
+                <X size={10} />
+              </button>
+            </div>
+          )}
+        </DialogHeader>
+        <div className="space-y-3 relative z-10">
+          <div className="space-y-2 pt-2">
+            {trackedSourcesWithUpdates.map((src: any) => {
+              const diff = (src.currentChapter || 0) - (story.currentChapter || 0);
+              return (
+                <div key={src.id} className="flex items-center justify-between p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/20 hover:bg-emerald-950/60 transition-colors group">
+                  <span className="text-xs font-semibold text-emerald-50">{src.name}</span>
+                  <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">+{diff}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  ) : null;
+
   const [altTitleDialogOpen, setAltTitleDialogOpen] = useState(false);
   const [copiedToast, setCopiedToast] = useState(false);
   const [comicDateDialogOpen, setComicDateDialogOpen] = useState(false);
@@ -446,6 +499,11 @@ export function HeroSection({
                 </div>
               )}
             </div>
+            {updateNotificationBell && (
+              <div className="absolute top-2 right-2 z-30">
+                {updateNotificationBell}
+              </div>
+            )}
           </div>
         </div>
 
@@ -470,13 +528,26 @@ export function HeroSection({
                 return (
                   <>
                     {titles.length > 0 ? (
-                      <div className="mt-0.5 mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 cursor-pointer" onClick={() => setAltTitleDialogOpen(true)}>
-                        {titles.slice(0, 2).map((t: string, i: number) => (
-                          <span key={i} className="text-[11px] sm:text-sm leading-tight text-foreground/60">• {t}</span>
-                        ))}
-                        {titles.length > 2 && (
-                          <span className="text-[11px] sm:text-sm leading-tight text-primary/70 hover:text-primary transition-colors">+{titles.length - 2} more titles</span>
-                        )}
+                      <div className="mt-0.5 mb-1 cursor-pointer" onClick={() => setAltTitleDialogOpen(true)}>
+                        <div className="sm:hidden space-y-0.5 text-[11px] leading-tight text-foreground/60">
+                          {titles.slice(0, 2).map((title: string, i: number) => (
+                            <div key={i} className="flex w-full min-w-0 items-center gap-1">
+                              <span className="shrink-0">-</span>
+                              <span className={`min-w-0 truncate ${i === 1 && titles.length > 2 ? "" : "flex-1"}`}>{title}</span>
+                              {i === 1 && titles.length > 2 && (
+                                <span className="shrink-0 text-primary/70">+{titles.length - 2} others</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="hidden sm:flex flex-wrap items-center gap-x-2 gap-y-1">
+                          {titles.slice(0, 2).map((title: string, i: number) => (
+                            <span key={i} className="text-sm leading-tight text-foreground/60">• {title}</span>
+                          ))}
+                          {titles.length > 2 && (
+                            <span className="text-sm leading-tight text-primary/70 hover:text-primary transition-colors">+{titles.length - 2} more titles</span>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <p className="text-[12px] sm:text-sm text-muted-foreground/30 italic hover:text-muted-foreground/60 cursor-pointer mt-1" onClick={() => setAltTitleDialogOpen(true)}>
@@ -643,55 +714,8 @@ export function HeroSection({
                 </Dialog></>
               ) : (
                 <div className="flex items-center gap-2 w-full justify-between">
-                  <span className="font-semibold text-xs sm:text-sm text-foreground">Chapter {story.currentChapter}</span>
+                  <span className="font-semibold text-xs sm:text-sm text-foreground">Ch. {story.currentChapter}</span>
                   <div className="flex items-center gap-1 ml-auto">
-                    {hasUpdates && (
-                      <Dialog open={updateBellDialog} onOpenChange={setUpdateBellDialog}>
-                        <DialogTrigger asChild>
-                          <button className="relative p-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 transition-transform animate-pulse hover:scale-110">
-                            <Bell size={16} />
-                            <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-card" />
-                          </button>
-                        </DialogTrigger>
-                        <DialogContent className="w-[92vw] sm:max-w-md rounded-2xl border-emerald-500/50 bg-gradient-to-br from-emerald-900 to-slate-900 text-white shadow-2xl shadow-emerald-500/20 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                          <DialogHeader className="relative z-10 pb-2">
-                            <div className="absolute -top-10 -right-10 text-emerald-500/10 opacity-50 pointer-events-none"><Bell size={120} strokeWidth={1} /></div>
-                            <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
-                              <span className="relative flex h-3 w-3">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
-                              </span>
-                              Updates Available!
-                            </DialogTitle>
-                            <p className="text-sm text-emerald-100/80 mt-1">{trackedSourcesWithUpdates.length} source(s) ahead. Behind by <span className="text-emerald-300 font-bold">+{maxChaptersAhead} chapters</span>.</p>
-                            {shouldShowUpdateNotif && (
-                              <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 w-fit">
-                                <Zap className="w-3 h-3 text-emerald-300 fill-emerald-300/30 animate-pulse" />
-                                <span className="text-[11px] font-bold text-emerald-200">
-                                  {prediction.daysUntil === 0 ? "Update Today!" : "Update Tomorrow!"}
-                                </span>
-                                <button onClick={(e) => { e.stopPropagation(); setHasSeenUpdateNotif(true); }} className="text-emerald-300/60 hover:text-emerald-100 transition-colors ml-0.5">
-                                  <X size={10} />
-                                </button>
-                              </div>
-                            )}
-                          </DialogHeader>
-                          <div className="space-y-3 relative z-10">
-                            <div className="space-y-2 pt-2">
-                              {trackedSourcesWithUpdates.map((src: any) => {
-                                const diff = (src.currentChapter || 0) - (story.currentChapter || 0);
-                                return (
-                                  <div key={src.id} className="flex items-center justify-between p-3 rounded-lg bg-emerald-950/40 border border-emerald-500/20 hover:bg-emerald-950/60 transition-colors group">
-                                    <span className="text-xs font-semibold text-emerald-50">{src.name}</span>
-                                    <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-colors">+{diff}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </DialogContent>
-                      </Dialog>
-                    )}
                      <button onClick={() => { setChapterValue(String(story.currentChapter)); setEditingChapter(true); }} className="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs rounded bg-secondary text-secondary-foreground hover:bg-muted border border-border">Edit</button>
                     <button onClick={() => { haptic("medium"); handleChapterUpdate(story.currentChapter + 1); setShowPredToast(true); if (shouldShowUpdateNotif) setHasSeenUpdateNotif(true); setTimeout(() => setShowPredToast(false), 5000); }} className="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs rounded bg-primary text-primary-foreground hover:bg-primary/80 active:scale-90 active:bg-primary/70 font-medium transition-all duration-150">
                       +1
@@ -701,18 +725,25 @@ export function HeroSection({
               )}
               <div className="absolute bottom-full left-0 mb-2 w-max max-w-[200px] p-2 rounded-lg bg-black/90 border border-border shadow-xl text-[10px] text-muted-foreground opacity-0 group-hover/chapter:opacity-100 transition-opacity pointer-events-none z-50" onTouchStart={() => { if (!editingChapter) setTimeout(() => setChapterTooltip(true), 500); }} onTouchEnd={() => setChapterTooltip(false)}>
                 <p className="font-bold text-foreground mb-0.5">Current Progress</p>
-                <p>Chapter {story.currentChapter}</p>
+                <p>Ch. {story.currentChapter}</p>
                 <p className="mt-0.5 text-primary">Updated: {format(new Date(story.chapterUpdatedAt), "MMM d, yyyy")}</p>
               </div>
               {chapterTooltip && !editingChapter && (
                 <div className="absolute bottom-full left-0 mb-2 w-max max-w-[200px] p-2 rounded-lg bg-popover border border-border shadow-xl text-[10px] text-muted-foreground z-50 animate-in fade-in slide-in-from-bottom-1">
                   <p className="font-bold text-foreground mb-0.5">Current Progress</p>
-                  <p>Chapter {story.currentChapter}</p>
+                  <p>Ch. {story.currentChapter}</p>
                   <p className="mt-0.5 text-primary">Updated: {format(new Date(story.chapterUpdatedAt), "MMM d, yyyy")}</p>
                 </div>
               )}
             </div>
           </div>
+
+          {prediction.confidence !== "insufficient" && (
+            <div className="flex min-w-0 items-center gap-1.5 pl-1 -mt-1 text-[10px] sm:text-xs text-muted-foreground" title={`Prediction confidence: ${prediction.confidence}`}>
+              <Zap className={`h-3.5 w-3.5 shrink-0 ${prediction.daysUntil !== null && prediction.daysUntil <= 1 ? "text-emerald-400" : prediction.daysUntil !== null && prediction.daysUntil < 0 ? "text-orange-400" : "text-primary"}`} />
+              <span className="truncate">{prediction.message}</span>
+            </div>
+          )}
 
           <div className="hidden sm:grid grid-cols-5 gap-3 pt-1.5 mb-1.5">
             {[

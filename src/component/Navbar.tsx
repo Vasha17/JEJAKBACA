@@ -13,6 +13,7 @@ import { ThemePicker } from "@/component/ThemePicker";
 import { NewListDialogTrigger } from "@/component/NewListDialogTrigger";
 import { useAuth } from "@/component/Auth";
 import { dexieAPI } from "@/lib/DexieDB";
+import { createId } from "@/lib/types";
 import { VaultDialog } from "@/component/VaultDialog";
 import QRCode from "qrcode";
 
@@ -1565,7 +1566,7 @@ export function Navbar(props: NavbarProps) {
             for (const raw of data) {
               try {
                 await dexieAPI.add({
-                  id: raw.id || crypto.randomUUID(), title: raw.title || "Untitled",
+                  id: raw.id || createId(), title: raw.title || "Untitled",
                   altTitle: raw.altTitle || "", author: raw.author || "",
                   status: raw.status || "plan-to-read", rating: raw.rating ?? 0,
                   tags: raw.tags || [], currentChapter: raw.currentChapter ?? 1,

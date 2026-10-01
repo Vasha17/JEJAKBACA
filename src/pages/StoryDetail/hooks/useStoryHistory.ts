@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { lsGet, lsSet } from "../utils/helpers";
-import { StoryStatus } from "@/lib/types";
+import { createId, StoryStatus } from "@/lib/types";
 
 export type HistoryEntry = {
   id: string;
@@ -17,7 +17,7 @@ const saveHistory = (sid: string, e: HistoryEntry[]) => lsSet(hKey(sid), e);
 
 export const pushHistory = (sid: string, entry: Omit<HistoryEntry, "id" | "createdAt">) => {
   const entries = loadHistory(sid);
-  entries.unshift({ ...entry, id: crypto.randomUUID(), createdAt: new Date().toISOString() });
+  entries.unshift({ ...entry, id: createId(), createdAt: new Date().toISOString() });
   saveHistory(sid, entries.slice(0, 50));
 };
 

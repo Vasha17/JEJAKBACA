@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { useStories } from "@/lib/StoryContext";
-import { StoryStatus, getGlobalTags } from "@/lib/types";
+import { StoryStatus, createId, getGlobalTags } from "@/lib/types";
 import { Button } from "@/component/ui/button";
 import { Input } from "@/component/ui/input";
 import {
@@ -303,7 +303,7 @@ export default function StoryDetailPage() {
       type: "chapter", label: "Chapter updated",
       oldValue: String(story.currentChapter), newValue: String(ch),
     });
-    pushCHLog(story.id, ch, story.lastComicUpdateAt || undefined);
+    pushCHLog(story.id, ch);
     const updatedSources = (story.sources || []).map((src: any) =>
       (src.currentChapter || 0) < ch ? { ...src, currentChapter: ch } : src
     );
@@ -355,7 +355,7 @@ export default function StoryDetailPage() {
   const inlineRelations     = loadRelations(story.id);
   const synopsisParagraphs  = story.synopsis ? story.synopsis.split("\n").filter((p: string) => p.trim()) : [];
   const hasMoreSynopsis     = synopsisParagraphs.length > 1 || (synopsisParagraphs[0]?.length > 200);
-  const prediction          = computePrediction(story.id, story.lastComicUpdateAt || story.chapterUpdatedAt, story.status);
+  const prediction          = computePrediction(story.id, story.chapterUpdatedAt, story.status);
 
   const trackedSourcesWithUpdates = story.sources.filter((src: any) =>
     trackedSourceIds.includes(src.id) && (src.currentChapter || 0) > (story.currentChapter || 0)
@@ -607,7 +607,7 @@ export default function StoryDetailPage() {
       finalColor = palette[arcs.length % palette.length];
     }
     const arc: Arc = {
-      id: editingArc?.id || crypto.randomUUID(),
+      id: editingArc?.id || createId(),
       name: arcName.trim(),
       chapterStart: parseInt(arcStart),
       chapterEnd: arcEnd ? parseInt(arcEnd) : null,

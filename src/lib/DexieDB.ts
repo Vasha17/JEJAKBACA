@@ -1,4 +1,5 @@
 import Dexie, { Table } from 'dexie';
+import { createId } from './types';
 import type { Story } from './types';
 
 export enum SyncStatus {
@@ -325,7 +326,7 @@ async function migrateFromLocalStorageInternal(db: JejakBacaDB): Promise<void> {
     if (stories.length === 0) return;
     const dexieStories: DexieStory[] = stories.map(s => ({
       ...s,
-      id: s.id || crypto.randomUUID(),
+      id: s.id || createId(),
       createdAt: s.createdAt || new Date().toISOString(),
       updated_at: s.updatedAt || new Date().toISOString(),
       data: undefined,

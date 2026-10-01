@@ -12,7 +12,7 @@ import { Label } from "@/component/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/component/ui/tabs";
 import { Plus, Loader2, Sparkles, AlertTriangle, CheckCircle2, X, BookOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { createStory } from "@/lib/types";
+import { createId, createStory } from "@/lib/types";
 
 /* ─── Site badges config ─────────────────────────────── */
 const API_SITES = [
@@ -139,6 +139,11 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
   const handleAutoConfirm = async () => {
     if (!autoPreview) return;
     const d = autoPreview;
+    const scrapedAltTitle = String(d.altTitle || d.alt_title || "")
+      .split(/\s*\/\s*/)
+      .map((title: string) => title.trim())
+      .filter(Boolean)
+      .join("\n");
     const now = new Date().toISOString();
     const sourceTags = Array.isArray(d.tags) ? d.tags : [];
     const atsSource = isAtsumaruSource(autoUrl.trim(), d.sourceName);
@@ -172,7 +177,7 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
 
     const storyData = createStory({
       title: d.title || "Untitled",
-      altTitle: d.altTitle || d.alt_title || "",
+      altTitle: scrapedAltTitle,
       author: d.author || "",
       coverUrl: d.coverUrl || d.cover || d.thumbnail || d.cover_url || "",
       synopsis: d.synopsis || d.description || d.summary || "",
@@ -183,7 +188,7 @@ export function AddStoryDialog({ trigger, showLabel }: AddStoryDialogProps) {
       originCountry: d.originCountry || d.origin || d.country || "",
       whereToRead: d.whereToRead || autoUrl.trim(),
       sources: d.whereToRead || autoUrl.trim() ? [{
-        id: crypto.randomUUID(),
+        id: createId(),
         name: d.sourceName || new URL(autoUrl.trim()).hostname.replace("www.", ""),
         url: d.whereToRead || autoUrl.trim(),
         currentChapter: d.latestChapter || d.latest_chapter || 0,

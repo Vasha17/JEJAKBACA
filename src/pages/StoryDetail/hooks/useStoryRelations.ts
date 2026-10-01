@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { lsGet, lsSet } from "../utils/helpers";
 import { RelationType, RelationMode } from "../constants/status";
+import { createId } from "@/lib/types";
 
 export type StoryRelation = {
   id: string;
@@ -45,7 +46,7 @@ export function useStoryRelations(storyId: string, stories: any[]) {
   const handleAddRelation = () => {
     if (!newRelTitle.trim()) return;
     const updated: StoryRelation[] = [...relations, {
-      id: crypto.randomUUID(), mode: newRelMode,
+      id: createId(), mode: newRelMode,
       relatedStoryId: newRelMode === "local" ? newRelStoryId || undefined : undefined,
       relatedUrl:     newRelMode === "mention" ? newRelUrl.trim() || undefined : undefined,
       relatedTitle: newRelTitle.trim(), type: newRelType,

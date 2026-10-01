@@ -19,6 +19,15 @@ export const pushCHLog = (sid: string, ch: number, date?: string) => {
   lsSet(`ch_log_${sid}`, log.slice(0, 40));
 };
 
+function getPredictionLog(sid: string): ChapterLog[] {
+  const history = lsGet<{ type?: string; newValue?: string; createdAt?: string }[]>(`story_history_${sid}`, []);
+  const chapterHistory = history
+    .filter(entry => entry.type === "chapter" && entry.createdAt && Number.isFinite(Number(entry.newValue)))
+    .map(entry => ({ chapter: Number(entry.newValue), date: entry.createdAt! }));
+
+  return chapterHistory.length >= 2 ? chapterHistory : getCHLog(sid);
+}
+
 export function computePrediction(sid: string, lastUpdatedAt: string, status?: string): Prediction {
   const INACTIVE_STATUSES = ["dropped", "on-hold", "hiatus", "plan-to-read", "completed"];
   if (status && INACTIVE_STATUSES.includes(status)) {
@@ -28,8 +37,8 @@ export function computePrediction(sid: string, lastUpdatedAt: string, status?: s
       progressPct: 0,
     };
   }
-  const log = getCHLog(sid);
-  const daysSinceLast = differenceInDays(new Date(), new Date(lastUpdatedAt));
+  const log = getPredictionLog(sid);
+  const daysSinceLast = differenceInDays(new Date(), new Date(log[0]?.date || lastUpdatedAt));
 
   if (log.length < 2) {
     return {

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
-import { Story, createStory, saveGlobalTag } from "./types";
+import { Story, createId, createStory, saveGlobalTag } from "./types";
 import { dexieAPI } from "./DexieDB";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -236,7 +236,7 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
       const story = stories.find((s) => s.id === storyId);
       if (!story) return;
       const now = new Date().toISOString();
-      const bookmark = { id: crypto.randomUUID(), chapter, note, createdAt: now, updatedAt: now };
+      const bookmark = { id: createId(), chapter, note, createdAt: now, updatedAt: now };
       await applyUpdate(storyId, { bookmarks: [...(story.bookmarks || []), bookmark] });
     },
     [stories, applyUpdate]
@@ -259,7 +259,7 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
       const story = stories.find((s) => s.id === storyId);
       if (!story) return;
       const now = new Date().toISOString();
-      const newSource = { id: crypto.randomUUID(), lastOpenedAt: now, updatedAt: now, ...source };
+      const newSource = { id: createId(), lastOpenedAt: now, updatedAt: now, ...source };
       await applyUpdate(storyId, { sources: [...(story.sources || []), newSource] });
     },
     [stories, applyUpdate]
@@ -295,7 +295,7 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
       const story = stories.find((s) => s.id === storyId);
       if (!story) return;
       const now = new Date().toISOString();
-      const note = { id: crypto.randomUUID(), text, createdAt: now, updatedAt: now };
+      const note = { id: createId(), text, createdAt: now, updatedAt: now };
       await applyUpdate(storyId, { notes: [...(story.notes || []), note] });
     },
     [stories, applyUpdate]
@@ -317,7 +317,7 @@ export function StoryProvider({ children }: { children: React.ReactNode }) {
     async (storyId: string, item: { type: "link" | "image"; url: string; label: string }) => {
       const story = stories.find((s) => s.id === storyId);
       if (!story) return;
-      const mediaItem = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), ...item };
+      const mediaItem = { id: createId(), createdAt: new Date().toISOString(), ...item };
       await applyUpdate(storyId, { media: [...(story.media || []), mediaItem] });
     },
     [stories, applyUpdate]
