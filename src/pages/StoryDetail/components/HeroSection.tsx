@@ -226,6 +226,7 @@ export function HeroSection({
     </Dialog>
   ) : null;
 
+  const [titleDialogOpen, setTitleDialogOpen] = useState(false);
   const [altTitleDialogOpen, setAltTitleDialogOpen] = useState(false);
   const [copiedToast, setCopiedToast] = useState(false);
   const [comicDateDialogOpen, setComicDateDialogOpen] = useState(false);
@@ -516,10 +517,51 @@ export function HeroSection({
                   <Button size="sm" type="submit">Save</Button>
                 </form>
               ) : (
-                <h1 className="text-xl sm:text-4xl font-bold text-foreground cursor-pointer hover:text-primary/80 transition-colors line-clamp-2 text-ellipsis leading-tight mb-1" onClick={() => { setEditingAltTitle(false); setEditingAuthor(false); setTitleValue(story.title); setEditingTitle(true); }}>
+                <h1 className="text-xl sm:text-4xl font-bold text-foreground cursor-pointer hover:text-primary/80 transition-colors line-clamp-2 text-ellipsis leading-tight mb-1" onClick={() => setTitleDialogOpen(true)}>
                   {story.title}
                 </h1>
               )}
+
+              <Dialog open={titleDialogOpen} onOpenChange={setTitleDialogOpen}>
+                <DialogContent className="[&>button]:hidden w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto">
+                  <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                        <Edit className="w-3.5 h-3.5 text-primary/90" />
+                      </div>
+                      <div>
+                        <DialogTitle className="text-sm font-bold tracking-tight text-foreground">Title</DialogTitle>
+                        <p className="text-[10px] text-muted-foreground leading-tight">Tap title to copy it.</p>
+                      </div>
+                    </div>
+                    <button
+                      aria-label="Edit title"
+                      onClick={() => {
+                        setTitleValue(story.title);
+                        setEditingAltTitle(false);
+                        setEditingAuthor(false);
+                        setEditingTitle(true);
+                        setTitleDialogOpen(false);
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground shrink-0"
+                    >
+                      <Edit size={14} />
+                    </button>
+                  </div>
+                  <div className="px-5 py-5">
+                    <button
+                      onClick={() => {
+                        navigator.clipboard?.writeText(story.title);
+                        setCopiedToast(true);
+                        setTimeout(() => setCopiedToast(false), 1500);
+                      }}
+                      className="w-full rounded-xl bg-secondary/50 border border-border/40 px-3 py-2.5 text-left text-base sm:text-lg font-semibold leading-snug text-foreground break-words hover:bg-secondary transition-colors"
+                    >
+                      {story.title}
+                    </button>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               {/* --- ALTERNATIVE TITLES SECTION --- */}
               {(() => {
