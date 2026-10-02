@@ -127,7 +127,7 @@ const updatedAt = new Date(story.chapterUpdatedAt);
                 </button>
               </>
             )}
-            <span className="text-[11px] text-primary font-bold ml-1">Ch. {story.currentChapter}</span>
+            <span className="text-[11px] text-primary font-bold ml-1"><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {story.currentChapter}</span>
           </div>
         </div>
       </div>

@@ -91,7 +91,7 @@ export function StoryCard({ story, searchQuery = "" }: StoryCardProps) {
           {/* Chapter badge — bottom right inside cover */}
           <div className="absolute bottom-2 right-2">
             <span className="text-[9px] font-mono text-white/70 bg-black/50 px-1.5 py-0.5 rounded-md backdrop-blur-sm">
-              Ch.{story.currentChapter}
+              <span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter </span>{story.currentChapter}
             </span>
           </div>
 
@@ -147,7 +147,7 @@ export function StoryCard({ story, searchQuery = "" }: StoryCardProps) {
             {story.author && <p className="text-[10px] text-muted-foreground">{story.author}</p>}
           </div>
           <div className="flex items-center justify-between text-[10px]">
-            <span className="text-muted-foreground">Ch. {story.currentChapter}</span>
+            <span className="text-muted-foreground"><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {story.currentChapter}</span>
             <div className="flex items-center gap-0.5">
               <Star size={9} className="fill-yellow-400 text-yellow-400"/>
               <span className="font-bold text-yellow-400">{story.rating||"—"}</span>

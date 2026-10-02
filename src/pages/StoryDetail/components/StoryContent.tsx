@@ -339,7 +339,7 @@ export function StoryContent({
             <div key={bm.id} className="relative group">
               <div className="peer flex items-center gap-3 py-3 px-3 border border-border/50 rounded-lg bg-card/50 hover:bg-secondary hover:border-border transition-colors duration-200 cursor-default select-none group">
                 <Bookmark className="w-4 h-4 text-primary shrink-0" />
-                <span className="font-semibold text-sm text-foreground whitespace-nowrap shrink-0">Ch. {bm.chapter}</span>
+                <span className="font-semibold text-sm text-foreground whitespace-nowrap shrink-0"><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {bm.chapter}</span>
                 {bm.note && <p className="text-sm text-muted-foreground flex-1 min-w-0 truncate">{bm.note}</p>}
                 <span className="text-[10px] text-muted-foreground shrink-0 opacity-60">{format(new Date(bm.createdAt), "MM/dd/yy")}</span>
                 <button onClick={e => { e.stopPropagation(); setDeleteBookmarkId(bm.id); }} className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"><X className="w-4 h-4" /></button>

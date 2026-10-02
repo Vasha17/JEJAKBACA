@@ -172,7 +172,7 @@ export function RightPanel({
                         ) : (
                           <div className="flex items-center justify-between gap-2">
                             <div className="text-[10px] text-muted-foreground min-w-0">
-                              <span>Ch. {src.currentChapter}</span>
+                              <span><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {src.currentChapter}</span>
                               {src.language && <span className="text-primary ml-1">{src.language}</span>}
                               <span className="block truncate opacity-60 max-w-[160px]">{src.url}</span>
                             </div>
@@ -302,7 +302,7 @@ export function RightPanel({
         return (
           <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 mb-2 mr-[5px]">
             <p className="text-[10px] text-muted-foreground mb-1">Continue where you left off</p>
-            <p className="text-xs font-semibold text-foreground mb-2">Ch. {best.currentChapter} · {best.name}</p>
+            <p className="text-xs font-semibold text-foreground mb-2"><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {best.currentChapter} · {best.name}</p>
             <a href={isInfoSite ? base : chapterUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors">
               <BookOpen className="w-3.5 h-3.5" /> Continue Reading
             </a>
@@ -347,7 +347,7 @@ export function RightPanel({
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <div className="flex flex-col">
-                      <span className={`text-[10px] ${isTracked && isAhead ? "text-foreground font-semibold" : "text-muted-foreground"}`}>Ch. {srcCh}</span>                      
+                      <span className={`text-[10px] ${isTracked && isAhead ? "text-foreground font-semibold" : "text-muted-foreground"}`}><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {srcCh}</span>
                     </div>
                     {isTracked && isAhead && (
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold shadow-sm ${getBadgeStyles(chaptersAhead)}`}>+{chaptersAhead}</span>

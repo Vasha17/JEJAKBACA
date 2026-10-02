@@ -180,7 +180,7 @@ export function HeroSection({
           aria-label="View available updates"
           title="View available updates"
           onClick={event => event.stopPropagation()}
-          className="relative p-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 transition-transform animate-pulse hover:scale-110"
+          className="relative p-1.5 rounded-full border border-white/35 bg-black/60 text-emerald-400 shadow-lg backdrop-blur-md transition-colors hover:bg-black/75 hover:text-emerald-300 hover:scale-110"
         >
           <Bell size={16} />
           <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-card" />
@@ -728,7 +728,7 @@ export function HeroSection({
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
               {editingChapter ? (
                 <><form onSubmit={e => { e.preventDefault(); const ch = Math.max(0.1, parseFloat(chapterValue) || 1); handleChapterUpdate(ch); setEditingChapter(false); }} className="flex gap-1.5 items-center w-full">
-                  <span className="font-semibold text-xs whitespace-nowrap shrink-0">Ch.</span>
+                  <span className="font-semibold text-xs whitespace-nowrap shrink-0"><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span></span>
                   <Input value={chapterValue} onChange={e => setChapterValue(e.target.value)} type="number" step="0.1" className="flex-1 h-6 sm:h-7 text-[11px] sm:text-xs bg-card min-w-0 py-0 px-2 sm:px-3 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" autoFocus />
                   <button type="button" onClick={() => setComicDateDialogOpen(true)} className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 rounded flex items-center justify-center bg-secondary border border-border hover:bg-muted" title="Set last comic update date">
                     <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-muted-foreground" />
@@ -756,7 +756,7 @@ export function HeroSection({
                 </Dialog></>
               ) : (
                 <div className="flex items-center gap-2 w-full justify-between">
-                  <span className="font-semibold text-xs sm:text-sm text-foreground">Ch. {story.currentChapter}</span>
+                  <span className="font-semibold text-xs sm:text-sm text-foreground"><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {story.currentChapter}</span>
                   <div className="flex items-center gap-1 ml-auto">
                      <button onClick={() => { setChapterValue(String(story.currentChapter)); setEditingChapter(true); }} className="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs rounded bg-secondary text-secondary-foreground hover:bg-muted border border-border">Edit</button>
                     <button onClick={() => { haptic("medium"); handleChapterUpdate(story.currentChapter + 1); setShowPredToast(true); if (shouldShowUpdateNotif) setHasSeenUpdateNotif(true); setTimeout(() => setShowPredToast(false), 5000); }} className="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs rounded bg-primary text-primary-foreground hover:bg-primary/80 active:scale-90 active:bg-primary/70 font-medium transition-all duration-150">
@@ -767,13 +767,13 @@ export function HeroSection({
               )}
               <div className="absolute bottom-full left-0 mb-2 w-max max-w-[200px] p-2 rounded-lg bg-black/90 border border-border shadow-xl text-[10px] text-muted-foreground opacity-0 group-hover/chapter:opacity-100 transition-opacity pointer-events-none z-50" onTouchStart={() => { if (!editingChapter) setTimeout(() => setChapterTooltip(true), 500); }} onTouchEnd={() => setChapterTooltip(false)}>
                 <p className="font-bold text-foreground mb-0.5">Current Progress</p>
-                <p>Ch. {story.currentChapter}</p>
+                <p><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {story.currentChapter}</p>
                 <p className="mt-0.5 text-primary">Updated: {format(new Date(story.chapterUpdatedAt), "MMM d, yyyy")}</p>
               </div>
               {chapterTooltip && !editingChapter && (
                 <div className="absolute bottom-full left-0 mb-2 w-max max-w-[200px] p-2 rounded-lg bg-popover border border-border shadow-xl text-[10px] text-muted-foreground z-50 animate-in fade-in slide-in-from-bottom-1">
                   <p className="font-bold text-foreground mb-0.5">Current Progress</p>
-                  <p>Ch. {story.currentChapter}</p>
+                  <p><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {story.currentChapter}</p>
                   <p className="mt-0.5 text-primary">Updated: {format(new Date(story.chapterUpdatedAt), "MMM d, yyyy")}</p>
                 </div>
               )}

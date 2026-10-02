@@ -46,7 +46,7 @@ export function HeroSection({ story, onPlusOne, isVault }: HeroSectionProps) {
           {story.author && <p className="text-xs text-muted-foreground">{story.author}</p>}
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
             <span className="flex items-center gap-1"><Star size={11} className="fill-yellow-400 text-yellow-400" />{story.rating || "—"}</span>
-            <span>Ch. {story.currentChapter}</span>
+            <span><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {story.currentChapter}</span>
           </div>
           <div className="flex items-center gap-2 pt-1">
             <Link to={`/story/${story.id}`}

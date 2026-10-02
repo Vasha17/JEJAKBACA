@@ -203,7 +203,7 @@ function TimelineView({
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-1 text-[11px] text-foreground/70">                    
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: STATUS_COLORS[story.status] }} />
-                    <span className="text-[11px] font-semibold text-primary">Ch. {story.currentChapter}</span>
+                    <span className="text-[11px] font-semibold text-primary"><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {story.currentChapter}</span>
                     <span className="text-[11px]">· {timeAgo}</span>
                   </div>
                   <div className="flex items-center gap-3">                   

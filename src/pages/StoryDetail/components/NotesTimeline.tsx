@@ -192,10 +192,10 @@ export function NotesTimeline({
                             {isOngoing && !isCurrent && <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Ongoing</span>}
                           </div>
                           <div className="flex items-center gap-1.5 mt-1">
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold text-white" style={{ backgroundColor: arc.color }}>Ch. {arc.chapterStart}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold text-white" style={{ backgroundColor: arc.color }}><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {arc.chapterStart}</span>
                             <span className="text-[10px] text-muted-foreground">→</span>
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold text-white" style={{ backgroundColor: isOngoing ? "#6b7280" : arc.color }}>{isOngoing ? "?" : `Ch. ${arc.chapterEnd}`}</span>
-                            {arc.chapterEnd && <span className="text-[10px] text-muted-foreground ml-1">({arc.chapterEnd - arc.chapterStart + 1} ch)</span>}
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold text-white" style={{ backgroundColor: isOngoing ? "#6b7280" : arc.color }}>{isOngoing ? "?" : <><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {arc.chapterEnd}</>}</span>
+                            {arc.chapterEnd && <span className="text-[10px] text-muted-foreground ml-1">({arc.chapterEnd - arc.chapterStart + 1} <span className="sm:hidden">ch</span><span className="hidden sm:inline">chapters</span>)</span>}
                           </div>
                         </div>
                         <div className="flex items-center gap-1 opacity-0 group-hover/arc:opacity-100 transition-opacity shrink-0">
