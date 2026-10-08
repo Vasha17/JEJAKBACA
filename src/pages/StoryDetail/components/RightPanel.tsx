@@ -181,10 +181,11 @@ export function RightPanel({
                                   const newSources = [...story.sources];
                                   const idx = newSources.findIndex((s: any) => s.id === src.id);
                                   if (idx !== -1) {
-                                    const newCh = (parseInt(src.currentChapter) || 0) + 1;
+                                    const sourceChapter = Number.parseFloat(String(src.currentChapter)) || 0;
+                                    const newCh = sourceChapter + 1;
                                     newSources[idx] = { ...newSources[idx], currentChapter: newCh };
                                     const updates: any = { sources: newSources };
-                                    if ((story.currentChapter || 0) === (parseInt(src.currentChapter) || 0)) {
+                                    if ((story.currentChapter || 0) === sourceChapter) {
                                       updates.currentChapter = newCh;
                                       updates.chapterUpdatedAt = new Date().toISOString();
                                     }
@@ -269,7 +270,7 @@ export function RightPanel({
                 <DialogClose asChild><Button variant="ghost">Cancel</Button></DialogClose>
                 <Button onClick={() => {
                   if (!srcName.trim() || !srcUrl.trim()) return;
-                  addSource(story.id, { name: srcName.trim(), url: srcUrl.trim(), currentChapter: parseInt(srcChapter) || 0, language: srcLang.trim().toUpperCase() || "" });
+                  addSource(story.id, { name: srcName.trim(), url: srcUrl.trim(), currentChapter: Number.parseFloat(srcChapter) || 0, language: srcLang.trim().toUpperCase() || "" });
                   if (trackedSourceIds.length < 2) {
                     setTimeout(() => {
                       const newSrc = story.sources[story.sources.length - 1];

@@ -590,17 +590,6 @@ export function HeroSection({
                   <>
                     {titles.length > 0 ? (
                       <div className="mt-0.5 mb-1 cursor-pointer" onClick={() => setAltTitleDialogOpen(true)}>
-                        <div className="sm:hidden space-y-0.5 text-[11px] leading-tight text-foreground/60">
-                          {titles.slice(0, 2).map((title: string, i: number) => (
-                            <div key={i} className="flex w-full min-w-0 items-center gap-1">
-                              <span className="shrink-0">-</span>
-                              <span className={`min-w-0 truncate ${i === 1 && titles.length > 2 ? "" : "flex-1"}`}>{title}</span>
-                              {i === 1 && titles.length > 2 && (
-                                <span className="shrink-0 text-primary/70">+{titles.length - 2} others</span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
                         <div className="hidden sm:flex flex-wrap items-center gap-x-2 gap-y-1">
                           {titles.slice(0, 2).map((title: string, i: number) => (
                             <span key={i} className="text-sm leading-tight text-foreground/60">• {title}</span>

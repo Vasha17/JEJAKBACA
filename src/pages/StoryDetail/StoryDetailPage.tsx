@@ -509,7 +509,7 @@ export default function StoryDetailPage() {
   const handleSaveSourceEdit = () => {
     if (!editSrcId) return;
     if (editSrcName.trim() && editSrcUrl.trim()) {
-      const newCh = parseInt(editSrcChapter) || 0;
+      const newCh = Number.parseFloat(editSrcChapter) || 0;
       const oldSrc = story.sources.find((s: any) => s.id === editSrcId);
       const upd = (story.sources || []).map((s: any) => s.id === editSrcId
         ? { ...s, name: editSrcName.trim(), url: editSrcUrl.trim(), language: editSrcLang.trim().toUpperCase(), currentChapter: newCh }

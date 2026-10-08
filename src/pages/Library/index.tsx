@@ -4,7 +4,7 @@ import { useStories } from "@/lib/StoryContext";
 import {
   BookOpen, Check, CheckSquare, Square, Trash2, AlertCircle,
   Lock, LayoutGrid, AlignJustify, ChevronRight, Star,
-  X, Globe, Eye, Info, Loader2,
+  X, Globe, Eye, Info, Loader2, Bell,
 } from "lucide-react";
 import { StoryStatus, getGlobalTags } from "@/lib/types";
 import { Dialog, DialogContent } from "@/component/ui/dialog";
@@ -66,6 +66,7 @@ function GridView({
       {displayedItems.map((story: any, index) => {
         const isSelected = selectedIds.has(story.id);
         const statusInfo = getStatusInfo(story.status);
+        const hasUnreadSource = (story.sources || []).some((src: any) => (src.currentChapter || 0) > (story.currentChapter || 0));
         return (
           <div key={story.id}
             className="group relative w-full aspect-[3/4] rounded-xl overflow-hidden bg-secondary border border-border transition-all duration-300 hover:-translate-y-2 hover:scale-[1.03] hover:shadow-xl hover:shadow-primary/10 hover:border-primary/50 cursor-pointer animate-fade-in-up"
@@ -83,9 +84,11 @@ function GridView({
                 }
                 <span className="text-[9px] font-bold text-white/90 truncate" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.6), 0 0 20px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.4)" }}>{FORMAT_MAP[(story.originCountry || "").toUpperCase()]}</span>
               </div>
-              <div className="flex items-center gap-1 bg-black/50 px-1.5 py-0.5 rounded-full border border-white/10 backdrop-blur-sm">
-                <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: STATUS_COLORS[story.status] }} />
-                <span className="text-[9px] text-white/80 whitespace-nowrap">{statusInfo.label}</span>
+              <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1 bg-black/50 px-1.5 py-0.5 rounded-full border border-white/10 backdrop-blur-sm">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ backgroundColor: STATUS_COLORS[story.status] }} />
+                  <span className="text-[9px] text-white/80 whitespace-nowrap">{statusInfo.label}</span>
+                </div>
               </div>
             </div>
             <button
@@ -114,6 +117,7 @@ function GridView({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1 text-white/70">
                   <BookOpen size={10} /><span className="text-[10px] font-mono">{story.currentChapter}</span>
+                  {hasUnreadSource && <Bell className="w-3 h-3 text-emerald-400 fill-emerald-500/20 animate-pulse" />}
                 </div>
                 <div className="flex items-center gap-0.5 bg-amber-400/20 px-1.5 py-0.5 rounded-full backdrop-blur-sm">
                   <Star size={9} className="fill-amber-400 text-amber-400" />
@@ -141,6 +145,7 @@ function TimelineView({
       {displayedItems.map((story: any, i: number) => {
         const updatedAt = new Date(story.chapterUpdatedAt);
         const now = new Date();
+        const hasUnreadSource = (story.sources || []).some((src: any) => (src.currentChapter || 0) > (story.currentChapter || 0));
         const diffMs = now.getTime() - updatedAt.getTime();
         const diffMins = Math.floor(diffMs / 60000);
         const diffHours = Math.floor(diffMs / 3600000);
@@ -204,6 +209,7 @@ function TimelineView({
                   <div className="flex items-center gap-1 text-[11px] text-foreground/70">                    
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: STATUS_COLORS[story.status] }} />
                     <span className="text-[11px] font-semibold text-primary"><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {story.currentChapter}</span>
+                      {hasUnreadSource && <Bell className="w-3 h-3 text-emerald-400 fill-emerald-500/20 animate-pulse" />}
                     <span className="text-[11px]">· {timeAgo}</span>
                   </div>
                   <div className="flex items-center gap-3">                   
