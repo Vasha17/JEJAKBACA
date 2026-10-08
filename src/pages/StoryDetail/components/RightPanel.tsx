@@ -295,14 +295,17 @@ export function RightPanel({
         const best = [...story.sources].sort((a: any, b: any) => (b.currentChapter || 0) - (a.currentChapter || 0))[0];
         const rawUrl = best.url.trim();
         const base = rawUrl.startsWith("http") ? rawUrl : "https://" + rawUrl;
-        const isInfoSite = /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
         const cleanBase = base.replace(/\/+$/, "");
-        const chapterUrl = cleanBase.includes("?") ? cleanBase : `${cleanBase}/chapter-${best.currentChapter}/`;
+        const isInfoSite = /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
+        const isSpecialSource = /atsu\.moe|mangadot\.net/i.test(cleanBase);
+        const readingUrl = isInfoSite || isSpecialSource
+          ? cleanBase
+          : (cleanBase.includes("?") ? cleanBase : `${cleanBase}/chapter-${best.currentChapter}/`);
         return (
           <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 mb-2 mr-[5px]">
             <p className="text-[10px] text-muted-foreground mb-1">Continue where you left off</p>
             <p className="text-xs font-semibold text-foreground mb-2"><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {best.currentChapter} · {best.name}</p>
-            <a href={isInfoSite ? base : chapterUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors">
+            <a href={readingUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors">
               <BookOpen className="w-3.5 h-3.5" /> Continue Reading
             </a>
           </div>
@@ -318,10 +321,6 @@ export function RightPanel({
           const srcCh = src.currentChapter || 0;
           const chaptersAhead = srcCh - currentStoryCh;
           const isAhead = chaptersAhead > 0;
-          const shouldBlockSourceIncrement = (() => {
-            const haystack = `${src.name || ""} ${src.url || ""}`.toLowerCase();
-            return haystack.includes("atsu.moe") || haystack.includes("mangadot.net");
-          })();
           const cardTone = isTracked && isAhead
             ? "bg-emerald-500/5 border-emerald-500/40 shadow-md shadow-emerald-500/10"
             : ls && !ls.checking
@@ -334,9 +333,10 @@ export function RightPanel({
                 href={(() => {
                   const rawUrl = src.url.trim();
                   const base = rawUrl.startsWith("http") ? rawUrl : "https://" + rawUrl;
-                  const isInfoSite = /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
                   const cleanBase = base.replace(/\/+$/, "");
-                  return isInfoSite || cleanBase.includes("?")
+                  const isInfoSite = /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
+                  const isSpecialSource = /atsu\.moe|mangadot\.net/i.test(cleanBase);
+                  return isInfoSite || isSpecialSource || cleanBase.includes("?")
                     ? cleanBase
                     : `${cleanBase}/chapter-${src.currentChapter}/`;
                 })()}

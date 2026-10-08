@@ -340,6 +340,15 @@ export default function StoryDetailPage() {
     });
   };
 
+  useEffect(() => {
+    if (!story?.id || !story?.sources) return;
+    const validIds = trackedSourceIds.filter((id) => story.sources.some((src: any) => src.id === id));
+    if (validIds.length === trackedSourceIds.length) return;
+    setTrackedSourceIds(validIds);
+    try { lsSet(`tracked_sources_${story.id}`, validIds); }
+    catch (e) { console.warn("Storage blocked while pruning tracked sources", e); }
+  }, [story?.id, story?.sources, trackedSourceIds]);
+
   // ── Early returns ─────────────────────────────────────────────────────────
   if (isLoading) return <StoryDetailSkeleton />;
   if (!story) {
@@ -551,12 +560,11 @@ export default function StoryDetailPage() {
     const best = [...story.sources].sort((a: any, b: any) => (b.currentChapter || 0) - (a.currentChapter || 0))[0];
     const rawUrl = best.url.trim();
     const base = rawUrl.startsWith("http") ? rawUrl : "https://" + rawUrl;
-    const isInfoSite = /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
     const cleanBase = base.replace(/\/+$/, "");
-    const chapterUrl = cleanBase.includes("?")
-      ? cleanBase
-      : `${cleanBase}/chapter-${best.currentChapter}/`;
-    return isInfoSite ? base : chapterUrl;
+    const isInfoSite = /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
+    const isSpecialSource = /atsu\.moe|mangadot\.net/i.test(cleanBase);
+    if (isInfoSite || isSpecialSource) return cleanBase;
+    return cleanBase.includes("?") ? cleanBase : `${cleanBase}/chapter-${best.currentChapter}/`;
   };
 
   const handleReadNow = () => {
