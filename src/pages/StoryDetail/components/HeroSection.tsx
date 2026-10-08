@@ -1,10 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, BookOpen, Bookmark, FileText, Plus,
   Star, List, Globe, HelpCircle, MoreHorizontal,
   RefreshCw, Zap, Bell, Upload, Eye, EyeOff,
-  History, GitBranch, Trash2, X, Maximize2, Move,
+  History, GitBranch, Trash2, Maximize2, Move,
   Edit, Calendar,
   CheckCircle2,
 } from "lucide-react";
@@ -114,6 +114,7 @@ interface HeroSectionProps {
   handleCoverFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleHeaderFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   navigate: ReturnType<typeof useNavigate>;
+  onPredToastChange?: (v: boolean) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -124,7 +125,7 @@ export function HeroSection({
   isRefreshing, pullDelta, PULL_THRESHOLD,
 
   trackedSourcesWithUpdates, maxChaptersAhead, hasUpdates,
-  prediction,
+  prediction: realPrediction,
   editingTitle, editingAltTitle, editingAuthor, editingChapter,
   titleValue, altTitleValue, authorValue, chapterValue,
   chapterTooltip, genreExpanded,
@@ -147,14 +148,18 @@ export function HeroSection({
   handleChapterUpdate, handleOpenHistory, handleOpenRelated,
   handleOpenListsDialog,
   handleCoverFileUpload, handleHeaderFileUpload,
-  navigate,
+  navigate, onPredToastChange,
 }: HeroSectionProps) {
   const currentStatus = STATUS_OPTIONS.find(s => s.value === story.status);
+  const prediction = realPrediction ?? { avgDays: 3, daysUntil: 2, confidence: "medium", message: "Next chapter in ~2 days", progressPct: 50 };
   const dotColor      = statusColor(story.status);
   const originCountryCode = (story.originCountry || "").trim().toLowerCase();
   const showOriginFlag = originCountryCode.length === 2;
 
   const [showPredToast, setShowPredToast] = useState(false);
+  const [recentPredictionMessage, setRecentPredictionMessage] = useState<string | null>(null);
+  const predictionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const predictionMessage = recentPredictionMessage || prediction.message;
 
   const [showHeaderEditBtn, setShowHeaderEditBtn] = useState(false);
   const [showCoverEditBtn, setShowCoverEditBtn]   = useState(false);
@@ -166,15 +171,38 @@ export function HeroSection({
   const coverHideTimer                            = useRef<ReturnType<typeof setTimeout> | null>(null);
   const coverJustLongPressed                      = useRef(false);
 
-  const [hasSeenUpdateNotif, setHasSeenUpdateNotif] = useState(false);
-  const shouldShowUpdateNotif = 
-    prediction.confidence !== "insufficient" &&
-    prediction.daysUntil !== null &&
-    prediction.daysUntil <= 1 && 
-    !hasSeenUpdateNotif;
+  const hasPrediction = prediction.confidence !== "insufficient" && prediction.daysUntil !== null;
 
-  const updateNotificationBell = hasUpdates ? (
-    <Dialog open={updateBellDialog} onOpenChange={setUpdateBellDialog}>
+  useEffect(() => {
+    return () => {
+      if (predictionTimerRef.current) clearTimeout(predictionTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    onPredToastChange?.(showPredToast);
+  }, [showPredToast]);
+
+  useEffect(() => () => { onPredToastChange?.(false); }, []);
+
+  const triggerPredictionFlash = () => {
+    if (!hasPrediction) return;
+    const nextMessage = prediction.message
+      .replace(/\s*\(avg\s+.*?\)/i, "")
+      .replace(/\s*\[avg\s+.*?\]/i, "")
+      .replace(/\s*avg\s+.*?days?/i, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    setRecentPredictionMessage(nextMessage || prediction.message);
+    setShowPredToast(true);
+    if (predictionTimerRef.current) clearTimeout(predictionTimerRef.current);
+    predictionTimerRef.current = setTimeout(() => {
+      setShowPredToast(false);
+    }, 1800);
+  };
+
+  const updateNotificationBell = (hasUpdates || updateBellDialog) ? (
+  <Dialog open={updateBellDialog} onOpenChange={setUpdateBellDialog}>
       <DialogTrigger asChild>
         <button
           aria-label="View available updates"
@@ -196,21 +224,10 @@ export function HeroSection({
             </span>
             Updates Available!
           </DialogTitle>
-          <p className="text-sm text-emerald-100/80 mt-1">{trackedSourcesWithUpdates.length} source(s) ahead. Behind by <span className="text-emerald-300 font-bold">+{maxChaptersAhead} chapters</span>.</p>
-          {shouldShowUpdateNotif && (
-            <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 w-fit">
-              <Zap className="w-3 h-3 text-emerald-300 fill-emerald-300/30 animate-pulse" />
-              <span className="text-[11px] font-bold text-emerald-200">
-                {prediction.daysUntil === 0 ? "Update Today!" : "Update Tomorrow!"}
-              </span>
-              <button onClick={event => { event.stopPropagation(); setHasSeenUpdateNotif(true); }} className="text-emerald-300/60 hover:text-emerald-100 transition-colors ml-0.5">
-                <X size={10} />
-              </button>
-            </div>
-          )}
+          {hasUpdates && <p className="text-sm text-emerald-100/80 mt-1">{trackedSourcesWithUpdates.length} source(s) ahead. Behind by <span className="text-emerald-300 font-bold">+{maxChaptersAhead} chapters</span>.</p>}
         </DialogHeader>
         <div className="space-y-3 relative z-10">
-          <div className="space-y-2 pt-2">
+          {trackedSourcesWithUpdates.length > 0 && <div className="space-y-2 pt-2">
             {trackedSourcesWithUpdates.map((src: any) => {
               const diff = (src.currentChapter || 0) - (story.currentChapter || 0);
               return (
@@ -220,7 +237,7 @@ export function HeroSection({
                 </div>
               );
             })}
-          </div>
+          </div>}
         </div>
       </DialogContent>
     </Dialog>
@@ -326,10 +343,10 @@ export function HeroSection({
         </div>
       </div>
 
-      {prediction.confidence !== "insufficient" && showPredToast && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-card/95 border border-border shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-4 max-w-[90vw]">
-          <Zap className={`w-4 h-4 shrink-0 ${prediction.daysUntil !== null && prediction.daysUntil <= 1 ? "text-emerald-400" : prediction.daysUntil !== null && prediction.daysUntil < 0 ? "text-orange-400" : "text-primary"}`} />
-          <p className="text-xs font-medium text-foreground">{prediction.message}</p>
+      {showPredToast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[110] flex items-center gap-2 px-4 py-2.5 rounded-full bg-primary/15 border border-primary/40 shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Zap className="w-4 h-4 text-primary shrink-0" />
+          <span className="text-xs font-medium text-primary">{predictionMessage}</span>
         </div>
       )}
 
@@ -511,16 +528,9 @@ export function HeroSection({
         <div className="flex-1 min-w-0 z-10 pb-2 sm:pt-2 space-y-2 sm:space-y-1.5 max-h-[145px] sm:max-h-[290px] overflow-visible">
           <div className="flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              {editingTitle ? (
-                <form onSubmit={e => { e.preventDefault(); if (titleValue !== story.title) pushHistory(story.id, { type: "title", label: "Title changed", oldValue: story.title, newValue: titleValue }); updateStory(story.id, { title: titleValue }); setEditingTitle(false); }} className="flex gap-2">
-                  <Input value={titleValue} onChange={e => setTitleValue(e.target.value)} className="text-xl font-bold bg-card h-auto py-1" autoFocus />
-                  <Button size="sm" type="submit">Save</Button>
-                </form>
-              ) : (
-                <h1 className="text-xl sm:text-4xl font-bold text-foreground cursor-pointer hover:text-primary/80 transition-colors line-clamp-2 text-ellipsis leading-tight mb-1" onClick={() => setTitleDialogOpen(true)}>
-                  {story.title}
-                </h1>
-              )}
+              <h1 className="text-xl sm:text-4xl font-bold text-foreground cursor-pointer hover:text-primary/80 transition-colors line-clamp-2 text-ellipsis leading-tight mb-1" onClick={() => setTitleDialogOpen(true)}>
+                {story.title}
+              </h1>
 
               <Dialog open={titleDialogOpen} onOpenChange={setTitleDialogOpen}>
                 <DialogContent className="[&>button]:hidden w-[92vw] max-w-2xl p-0 rounded-2xl overflow-hidden mx-auto">
@@ -531,35 +541,44 @@ export function HeroSection({
                       </div>
                       <div>
                         <DialogTitle className="text-sm font-bold tracking-tight text-foreground">Title</DialogTitle>
-                        <p className="text-[10px] text-muted-foreground leading-tight">Tap title to copy it.</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">{editingTitle ? "Edit the story title." : "Tap title to copy it."}</p>
                       </div>
                     </div>
-                    <button
+                    {!editingTitle && <button
                       aria-label="Edit title"
-                      onClick={() => {
-                        setTitleValue(story.title);
-                        setEditingAltTitle(false);
-                        setEditingAuthor(false);
-                        setEditingTitle(true);
-                        setTitleDialogOpen(false);
-                      }}
+                      onClick={() => { setTitleValue(story.title); setEditingTitle(true); }}
                       className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground shrink-0"
-                    >
-                      <Edit size={14} />
-                    </button>
+                    ><Edit size={14} /></button>}
                   </div>
-                  <div className="px-5 py-5">
-                    <button
-                      onClick={() => {
-                        navigator.clipboard?.writeText(story.title);
-                        setCopiedToast(true);
-                        setTimeout(() => setCopiedToast(false), 1500);
-                      }}
-                      className="w-full rounded-xl bg-secondary/50 border border-border/40 px-3 py-2.5 text-left text-base sm:text-lg font-semibold leading-snug text-foreground break-words hover:bg-secondary transition-colors"
-                    >
-                      {story.title}
-                    </button>
-                  </div>
+                  {editingTitle ? (
+                    <form onSubmit={event => {
+                      event.preventDefault();
+                      if (titleValue !== story.title) {
+                        pushHistory(story.id, { type: "title", label: "Title changed", oldValue: story.title, newValue: titleValue });
+                        updateStory(story.id, { title: titleValue });
+                      }
+                      setEditingTitle(false);
+                    }} className="px-5 py-4 space-y-3">
+                      <Input value={titleValue} onChange={event => setTitleValue(event.target.value)} className="text-base bg-secondary" autoFocus />
+                      <div className="flex gap-2">
+                        <Button type="button" variant="ghost" className="flex-1" onClick={() => setEditingTitle(false)}>Cancel</Button>
+                        <Button type="submit" className="flex-1">Save</Button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="px-5 py-5">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard?.writeText(story.title);
+                          setCopiedToast(true);
+                          setTimeout(() => setCopiedToast(false), 1500);
+                        }}
+                        className="w-full rounded-xl bg-secondary/50 border border-border/40 px-3 py-2.5 text-left text-base sm:text-lg font-semibold leading-snug text-foreground break-words hover:bg-secondary transition-colors"
+                      >
+                        {story.title}
+                      </button>
+                    </div>
+                  )}
                 </DialogContent>
               </Dialog>
 
@@ -632,7 +651,12 @@ export function HeroSection({
                             />
                             <div className="flex gap-2">
                               <Button variant="ghost" className="flex-1" onClick={() => setEditingAltTitle(false)}>Cancel</Button>
-                              <Button className="flex-1" onClick={() => { updateStory(story.id, { altTitle: altTitleValue }); setEditingAltTitle(false); }}>Save</Button>
+                              <Button className="flex-1" onClick={() => {
+                                const oldValue = story.altTitle || "";
+                                if (altTitleValue !== oldValue) pushHistory(story.id, { type: "altTitle", label: "Alternative titles changed", oldValue, newValue: altTitleValue });
+                                updateStory(story.id, { altTitle: altTitleValue });
+                                setEditingAltTitle(false);
+                              }}>Save</Button>
                             </div>
                           </div>
                         ) : titles.length > 0 ? (
@@ -746,7 +770,7 @@ export function HeroSection({
                     <Input
                       ref={comicDateInputRef}
                       type="date"
-                      defaultValue={story.lastComicUpdateAt ? story.lastComicUpdateAt.slice(0,10) : ""}
+                      value={story.lastComicUpdateAt ? story.lastComicUpdateAt.slice(0, 10) : format(new Date(), "yyyy-MM-dd")}
                       onChange={e => updateStory(story.id, { lastComicUpdateAt: e.target.value })}
                       onClick={() => comicDateInputRef.current?.showPicker?.()}
                       className="bg-card cursor-pointer h-12 text-base mt-2"
@@ -759,7 +783,7 @@ export function HeroSection({
                   <span className="font-semibold text-xs sm:text-sm text-foreground"><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {story.currentChapter}</span>
                   <div className="flex items-center gap-1 ml-auto">
                      <button onClick={() => { setChapterValue(String(story.currentChapter)); setEditingChapter(true); }} className="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs rounded bg-secondary text-secondary-foreground hover:bg-muted border border-border">Edit</button>
-                    <button onClick={() => { haptic("medium"); handleChapterUpdate(story.currentChapter + 1); setShowPredToast(true); if (shouldShowUpdateNotif) setHasSeenUpdateNotif(true); setTimeout(() => setShowPredToast(false), 5000); }} className="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs rounded bg-primary text-primary-foreground hover:bg-primary/80 active:scale-90 active:bg-primary/70 font-medium transition-all duration-150">
+                    <button onClick={() => { haptic("medium"); handleChapterUpdate(story.currentChapter + 1); triggerPredictionFlash(); }} className="px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs rounded bg-primary text-primary-foreground hover:bg-primary/80 active:scale-90 active:bg-primary/70 font-medium transition-all duration-200">
                       +1
                     </button>
                   </div>
@@ -779,13 +803,6 @@ export function HeroSection({
               )}
             </div>
           </div>
-
-          {prediction.confidence !== "insufficient" && (
-            <div className="flex min-w-0 items-center gap-1.5 pl-1 -mt-1 text-[10px] sm:text-xs text-muted-foreground" title={`Prediction confidence: ${prediction.confidence}`}>
-              <Zap className={`h-3.5 w-3.5 shrink-0 ${prediction.daysUntil !== null && prediction.daysUntil <= 1 ? "text-emerald-400" : prediction.daysUntil !== null && prediction.daysUntil < 0 ? "text-orange-400" : "text-primary"}`} />
-              <span className="truncate">{prediction.message}</span>
-            </div>
-          )}
 
           <div className="hidden sm:grid grid-cols-5 gap-3 pt-1.5 mb-1.5">
             {[

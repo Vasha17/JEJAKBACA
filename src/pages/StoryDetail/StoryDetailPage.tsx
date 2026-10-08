@@ -134,8 +134,9 @@ export default function StoryDetailPage() {
   const [arcDialog, setArcDialog]                               = useState(false);
   const [editingArc, setEditingArc]                             = useState<Arc | null>(null);
   const [deleteArcId, setDeleteArcId]                           = useState<string | null>(null);
-  const [coverLightbox, setCoverLightbox]                       = useState(false);
   const [headerLightbox, setHeaderLightbox]                     = useState(false);
+  const [coverLightbox, setCoverLightbox]                       = useState(false);
+  const [predToastActive, setPredToastActive]                   = useState(false);
 
   // ── Form states ───────────────────────────────────────────────────────────
   const [coverUrlValue, setCoverUrlValue]   = useState("");
@@ -223,6 +224,7 @@ export default function StoryDetailPage() {
   const coverFileRef   = useRef<HTMLInputElement>(null);
   const headerFileRef  = useRef<HTMLInputElement>(null);
   const noteContentRef = useRef("");
+  const relatedListRef = useRef<HTMLDivElement>(null);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // useEffect HOOKS
@@ -270,6 +272,10 @@ export default function StoryDetailPage() {
 } = useStoryRelations(story?.id || "", stories);
 
   const [relTypeDropdownOpen, setRelTypeDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    if (relatedDialog && relatedListRef.current) relatedListRef.current.scrollTop = 0;
+  }, [relatedDialog]);
 
   // ── Navigation ────────────────────────────────────────────────────────────
   const fromVault = location.state?.fromVault === true;
@@ -364,13 +370,6 @@ export default function StoryDetailPage() {
     ? Math.max(...trackedSourcesWithUpdates.map((src: any) => (src.currentChapter || 0) - (story.currentChapter || 0)))
     : 0;
   const hasUpdates = trackedSourcesWithUpdates.length > 0;
-
-  const getBadgeStyles = (diff: number) => {
-    if (diff >= 50) return "bg-red-500/40 shadow-red-500/80 text-white";
-    if (diff >= 20) return "bg-orange-400/40 shadow-orange-500/800 text-white";
-    if (diff >= 10) return "bg-yellow-600/60 shadow-yellow-500/100 text-white";
-    return "bg-blue-500/40 shadow-blue-500/30 text-white";
-  };
 
   const anyDialogOpen = coverDialog || headerDialog || ratingDialog || notesDialog ||
     listsDialog || bookmarkDialog || sourceDialog || addSourceDialog ||
@@ -730,6 +729,7 @@ export default function StoryDetailPage() {
         handleCoverFileUpload={handleCoverFileUpload}
         handleHeaderFileUpload={handleHeaderFileUpload}
         navigate={navigate}
+        onPredToastChange={setPredToastActive}
       />
 
       {/* ═══ MAIN CONTENT ════════════════════════════════════════════════════ */}
@@ -835,7 +835,6 @@ export default function StoryDetailPage() {
               handleSaveMediaLabel={handleSaveMediaLabel}
               handleMediaFileUpload={handleMediaFileUpload}
               checkLink={checkLink}
-              getBadgeStyles={getBadgeStyles}
             />
           </div>
         </div>
@@ -1094,7 +1093,7 @@ export default function StoryDetailPage() {
         <DialogContent className="w-[92vw] max-w-2xl mx-auto rounded-2xl">
           <DialogHeader><DialogTitle>Related Stories</DialogTitle></DialogHeader>
           {relations.length > 0 ? (
-            <div className="space-y-3 mb-4 max-h-56 overflow-y-auto pr-1">
+            <div ref={relatedListRef} className="space-y-3 mb-4 max-h-56 overflow-y-auto pr-1">
               {relations.map(rel => (
                 <div key={rel.id} className="flex items-center gap-3 p-4 rounded-lg bg-secondary/50 border border-border">
                   <div className="flex-1 min-w-0">
@@ -1519,7 +1518,7 @@ export default function StoryDetailPage() {
       )}
 
       {ctaPreference === "floating" && !anyDialogOpen && (
-        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
+        <div className={`fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none transition-all duration-200 ${predToastActive ? "opacity-0 translate-y-4" : "opacity-100 translate-y-0"}`}>
           <div className="bg-black/80 text-white text-[10px] px-2 py-1 rounded mb-1 opacity-0 animate-in fade-in slide-in-from-bottom-2 duration-300 pointer-events-auto" id="read-tooltip">
             Press N to continue
           </div>

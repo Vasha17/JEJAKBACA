@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  BookOpen, Bell, X, Plus, Upload, Image, ExternalLink,
+  BookOpen, Bell, X, Plus, Upload, Image, ExternalLink, ArrowUp,
   Eye, AlertCircle, Loader2, CheckCircle2, XCircle, Pencil,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -68,7 +68,6 @@ interface RightPanelProps {
   handleSaveMediaLabel: () => void;
   handleMediaFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   checkLink: (sourceId: string, url: string) => void;
-  getBadgeStyles: (diff: number) => string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -85,7 +84,7 @@ export function RightPanel({
   setSourceDialog, setAddSourceDialog, setMediaDialog,
   updateStory, addSource, removeSource, addMedia, removeMedia,
   toggleTracked, handleSaveSourceEdit, handleSaveMediaLabel,
-  handleMediaFileUpload, checkLink, getBadgeStyles,
+  handleMediaFileUpload, checkLink,
 }: RightPanelProps) {
   const [deleteSourceId, setDeleteSourceId] = useState<string | null>(null);
   return (
@@ -319,9 +318,18 @@ export function RightPanel({
           const srcCh = src.currentChapter || 0;
           const chaptersAhead = srcCh - currentStoryCh;
           const isAhead = chaptersAhead > 0;
+          const shouldBlockSourceIncrement = (() => {
+            const haystack = `${src.name || ""} ${src.url || ""}`.toLowerCase();
+            return haystack.includes("atsu.moe") || haystack.includes("mangadot.net");
+          })();
+          const cardTone = isTracked && isAhead
+            ? "bg-emerald-500/5 border-emerald-500/40 shadow-md shadow-emerald-500/10"
+            : ls && !ls.checking
+              ? (ls.ok ? "bg-card/60 border-green-500/30" : "bg-card/60 border-red-500/30")
+              : "bg-card/40 border-border/40 opacity-75";
+
           return (
-            <div key={src.id} className={`rounded-xl border transition-all ${isTracked && isAhead ? "bg-emerald-500/5 border-emerald-500/40 shadow-md shadow-emerald-500/10" : ls && !ls.checking ? (ls.ok ? "bg-card/60 border-green-500/30" : "bg-card/60 border-red-500/30") : "bg-card/60 border-border/50"}`}>
-              
+            <div key={src.id} className={`rounded-xl border transition-all ${cardTone}`}>
               <a
                 href={(() => {
                   const rawUrl = src.url.trim();
@@ -338,24 +346,31 @@ export function RightPanel({
               >
                 <div className="flex items-center gap-1.5 min-w-0 mb-1">
                   <span className="font-bold text-xs text-foreground uppercase tracking-wide break-words leading-tight min-w-0 flex-1">{src.name}</span>
-                  {isTracked && <div title={isAhead ? "Update Available!" : "Notifikasi aktif"}><Bell className={`w-3 h-3 shrink-0 transition-colors ${isAhead ? "text-emerald-500 fill-emerald-500/20 animate-pulse" : "text-primary"}`} /></div>}
+                  {isTracked && <div title={isAhead ? "Update Available!" : "Notification active"}><Bell className={`w-3 h-3 shrink-0 transition-colors ${isAhead ? "text-emerald-500 fill-emerald-500/20 animate-pulse" : "text-emerald-500/80 fill-emerald-500/10"}`} /></div>}
                   <div className="flex items-center gap-1 shrink-0">
                     {ls && (ls.checking ? <Loader2 className="w-3 h-3 animate-spin text-blue-400" /> : ls.ok ? <CheckCircle2 className="w-3 h-3 text-green-400" /> : <XCircle className="w-3 h-3 text-red-400" />)}
                     {src.language && <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-medium">{src.language}</span>}
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex flex-col">
-                      <span className={`text-[10px] ${isTracked && isAhead ? "text-foreground font-semibold" : "text-muted-foreground"}`}><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {srcCh}</span>
-                    </div>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className={`font-medium ${isAhead ? "text-[11px] text-foreground" : "text-[10px] text-muted-foreground"}`}>
+                      <span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {srcCh}
+                    </span>
                     {isTracked && isAhead && (
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold shadow-sm ${getBadgeStyles(chaptersAhead)}`}>+{chaptersAhead}</span>
+                      <span className="inline-flex items-center gap-1 text-[10px] shrink-0">
+                        <ArrowUp className="w-3 h-3 text-primary/60" />
+                        <span className="text-primary font-medium">{chaptersAhead}</span>
+                        <span className="text-muted-foreground">new</span>
+                      </span>
                     )}
                   </div>
-                  <span className="text-[10px] text-muted-foreground shrink-0 opacity-60">{format(new Date(story.lastComicUpdateAt || src.updatedAt), "MMM d, yyyy")}</span>
+                  <span className={`text-[10px] shrink-0 ${isAhead ? "text-muted-foreground/80" : "text-muted-foreground/50"}`}>
+                    {format(new Date(story.lastComicUpdateAt || src.updatedAt), "MMM d, yyyy")}
+                  </span>
                 </div>
               </a>
+
             </div>
           );
         })}

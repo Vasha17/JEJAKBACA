@@ -4,7 +4,7 @@ import { createId, StoryStatus } from "@/lib/types";
 
 export type HistoryEntry = {
   id: string;
-  type: "rating" | "status" | "note" | "chapter" | "title" | "author" | "genre" | "cover" | "header" | "bookmark";
+  type: "rating" | "status" | "note" | "chapter" | "title" | "altTitle" | "author" | "genre" | "cover" | "header" | "bookmark";
   label: string;
   oldValue: string;
   newValue: string;
@@ -32,11 +32,12 @@ export function useStoryHistory(storyId: string, updateStory: (id: string, data:
     setHistoryEntries(loadHistory(storyId));
   };
 
-  const handleUndoHistory = (entry: HistoryEntry, story: any) => {
+  const handleUndoHistory = (entry: HistoryEntry, _story: any) => {
     if (entry.type === "rating")  updateStory(storyId, { rating: Number(entry.oldValue) || 0 });
     if (entry.type === "status")  updateStory(storyId, { status: entry.oldValue as StoryStatus });
     if (entry.type === "chapter") updateStory(storyId, { currentChapter: Number(entry.oldValue) || 1, chapterUpdatedAt: new Date().toISOString() });
     if (entry.type === "title")   updateStory(storyId, { title: entry.oldValue });
+    if (entry.type === "altTitle") updateStory(storyId, { altTitle: entry.oldValue });
     if (entry.type === "author")  updateStory(storyId, { author: entry.oldValue });
     if (entry.type === "cover")   updateStory(storyId, { coverUrl: entry.oldValue });
     if (entry.type === "header")  updateStory(storyId, { headerUrl: entry.oldValue });
