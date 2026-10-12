@@ -48,6 +48,7 @@ import { useStoryHistory, pushHistory }     from "./hooks/useStoryHistory";
 import { useStoryRelations, loadRelations } from "./hooks/useStoryRelations";
 import { usePullToRefresh }                 from "./hooks/usePullToRefresh";
 import { useKeyboardShortcuts }             from "./hooks/useKeyboardShortcuts";
+import { getContinueReadingTarget }         from "@/lib/readingUrl";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -556,15 +557,7 @@ export default function StoryDetailPage() {
   };
 
   const getReadingUrl = () => {
-    if (!story.sources || story.sources.length === 0) return null;
-    const best = [...story.sources].sort((a: any, b: any) => (b.currentChapter || 0) - (a.currentChapter || 0))[0];
-    const rawUrl = best.url.trim();
-    const base = rawUrl.startsWith("http") ? rawUrl : "https://" + rawUrl;
-    const cleanBase = base.replace(/\/+$/, "");
-    const isInfoSite = /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
-    const isSpecialSource = /atsu\.moe|mangadot\.net/i.test(cleanBase);
-    if (isInfoSite || isSpecialSource) return cleanBase;
-    return cleanBase.includes("?") ? cleanBase : `${cleanBase}/chapter-${best.currentChapter}/`;
+    return getContinueReadingTarget(story)?.url ?? null;
   };
 
   const handleReadNow = () => {

@@ -15,6 +15,7 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import { useStories } from "@/lib/StoryContext";
 import { useAuth } from "@/component/Auth";
 import { useNavigate, useLocation } from "react-router-dom";
+import { getContinueReadingTarget } from "@/lib/readingUrl";
 
 function BulkActionBar({ count, selectedIds, onClose, onDelete, onStatusChange, onOpenSources }: {
   count: number; selectedIds: Set<string>; onClose: () => void; onDelete: () => void;
@@ -333,27 +334,9 @@ export default function ListDetail() {
     const urls: string[] = [];
     Array.from(storiesToOpen).forEach(sid => {
       const story = baseStories.find(s => s.id === sid);
-      if (!story?.sources?.length) return;
-      const best = story.sources.reduce((max: any, src: any) =>
-        (src.currentChapter || 0) > (max.currentChapter || 0)
-          ? src
-          : max
-      );
-
-      if (!best?.url) return;
-
-      const rawUrl = best.url.trim();
-      const base = rawUrl.startsWith("http")
-        ? rawUrl
-        : "https://" + rawUrl;
-      const isInfoSite =
-        /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
-      const cleanBase = base.replace(/\/+$/, "");
-      const finalUrl =
-        isInfoSite || cleanBase.includes("?")
-          ? cleanBase
-          : `${cleanBase}/chapter-${best.currentChapter}/`;
-      urls.push(finalUrl);
+      const target = getContinueReadingTarget(story);
+      if (!target?.url) return;
+      urls.push(target.url);
     });
 
     if (urls.length === 0) return;

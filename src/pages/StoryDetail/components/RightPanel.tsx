@@ -10,6 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
   DialogTrigger, DialogClose,
 } from "@/component/ui/dialog";
+import { getContinueReadingTarget } from "@/lib/readingUrl";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -292,21 +293,15 @@ export function RightPanel({
       </div>
 
       {/* CTA inside */}
-      {ctaPreference === "inside" && story.sources && story.sources.length > 0 && (() => {
-        const best = [...story.sources].sort((a: any, b: any) => (b.currentChapter || 0) - (a.currentChapter || 0))[0];
-        const rawUrl = best.url.trim();
-        const base = rawUrl.startsWith("http") ? rawUrl : "https://" + rawUrl;
-        const cleanBase = base.replace(/\/+$/, "");
-        const isInfoSite = /myanimelist\.net|anilist\.co|mangaupdates\.com|kitsu\.io/.test(base);
-        const isSpecialSource = /atsu\.moe|mangadot\.net/i.test(cleanBase);
-        const readingUrl = isInfoSite || isSpecialSource
-          ? cleanBase
-          : (cleanBase.includes("?") ? cleanBase : `${cleanBase}/chapter-${best.currentChapter}/`);
+      {ctaPreference === "inside" && (() => {
+        const target = getContinueReadingTarget(story);
+        if (!target?.url || !target.source) return null;
+
         return (
           <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 mb-2 mr-[5px]">
             <p className="text-[10px] text-muted-foreground mb-1">Continue where you left off</p>
-            <p className="text-xs font-semibold text-foreground mb-2"><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {best.currentChapter} · {best.name}</p>
-            <a href={readingUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors">
+            <p className="text-xs font-semibold text-foreground mb-2"><span className="sm:hidden">Ch.</span><span className="hidden sm:inline">Chapter</span> {target.chapter} · {target.source.name}</p>
+            <a href={target.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-colors">
               <BookOpen className="w-3.5 h-3.5" /> Continue Reading
             </a>
           </div>
